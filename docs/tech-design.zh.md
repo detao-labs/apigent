@@ -1147,87 +1147,110 @@ export interface QueueProvider {
 
 ### 5.5.8 配置与注册
 
-用户通过项目根目录的 `apigent.config.ts` 配置具体实现。配置文件为每个可替换组件导出工厂函数或类引用：
+### 5.5.8 配置系统 — 双层设计
+
+Apigent 使用**双层配置系统**，方便开发环境和部署环境之间无缝切换：
+
+| 层 | 文件 | 放什么 | 示例 |
+|-------|------|---------------|----------|
+| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释） | `llm.provider: claude`、`rag.retrievalMode: hybrid` |
+| **密钥** | `.env` | API key、密码、连接字符串（`APIGENT_` 前缀） | `ANTHROPIC_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
+| **编程配置** | `apigent.config.ts` | 自定义 provider 工厂、高级配置（可选 — 大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册 |
+
+**默认工作流 — apigent.config.yaml + .env（95% 用户）：**
+
+`apigent.config.yaml`（方案选择）：
+```yaml
+llm:
+  provider: claude
+  models:
+    default: claude-sonnet-5
+    query_rewrite: claude-haiku-4-5-20251001
+    rag_answer: claude-sonnet-5
+
+embedding:
+  provider: claude
+  model: claude-embedding
+
+rag:
+  retrievalMode: hybrid
+  reranker:
+    provider: bge-reranker
+    model: BAAI/bge-reranker-v2-m3
+```
+
+`.env`（仅密钥）：
+```bash
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+APIGENT_DATABASE_URL=postgresql://localhost:5432/apigent_dev
+APIGENT_REDIS_URL=redis://localhost:6379
+APIGENT_AUTH_SECRET=your-secret-here
+```
+
+配置加载器读取 YAML + .env 并构造完整类型化的 `ApigentConfig`：
+
+```ts
+import { loadConfig } from "@apigent/core/config";
+
+const config = loadConfig();
+// → 读取 apigent.config.yaml + .env → ApigentConfig
+```
+
+**高级工作流 — apigent.config.ts（自定义 provider）：**
+
+对于自定义 provider 实现，`apigent.config.ts` 在 YAML + env 基础上提供编程式覆盖：
 
 ```ts
 // apigent.config.ts
-import type { ApigentConfig } from "apigent/core"
-import { PgvectorStore } from "@apigent/vector-store-pgvector"
-import { ClaudeProvider } from "@apigent/llm-claude"
-import { ClaudeEmbeddingProvider } from "@apigent/embedding-claude"
-import { LocalStorageProvider } from "@apigent/storage-local"
-import { BullmqQueueProvider } from "@apigent/queue-bullmq"
+import type { ApigentConfig } from "@apigent/core";
+import { loadConfig } from "@apigent/core/config";
+import { MyCustomVectorStore } from "./my-vector-store";
+
+const base = loadConfig();
 
 const config: ApigentConfig = {
-  // ── 数据库 ──
-  database: {
-    url: process.env.DATABASE_URL!,   // PostgreSQL / MySQL / SQLite
-  },
+  ...base,
+  vectorStore: () => new MyCustomVectorStore({ /* ... */ }),
+};
 
-  // ── 向量存储 ──
-  vectorStore: () => new PgvectorStore({
-    // 默认使用同一数据库连接
-  }),
-
-  // ── LLM ──
-  llm: () => new ClaudeProvider({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-    defaultModel: "claude-sonnet-5",
-  }),
-
-  // ── Embedding ──
-  embedding: () => new ClaudeEmbeddingProvider({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-  }),
-
-  // ── 存储 ──
-  storage: () => new LocalStorageProvider({
-    basePath: "./data/uploads",
-  }),
-
-  // ── 队列 ──
-  queue: () => new BullmqQueueProvider({
-    redisUrl: process.env.REDIS_URL!,
-  }),
-
-  // ── 认证 ──
-  auth: {
-    providers: ["credentials", "github", "google"],
-    // ... NextAuth.js 配置
-  },
-}
-
-export default config
+export default config;
 ```
 
-**替换示例 — PostgreSQL + pgvector → MySQL + Milvus：**
+**切换示例 — dev（Claude + pgvector）→ production（OpenAI + Milvus）：**
 
-```ts
-// apigent.config.ts — 自定义技术栈
-import { MilvusStore } from "./my-vector-store"      // ← 自定义实现
-import { OpenAIProvider } from "@apigent/llm-openai"
-import { OpenAIEmbeddingProvider } from "@apigent/embedding-openai"
+无需修改代码。只需使用不同的配置文件：
 
-const config: ApigentConfig = {
-  database: {
-    url: process.env.MYSQL_URL!,  // ← MySQL 替代 PostgreSQL
-  },
-  vectorStore: () => new MilvusStore({
-    host: process.env.MILVUS_HOST!,
-    port: Number(process.env.MILVUS_PORT),
-    collection: "apigent_embeddings",
-  }),
-  llm: () => new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY!,
-  }),
-  embedding: () => new OpenAIEmbeddingProvider({
-    apiKey: process.env.OPENAI_API_KEY!,
-  }),
-  // storage、queue 保持默认...
-}
+```yaml
+# apigent.config.prod.yaml
+llm:
+  provider: openai
+  models:
+    default: gpt-4o
+    query_rewrite: gpt-4o-mini
 
-export default config
+embedding:
+  provider: openai
+  model: text-embedding-3-small
+
+vectorStore:
+  provider: milvus
+  host: milvus-prod.internal
+  port: 19530
+
+rag:
+  reranker:
+    provider: cohere
 ```
+
+```bash
+# .env.production
+OPENAI_API_KEY=sk-prod-key
+APIGENT_COHERE_API_KEY=co-prod-key
+APIGENT_DATABASE_URL=postgresql://prod-db:5432/apigent
+APIGENT_AUTH_SECRET=prod-secret
+```
+
+配置类型定义位于 `packages/core/src/config/types.ts`。所有可用选项请参见仓库根目录的 `.env.example` 和 `apigent.config.example.yaml`。
 
 Apigent 核心框架在启动时读取配置，通过 **服务容器（Service Container）** 注入实现：
 

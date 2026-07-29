@@ -24,9 +24,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files — secrets only, NEVER commit
 .env*.local
 .env
+
+# NOTE: apigent.config.yaml is tracked — it contains scheme choices (no secrets).
+# Secrets go in .env which is gitignored above.
 
 # vercel
 .vercel

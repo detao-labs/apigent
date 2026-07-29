@@ -1146,89 +1146,110 @@ export interface QueueProvider {
 **Default:** `BullmqQueueProvider` wraps BullMQ + Redis.  
 **Alternatives:** `RabbitmqQueueProvider`, `SqsQueueProvider`, `InMemoryQueueProvider` (dev/testing).
 
-### 5.5.8 Configuration & Registration
+### 5.5.8 Configuration System — Two-Layer Design
 
-Users configure implementations via `apigent.config.ts` at project root. The configuration file exports a factory function or class reference for each swappable component:
+Apigent uses a **two-layer configuration system** designed for easy switching between dev and deployment environments:
+
+| Layer | File | What goes here | Examples |
+|-------|------|---------------|----------|
+| **Scheme choices** | `apigent.config.yaml` | Which provider / model / strategy to use (structured YAML, supports comments) | `llm.provider: claude`, `rag.retrievalMode: hybrid` |
+| **Secrets** | `.env` | API keys, passwords, connection strings (`APIGENT_` prefix) | `ANTHROPIC_API_KEY`, `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET` |
+| **Programmatic config** | `apigent.config.ts` | Custom provider factories, advanced wiring (optional — most users only need `.yaml` + `.env`) | Custom `VectorStore` implementation, plugin registration |
+
+**Default workflow — apigent.config.yaml + .env (95% of users):**
+
+`apigent.config.yaml` (scheme choices):
+```yaml
+llm:
+  provider: claude
+  models:
+    default: claude-sonnet-5
+    query_rewrite: claude-haiku-4-5-20251001
+    rag_answer: claude-sonnet-5
+
+embedding:
+  provider: claude
+  model: claude-embedding
+
+rag:
+  retrievalMode: hybrid
+  reranker:
+    provider: bge-reranker
+    model: BAAI/bge-reranker-v2-m3
+```
+
+`.env` (secrets only):
+```bash
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+APIGENT_DATABASE_URL=postgresql://localhost:5432/apigent_dev
+APIGENT_REDIS_URL=redis://localhost:6379
+APIGENT_AUTH_SECRET=your-secret-here
+```
+
+The config loader reads YAML + .env and constructs a fully-typed `ApigentConfig`:
+
+```ts
+import { loadConfig } from "@apigent/core/config";
+
+const config = loadConfig();
+// → reads apigent.config.yaml + .env → ApigentConfig
+```
+
+**Advanced workflow — apigent.config.ts (custom providers):**
+
+For custom provider implementations, `apigent.config.ts` adds programmatic overrides on top of YAML + env:
 
 ```ts
 // apigent.config.ts
-import type { ApigentConfig } from "apigent/core"
-import { PgvectorStore } from "@apigent/vector-store-pgvector"
-import { ClaudeProvider } from "@apigent/llm-claude"
-import { ClaudeEmbeddingProvider } from "@apigent/embedding-claude"
-import { LocalStorageProvider } from "@apigent/storage-local"
-import { BullmqQueueProvider } from "@apigent/queue-bullmq"
+import type { ApigentConfig } from "@apigent/core";
+import { loadConfig } from "@apigent/core/config";
+import { MyCustomVectorStore } from "./my-vector-store";
+
+const base = loadConfig();
 
 const config: ApigentConfig = {
-  // ── Database ──
-  database: {
-    url: process.env.DATABASE_URL!,   // PostgreSQL / MySQL / SQLite
-  },
+  ...base,
+  vectorStore: () => new MyCustomVectorStore({ /* ... */ }),
+};
 
-  // ── Vector Store ──
-  vectorStore: () => new PgvectorStore({
-    // Uses the same database connection by default
-  }),
-
-  // ── LLM ──
-  llm: () => new ClaudeProvider({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-    defaultModel: "claude-sonnet-5",
-  }),
-
-  // ── Embedding ──
-  embedding: () => new ClaudeEmbeddingProvider({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-  }),
-
-  // ── Storage ──
-  storage: () => new LocalStorageProvider({
-    basePath: "./data/uploads",
-  }),
-
-  // ── Queue ──
-  queue: () => new BullmqQueueProvider({
-    redisUrl: process.env.REDIS_URL!,
-  }),
-
-  // ── Auth ──
-  auth: {
-    providers: ["credentials", "github", "google"],
-    // ... NextAuth.js options
-  },
-}
-
-export default config
+export default config;
 ```
 
-**Swap example — PostgreSQL + pgvector → MySQL + Milvus:**
+**Swap example — dev (Claude + pgvector) → production (OpenAI + Milvus):**
 
-```ts
-// apigent.config.ts — custom stack
-import { MilvusStore } from "./my-vector-store"      // ← custom implementation
-import { OpenAIProvider } from "@apigent/llm-openai"
-import { OpenAIEmbeddingProvider } from "@apigent/embedding-openai"
+No code change needed. Just use different files per environment:
 
-const config: ApigentConfig = {
-  database: {
-    url: process.env.MYSQL_URL!,  // ← MySQL instead of PostgreSQL
-  },
-  vectorStore: () => new MilvusStore({
-    host: process.env.MILVUS_HOST!,
-    port: Number(process.env.MILVUS_PORT),
-    collection: "apigent_embeddings",
-  }),
-  llm: () => new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY!,
-  }),
-  embedding: () => new OpenAIEmbeddingProvider({
-    apiKey: process.env.OPENAI_API_KEY!,
-  }),
-  // storage, queue keep defaults...
-}
+```yaml
+# apigent.config.prod.yaml
+llm:
+  provider: openai
+  models:
+    default: gpt-4o
+    query_rewrite: gpt-4o-mini
 
-export default config
+embedding:
+  provider: openai
+  model: text-embedding-3-small
+
+vectorStore:
+  provider: milvus
+  host: milvus-prod.internal
+  port: 19530
+
+rag:
+  reranker:
+    provider: cohere
 ```
+
+```bash
+# .env.production
+OPENAI_API_KEY=sk-prod-key
+APIGENT_COHERE_API_KEY=co-prod-key
+APIGENT_DATABASE_URL=postgresql://prod-db:5432/apigent
+APIGENT_AUTH_SECRET=prod-secret
+```
+
+Config type definitions are in `packages/core/src/config/types.ts`. See `.env.example` and `apigent.config.example.yaml` at the repo root for all available options.
 
 The Apigent core framework reads this config at startup and injects implementations via a **service container**:
 
