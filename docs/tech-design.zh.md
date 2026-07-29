@@ -315,57 +315,34 @@ Team 角色 (team_owner / team_admin / team_member)
 
 ## 3.6 API 搜索与知识检索
 
-面向开发者的 API 发现和理解入口。区别于 MCP 的 `search_apis`（面向外部 AI Agent），这是一个面向人类用户的交互体验，具有丰富的 UI 和渐进式深度。
+面向开发者的 API 发现和理解入口。详细检索架构和 RAG 流水线设计见 Agent 实现文档，本节仅做功能级概要描述。
 
 ### 3.6.1 V0 — 语义搜索
 
 | 功能 | 说明 |
 |------|------|
-| **全局搜索栏** | 在 Dashboard 和仓库页面均可使用。自然语言输入，如"退款相关的 API" |
-| **混合搜索** | 语义匹配（embedding 向量）0.5 + 关键词匹配 0.3 + 标签匹配 0.2 |
-| **搜索范围** | 全局搜索（跨所有仓库）或限定单个仓库 |
+| **全局搜索栏** | Dashboard 和仓库页面均可使用，自然语言输入 |
+| **混合搜索** | Embedding（Dense）+ BM25（Sparse）+ Knowledge Graph——RRF 融合 + Cross-encoder 精排。详见 [Semantic Search Agent](./modules/semantic-search.agent.md) |
+| **权限感知** | 基于 RBAC effective permissions 检索前过滤——用户只能搜到有权限访问的 API |
+| **搜索范围** | 全局搜索（跨所有有权限的仓库）或限定单个仓库/Team |
 | **筛选条件** | 按 HTTP 方法、tag、路径前缀过滤 |
-| **结果展示** | 每条结果展示：方法 + 路径、业务意图摘要、匹配原因、相关度评分 |
-| **快捷跳转** | 点击结果 → 进入 API 详情页，查看完整 Schema、业务规则、关联 API |
+| **结果展示** | 方法 + 路径、业务意图摘要、匹配原因、相关度评分 |
+| **快捷跳转** | 点击结果 → API 详情页 |
 
-**实现方式：** 复用 [Semantic Search Agent](./modules/semantic-search.agent.md)——与 MCP `search_apis` 使用相同的搜索引擎，但结果渲染在 Web UI 中，而非作为 MCP tool 结果返回。
+**实现方式：** [Semantic Search Agent](./modules/semantic-search.agent.md)——与 MCP `search_apis` 共用同一引擎。每次查询 LLM 调用 ≤1 次（query rewriting 可选；检索步骤为确定性操作）。
 
 ### 3.6.2 V1 — RAG 知识问答
 
-基于检索增强生成（RAG）的对话式 API 知识问答。
+基于 RAG 的对话式 API 知识问答。
 
 | 功能 | 说明 |
 |------|------|
-| **对话式问答** | 多轮对话界面，可自然追问 |
-| **流程类问题** | "这个项目的退款流程需要调用哪些 API？按什么顺序？" → 结合 Knowledge Graph 工作流 + 业务上下文，综合回答 |
-| **上下文问题** | "这个接口的 `amount` 参数有什么业务约束？" → 从 Knowledge Retrieval Service 检索业务规则 |
+| **对话式问答** | 多轮对话，可自然追问 |
+| **RAG 流水线** | Query Rewriting → 权限预过滤 → 混合检索（Embedding + BM25 + KG）→ RRF 粗排 → Cross-encoder 精排 → 上下文拼装 → LLM 回答生成 |
 | **来源引用** | 每个回答附带引用链接，指向具体的 API 和模型 |
 | **知识范围** | 单个仓库内，或跨 Team 仓库 |
 
-**RAG 流水线：**
-
-```
-用户问题
-     │
-     v
-意图理解 (LLM)                ← 解析用户意图、提取关键实体
-     │
-     v
-混合检索                       ← Semantic Search + Knowledge Graph 遍历
-     │
-     v
-上下文拼接                     ← 组装 API Knowledge Cards + Workflows + Business Context
-     │
-     v
-回答生成 (LLM)                 ← 基于检索到的上下文生成回答
-     │
-     v
-回答 + 引用                    ← 自然语言回答 + 引用 API 链接
-```
-
-**实现方式：** 由 **Knowledge Assistant Agent**（V1 AI Agent，计划见 [modules/README.md](./modules/README.md#5-v1-agent-规划)）驱动。它编排 Semantic Search、Knowledge Retrieval Service 和 Knowledge Graph Service 获取上下文，再通过 LLM 合成答案。
-
-**每次查询 LLM 调用次数：** 1–2 次（意图理解 + 回答生成；检索步骤为确定性操作）。
+**检索实现详见：** [Semantic Search Agent](./modules/semantic-search.agent.md) 涵盖 chunk 策略、BM25 + Embedding 混合检索、query rewriting、权限过滤、两阶段排序的完整设计。
 
 ---
 

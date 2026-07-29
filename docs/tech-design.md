@@ -316,57 +316,34 @@ Two primary views for browsing a repository:
 
 ## 3.6 API Search & Knowledge Retrieval
 
-The primary entry point for developers to find and understand APIs within the platform. Unlike the MCP `search_apis` tool (designed for external AI Agents), this is a human-oriented experience with rich UI and progressive depth.
+The primary entry point for developers to find and understand APIs within the platform. Detailed retrieval architecture and RAG pipeline are documented in the agent design docs — this section provides a feature-level overview.
 
 ### 3.6.1 V0 — Semantic Search
 
 | Feature | Description |
 |---------|-------------|
-| **Global Search Bar** | Accessible from Dashboard and Repository pages. Natural language input, e.g., "退款相关的 API" |
-| **Hybrid Search** | Semantic match (embedding vector) 0.5 + keyword match 0.3 + tag match 0.2 |
-| **Search Scope** | Global (across all repos) or scoped to a single Repository |
+| **Global Search Bar** | Accessible from Dashboard and Repository pages. Natural language input |
+| **Hybrid Search** | Embedding (Dense) + BM25 (Sparse) + Knowledge Graph — fused via RRF, re-ranked by cross-encoder. See [Semantic Search Agent](./modules/semantic-search.agent.md) |
+| **Permission-aware** | Results pre-filtered by RBAC effective permissions — users only see APIs they can access |
+| **Search Scope** | Global (across all accessible repos) or scoped to a single Repository/Team |
 | **Filters** | Filter by HTTP method, tag, path prefix |
-| **Result Display** | Each result shows: API method + path, business intent summary, match reason, relevance score |
-| **Quick Actions** | Click result → navigate to API detail page with full schema, business rules, and related APIs |
+| **Result Display** | API method + path, business intent summary, match reason, relevance score |
+| **Quick Actions** | Click result → navigate to API detail page |
 
-**Implementation:** Reuses the [Semantic Search Agent](./modules/semantic-search.agent.md) — the same engine that powers MCP `search_apis`, but rendered in the Web UI instead of returning MCP tool results.
+**Implementation:** The [Semantic Search Agent](./modules/semantic-search.agent.md) — same engine powering MCP `search_apis`. LLM calls ≤1 per query (optional query rewriting; retrievals are deterministic).
 
 ### 3.6.2 V1 — RAG Knowledge Q&A
 
-A conversational interface powered by Retrieval-Augmented Generation (RAG) for deeper API understanding.
+Conversational RAG interface for deeper API understanding.
 
 | Feature | Description |
 |---------|-------------|
-| **Conversational Q&A** | Multi-turn chat interface. Ask follow-up questions naturally |
-| **Workflow Questions** | "这个项目的退款流程需要调用哪些 API？按什么顺序？" → synthesized answer combining Knowledge Graph workflows + Business Context |
-| **Contextual Questions** | "这个接口的 `amount` 参数有什么业务约束？" → retrieves business rules from Knowledge Retrieval Service |
+| **Conversational Q&A** | Multi-turn chat; ask follow-up questions naturally |
+| **RAG Pipeline** | Query Rewriting → Permission Pre-filter → Hybrid Retrieval (Embedding + BM25 + KG) → RRF Coarse Rank → Cross-encoder Fine Rank → Context Assembly → Answer Generation (LLM) |
 | **Source Citations** | Every answer links back to the specific APIs and models it references |
 | **Knowledge Scope** | Single Repository, or cross-repo within a Team |
 
-**RAG Pipeline:**
-
-```
-User Question
-     │
-     v
-Query Understanding (LLM)     ← 解析意图、提取关键实体
-     │
-     v
-Hybrid Retrieval              ← Semantic Search + Knowledge Graph traversal
-     │
-     v
-Context Assembly              ← 拼接 API Knowledge Cards + Workflows + Business Context
-     │
-     v
-Answer Generation (LLM)        ← 基于检索到的上下文生成回答
-     │
-     v
-Response + Citations           ← 回答 + 引用 API 链接
-```
-
-**Implementation:** Powered by the **Knowledge Assistant Agent** (V1 AI Agent, planned in [modules/README.md](./modules/README.md#5-v1-agent-规划)). It orchestrates Semantic Search, Knowledge Retrieval Service, and Knowledge Graph Service to build context, then synthesizes answers via LLM.
-
-**LLM calls per query:** 1–2 (query understanding + answer generation; retrieval steps are deterministic).
+**Retrieval details:** [Semantic Search Agent](./modules/semantic-search.agent.md) covers chunk strategy, BM25 + embedding hybrid, query rewriting, permission filtering, and two-stage ranking in depth.
 
 ---
 
