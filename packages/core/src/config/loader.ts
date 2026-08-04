@@ -29,6 +29,7 @@ import type {
 } from "./types";
 import {
   DEFAULT_CLAUDE_MODELS,
+  DEFAULT_QWEN_MODELS,
   DEFAULT_OPENAI_MODELS,
   DEFAULT_GEMINI_MODELS,
   DEFAULT_OLLAMA_MODELS,
@@ -147,9 +148,23 @@ function loadVectorStore(): VectorStoreConfig {
 // ───────────────────────────────────────────────────────────────────
 
 function loadLLM(): LLMConfig {
-  const provider = env("APIGENT_LLM_PROVIDER", "claude") as LLMConfig["provider"];
+  const provider = env("APIGENT_LLM_PROVIDER", "qwen") as LLMConfig["provider"];
 
   switch (provider) {
+    case "qwen":
+      return {
+        provider: "qwen",
+        apiKey: envOptional("DASHSCOPE_API_KEY") ?? "",
+        baseUrl: envOptional("APIGENT_LLM_QWEN_BASE_URL"),
+        models: {
+          default: env("APIGENT_LLM_QWEN_DEFAULT_MODEL", DEFAULT_QWEN_MODELS.default),
+          business_context: env("APIGENT_LLM_QWEN_BUSINESS_CONTEXT_MODEL", DEFAULT_QWEN_MODELS.business_context),
+          query_rewrite: env("APIGENT_LLM_QWEN_QUERY_REWRITE_MODEL", DEFAULT_QWEN_MODELS.query_rewrite),
+          rag_answer: env("APIGENT_LLM_QWEN_RAG_ANSWER_MODEL", DEFAULT_QWEN_MODELS.rag_answer),
+          editing: env("APIGENT_LLM_QWEN_EDITING_MODEL", DEFAULT_QWEN_MODELS.editing),
+        },
+      };
+
     case "claude":
       return {
         provider: "claude",
@@ -212,9 +227,16 @@ function loadLLM(): LLMConfig {
 // ───────────────────────────────────────────────────────────────────
 
 function loadEmbedding(): EmbeddingConfig {
-  const provider = env("APIGENT_EMBEDDING_PROVIDER", "claude") as EmbeddingConfig["provider"];
+  const provider = env("APIGENT_EMBEDDING_PROVIDER", "qwen") as EmbeddingConfig["provider"];
 
   switch (provider) {
+    case "qwen":
+      return {
+        provider: "qwen",
+        apiKey: envOptional("DASHSCOPE_API_KEY") ?? "",
+        model: env("APIGENT_EMBEDDING_QWEN_MODEL", "text-embedding-v4"),
+      };
+
     case "claude":
       return {
         provider: "claude",
@@ -260,9 +282,16 @@ function loadEmbedding(): EmbeddingConfig {
 // ───────────────────────────────────────────────────────────────────
 
 function loadReranker(): RerankerConfig {
-  const provider = env("APIGENT_RAG_RERANKER", "bge-reranker") as RerankerConfig["provider"];
+  const provider = env("APIGENT_RAG_RERANKER", "qwen") as RerankerConfig["provider"];
 
   switch (provider) {
+    case "qwen":
+      return {
+        provider: "qwen",
+        apiKey: envOptional("DASHSCOPE_API_KEY") ?? "",
+        model: env("APIGENT_RAG_RERANKER_QWEN_MODEL", "qwen3-rerank"),
+      };
+
     case "bge-reranker":
       return {
         provider: "bge-reranker",

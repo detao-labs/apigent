@@ -520,8 +520,8 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 | **ORM** | Drizzle | `DatabaseAdapter` | SQL 优先、类型安全；Drizzle 以统一 API 支持 PostgreSQL、MySQL、SQLite |
 | **异步任务** | BullMQ + Redis | `QueueProvider` | OpenAPI 导入、LLM 推理、批处理——可按需换 RabbitMQ/SQS |
 | **认证** | NextAuth.js（credentials + OAuth） | `AuthProvider` | Next.js 生态成熟、灵活的认证方案；可接自定义 OIDC/LDAP |
-| **LLM** | Claude API | `LLMProvider` | Structured Output、Function Calling；可换 OpenAI/Gemini/本地模型 |
-| **Embedding** | Claude Embedding API | `EmbeddingProvider` | 语义搜索向量化；可换 OpenAI/Cohere/本地 Embedding 模型 |
+| **LLM** | Qwen API（阿里云百炼） | `LLMProvider` | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型 |
+| **Embedding** | Qwen Embedding（text-embedding-v4） | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型 |
 | **MCP** | @modelcontextprotocol/sdk | — | 标准 MCP 实现，Streamable HTTP 传输 |
 | **存储** | 本地文件系统 | `StorageProvider` | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage |
 | **Diff** | diff（或自研渲染器） | — | 版本对比和 AI 编辑建议展示 |
@@ -862,7 +862,7 @@ packages/auth/
 
 ### 5.5.1 设计理念
 
-Apigent 是一个**开源、自托管**的平台。不同团队有不同的基础设施偏好——有的用 MySQL，有的用 Milvus 做向量搜索，有的想用 OpenAI 而非 Claude。Apigent 不强绑定单一技术栈，而是为每个基础设施关注点定义 **TypeScript 接口**，并提供合理的默认实现。用户通过修改配置来替换实现，无需改动代码。
+Apigent 是一个**开源、自托管**的平台。不同团队有不同的基础设施偏好——有的用 MySQL，有的用 Milvus 做向量搜索，有的想用 OpenAI 而非 Qwen。Apigent 不强绑定单一技术栈，而是为每个基础设施关注点定义 **TypeScript 接口**，并提供合理的默认实现。用户通过修改配置来替换实现，无需改动代码。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -898,8 +898,8 @@ Apigent 是一个**开源、自托管**的平台。不同团队有不同的基�
 | 组件 | 接口 | 默认实现 | 常见替代方案 |
 |------|------|---------|------------|
 | **向量存储** | `VectorStore` | pgvector | Milvus、Qdrant、Weaviate、Pinecone、Chroma |
-| **LLM 提供商** | `LLMProvider` | Claude API | OpenAI、Gemini、Ollama（本地）、vLLM |
-| **Embedding 提供商** | `EmbeddingProvider` | Claude Embedding | OpenAI Embedding、Cohere、BGE（本地） |
+| **LLM 提供商** | `LLMProvider` | Qwen API（阿里云百炼） | Claude、OpenAI、Gemini、Ollama（本地）、vLLM |
+| **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | Claude Embedding、OpenAI Embedding、Cohere、BGE（本地） |
 | **存储提供商** | `StorageProvider` | 本地文件系统 | AWS S3、MinIO、Google Cloud Storage、Azure Blob |
 | **队列提供商** | `QueueProvider` | BullMQ + Redis | RabbitMQ、AWS SQS、Google Pub/Sub |
 | **认证提供商** | `AuthProvider` | NextAuth.js | 自定义 OIDC、LDAP、SAML、Authentik |
@@ -1065,8 +1065,8 @@ export interface LLMProvider {
 }
 ```
 
-**默认实现：** `ClaudeProvider` 封装 `@anthropic-ai/sdk`。  
-**替代方案：** `OpenAIProvider` 封装 `openai` SDK，`OllamaProvider` 封装 Ollama HTTP API，`GeminiProvider` 封装 `@google/generative-ai`。
+**默认实现：** `QwenProvider` 封装阿里云百炼 DashScope API（OpenAI 兼容模式）。  
+**替代方案：** `ClaudeProvider` 封装 `@anthropic-ai/sdk`，`OpenAIProvider` 封装 `openai` SDK，`OllamaProvider` 封装 Ollama HTTP API，`GeminiProvider` 封装 `@google/generative-ai`。
 
 ### 5.5.5 Embedding Provider 接口
 
@@ -1086,12 +1086,12 @@ export interface EmbeddingProvider {
 ```
 
 此接口独立于 `LLMProvider`，原因：
-- 部分部署中 chat 和 embedding 使用不同服务（如 Claude 聊天 + Cohere 向量化）
+- 部分部署中 chat 和 embedding 使用不同服务（如 Qwen 聊天 + Cohere 向量化）
 - 本地 Embedding 模型（BGE、GTE）没有对话能力
 - 解耦接口允许独立替换
 
-**默认实现：** `ClaudeEmbeddingProvider` 使用 Claude Embedding API。  
-**替代方案：** `OpenAIEmbeddingProvider`、`CohereEmbeddingProvider`、`LocalEmbeddingProvider`（封装 FastEmbed/Transformers.js）。
+**默认实现：** `QwenEmbeddingProvider` 使用阿里云百炼 `text-embedding-v4`。  
+**替代方案：** `ClaudeEmbeddingProvider`、`OpenAIEmbeddingProvider`、`CohereEmbeddingProvider`、`LocalEmbeddingProvider`（封装 FastEmbed/Transformers.js）。
 
 ### 5.5.6 Storage Provider 接口
 
@@ -1145,16 +1145,14 @@ export interface QueueProvider {
 **默认实现：** `BullmqQueueProvider` 封装 BullMQ + Redis。  
 **替代方案：** `RabbitmqQueueProvider`、`SqsQueueProvider`、`InMemoryQueueProvider`（开发/测试）。
 
-### 5.5.8 配置与注册
-
 ### 5.5.8 配置系统 — 双层设计
 
 Apigent 使用**双层配置系统**，方便开发环境和部署环境之间无缝切换：
 
 | 层 | 文件 | 放什么 | 示例 |
 |-------|------|---------------|----------|
-| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释） | `llm.provider: claude`、`rag.retrievalMode: hybrid` |
-| **密钥** | `.env` | API key、密码、连接字符串（`APIGENT_` 前缀） | `ANTHROPIC_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
+| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释） | `llm.provider: qwen`、`rag.retrievalMode: hybrid` |
+| **密钥** | `.env` | API key、密码、连接字符串（`APIGENT_` 前缀） | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
 | **编程配置** | `apigent.config.ts` | 自定义 provider 工厂、高级配置（可选 — 大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册 |
 
 **默认工作流 — apigent.config.yaml + .env（95% 用户）：**
@@ -1162,26 +1160,26 @@ Apigent 使用**双层配置系统**，方便开发环境和部署环境之间�
 `apigent.config.yaml`（方案选择）：
 ```yaml
 llm:
-  provider: claude
+  provider: qwen
   models:
-    default: claude-sonnet-5
-    query_rewrite: claude-haiku-4-5-20251001
-    rag_answer: claude-sonnet-5
+    default: qwen3.7-plus
+    query_rewrite: qwen3.7-flash
+    rag_answer: qwen3.7-plus
 
 embedding:
-  provider: claude
-  model: claude-embedding
+  provider: qwen
+  model: text-embedding-v4
 
 rag:
   retrievalMode: hybrid
   reranker:
-    provider: bge-reranker
-    model: BAAI/bge-reranker-v2-m3
+    provider: qwen
+    model: qwen3-rerank
 ```
 
 `.env`（仅密钥）：
 ```bash
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+DASHSCOPE_API_KEY=sk-your-dashscope-key-here
 APIGENT_DATABASE_URL=postgresql://localhost:5432/apigent_dev
 APIGENT_REDIS_URL=redis://localhost:6379
 APIGENT_AUTH_SECRET=your-secret-here
@@ -1216,7 +1214,7 @@ const config: ApigentConfig = {
 export default config;
 ```
 
-**切换示例 — dev（Claude + pgvector）→ production（OpenAI + Milvus）：**
+**切换示例 — dev（Qwen + pgvector）→ production（OpenAI + Milvus）：**
 
 无需修改代码。只需使用不同的配置文件：
 

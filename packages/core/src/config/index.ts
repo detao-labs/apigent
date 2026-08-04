@@ -23,6 +23,7 @@ export type {
   LLMProviderType,
   LLMFlow,
   LLMFlowModelMap,
+  QwenLLMConfig,
   ClaudeLLMConfig,
   OpenAILLMConfig,
   GeminiLLMConfig,
@@ -30,6 +31,7 @@ export type {
   LLMConfig,
   // Embedding
   EmbeddingProviderType,
+  QwenEmbeddingConfig,
   ClaudeEmbeddingConfig,
   OpenAIEmbeddingConfig,
   CohereEmbeddingConfig,
@@ -43,6 +45,7 @@ export type {
   ChunkStrategy,
   BgeRerankerConfig,
   CohereRerankerConfig,
+  QwenRerankerConfig,
   NoRerankerConfig,
   RerankerConfig,
   RAGConfig,
@@ -75,6 +78,7 @@ export type {
 
 export {
   DEFAULT_CLAUDE_MODELS,
+  DEFAULT_QWEN_MODELS,
   DEFAULT_OPENAI_MODELS,
   DEFAULT_GEMINI_MODELS,
   DEFAULT_OLLAMA_MODELS,

@@ -91,7 +91,7 @@ export type VectorStoreConfig =
 // 3. LLM Provider
 // ───────────────────────────────────────────────────────────────────
 
-export type LLMProviderType = "claude" | "openai" | "gemini" | "ollama";
+export type LLMProviderType = "qwen" | "claude" | "openai" | "gemini" | "ollama";
 
 /**
  * Named LLM flows in the Apigent platform.
@@ -132,7 +132,16 @@ export interface OllamaLLMConfig {
   models: LLMFlowModelMap;
 }
 
+export interface QwenLLMConfig {
+  provider: "qwen";
+  apiKey: string;
+  /** DashScope base URL — defaults to the official endpoint when omitted */
+  baseUrl?: string;
+  models: LLMFlowModelMap;
+}
+
 export type LLMConfig =
+  | QwenLLMConfig
   | ClaudeLLMConfig
   | OpenAILLMConfig
   | GeminiLLMConfig
@@ -143,11 +152,18 @@ export type LLMConfig =
 // ───────────────────────────────────────────────────────────────────
 
 export type EmbeddingProviderType =
+  | "qwen"
   | "claude"
   | "openai"
   | "cohere"
   | "local-bge"
   | "local-fastembed";
+
+export interface QwenEmbeddingConfig {
+  provider: "qwen";
+  apiKey: string;
+  model: string;
+}
 
 export interface ClaudeEmbeddingConfig {
   provider: "claude";
@@ -180,6 +196,7 @@ export interface LocalFastEmbedConfig {
 }
 
 export type EmbeddingConfig =
+  | QwenEmbeddingConfig
   | ClaudeEmbeddingConfig
   | OpenAIEmbeddingConfig
   | CohereEmbeddingConfig
@@ -198,7 +215,7 @@ export type RetrievalMode =
 
 export type FusionMethod = "rrf" | "linear";
 
-export type RerankerProvider = "bge-reranker" | "cohere" | "none";
+export type RerankerProvider = "bge-reranker" | "cohere" | "qwen" | "none";
 
 export type ChunkStrategy = "hierarchical" | "fixed";
 
@@ -214,6 +231,12 @@ export interface CohereRerankerConfig {
   model: string;
 }
 
+export interface QwenRerankerConfig {
+  provider: "qwen";
+  apiKey: string;
+  model: string;
+}
+
 export interface NoRerankerConfig {
   provider: "none";
 }
@@ -221,6 +244,7 @@ export interface NoRerankerConfig {
 export type RerankerConfig =
   | BgeRerankerConfig
   | CohereRerankerConfig
+  | QwenRerankerConfig
   | NoRerankerConfig;
 
 export interface RAGConfig {

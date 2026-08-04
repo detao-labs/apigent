@@ -46,8 +46,8 @@ All `docs/*.md` files have a `.zh.md` counterpart. Both must be kept in sync whe
 | Type bridge | tRPC |
 | Database | PostgreSQL + Drizzle ORM |
 | Vector store | pgvector (swappable to Milvus/Qdrant/etc.) |
-| LLM | Claude API (swappable to OpenAI/Gemini/Ollama) |
-| Embedding | Claude Embedding API |
+| LLM | Qwen API (DashScope; swappable to Claude/OpenAI/Gemini/Ollama) |
+| Embedding | Qwen text-embedding-v4 (DashScope) |
 | Async tasks | BullMQ + Redis |
 | Auth | NextAuth.js with RBAC |
 | MCP transport | Streamable HTTP (`@modelcontextprotocol/sdk`) |

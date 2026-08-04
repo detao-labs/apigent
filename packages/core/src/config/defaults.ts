@@ -30,6 +30,18 @@ export const DEFAULT_CLAUDE_MODELS: LLMFlowModelMap = {
 };
 
 // ───────────────────────────────────────────────────────────────────
+// LLM — per-flow model defaults (Qwen / DashScope)
+// ───────────────────────────────────────────────────────────────────
+
+export const DEFAULT_QWEN_MODELS: LLMFlowModelMap = {
+  default: "qwen3.7-plus",
+  business_context: "qwen3.7-plus",
+  query_rewrite: "qwen3.7-flash",
+  rag_answer: "qwen3.7-plus",
+  editing: "qwen3.7-plus",
+};
+
+// ───────────────────────────────────────────────────────────────────
 // LLM — per-flow model defaults (OpenAI)
 // ───────────────────────────────────────────────────────────────────
 
@@ -73,7 +85,7 @@ export const DEFAULT_RAG_CONFIG: RAGConfig = {
   retrievalMode: "hybrid",
   fusionMethod: "rrf",
   coarseRankTopK: 20,
-  reranker: { provider: "bge-reranker", model: "BAAI/bge-reranker-v2-m3", device: "cpu" },
+  reranker: { provider: "qwen", apiKey: "", model: "qwen3-rerank" },
   fineRankTopK: 10,
   chunkStrategy: "hierarchical",
   queryRewrite: true,

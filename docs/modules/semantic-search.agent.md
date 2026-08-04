@@ -188,8 +188,8 @@ pgvector 查询：
   LIMIT 50
 ```
 
-**Embedding 模型：** `text-embedding-3-small`（或同级别）  
-**向量维度：** 1536  
+**Embedding 模型：** `text-embedding-v4`（阿里云百炼，默认）  
+**向量维度：** 1024  
 **索引：** ivfflat（PG）或 Milvus 自管理索引  
 **相似度：** Cosine
 
@@ -345,9 +345,9 @@ interface ChunkMetadata {
 ```
 POST /orders/refund
   ├── chunk_zh: "订单退款接口。退款仅可在支付后 7 天内申请..."
-  │     embedding: text-embedding-3-small("订单退款接口...")
+  │     embedding: text-embedding-v4("订单退款接口...")
   └── chunk_en: "Order refund endpoint. Refund can only be requested within 7 days..."
-        embedding: text-embedding-3-small("Order refund endpoint...")
+        embedding: text-embedding-v4("Order refund endpoint...")
 ```
 
 检索时两个 chunk 都参与召回，共享同一个 `parent_chunk_id`。中文查询自动命中中文 chunk，英文查询命中英文 chunk，但去重时合并为同一个 API 结果。
@@ -442,7 +442,7 @@ async function retrieveWithPermission(
 │ 阶段 2 — Fine Rank (Cross-encoder)        │
 │                                           │
 │ 30 candidates × (query, chunk) pairs      │
-│     → BGE-Reranker-v2-m3                  │
+│     → qwen3-rerank                        │
 │     → 逐对打分                             │
 │     → top-10                              │
 │                                           │
@@ -508,14 +508,14 @@ Cross-encoder（Reranker）:
   准但慢：query 和 doc 联合编码，cross-attention 捕捉细粒度匹配
 ```
 
-**推荐方案 V1：自部署 BGE-Reranker-v2-m3**
+**推荐方案 V1：qwen3-rerank（阿里云百炼 API）**
 
 | 特性 | 说明 |
 |------|------|
-| 中英双语 | 同时支持中文和英文 query-doc pair |
-| 开源 | 无需 API 费用 |
-| 延迟 | GPU: ~50ms/30 对；CPU: ~200ms/30 对 |
-| 替代方案 | Cohere Rerank API（免运维，按量付费） |
+| 多语言 | 支持 100+ 语言，中英 query-doc pair 均可 |
+| 免运维 | 百炼托管 API，无需自部署 GPU |
+| 容量 | 单次最多 500 个候选文档；query/文档各最长 4000 tokens |
+| 替代方案 | 本地 BGE-Reranker-v2-m3（自部署）、Cohere Rerank API |
 
 ```ts
 async function fineRank(
@@ -568,7 +568,7 @@ Output: { relevant: true/false, reason: "..." }
   4. business.when_to_use           (权重: 使用场景补充)
   5. tags                           (权重: 分类信号)
 
-模型：text-embedding-3-small (维度 1536) 或 BGE-M3 (维度 1024, 中英双语)
+模型：text-embedding-v4 (维度 1024) 或 BGE-M3 (维度 1024, 中英双语)
 更新时机：
   - API 创建/更新时触发重新 embedding（通过 BullMQ 异步任务）
   - 同一 API 的中文和英文描述分别生成独立 embedding

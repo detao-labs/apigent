@@ -210,6 +210,7 @@ function deepMerge<T extends Record<string, unknown>>(
 function injectSecrets(config: ApigentConfig): ApigentConfig {
   // LLM — API keys
   const llmApiKeyMap: Record<string, string> = {
+    qwen: "DASHSCOPE_API_KEY",
     claude: "ANTHROPIC_API_KEY",
     openai: "OPENAI_API_KEY",
     gemini: "GEMINI_API_KEY",
@@ -221,6 +222,7 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
 
   // Embedding — API keys
   const embApiKeyMap: Record<string, string> = {
+    qwen: "DASHSCOPE_API_KEY",
     claude: "ANTHROPIC_API_KEY",
     openai: "OPENAI_API_KEY",
   };
@@ -235,6 +237,9 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   // Reranker — Cohere API key
   if (config.rag.reranker.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
     (config.rag.reranker as Record<string, unknown>).apiKey = process.env.APIGENT_COHERE_API_KEY;
+  }
+  if (config.rag.reranker.provider === "qwen" && process.env.DASHSCOPE_API_KEY) {
+    (config.rag.reranker as Record<string, unknown>).apiKey = process.env.DASHSCOPE_API_KEY;
   }
 
   // Auth secrets

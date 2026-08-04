@@ -521,8 +521,8 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 | **ORM** | Drizzle | `DatabaseAdapter` | SQL-first, type-safe; Drizzle supports PostgreSQL, MySQL, SQLite with same API |
 | **Async Tasks** | BullMQ + Redis | `QueueProvider` | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS as needed |
 | **Auth** | NextAuth.js (credentials + OAuth) | `AuthProvider` | Mature, flexible auth for Next.js; supports custom OIDC/LDAP providers |
-| **LLM** | Claude API | `LLMProvider` | Structured output, function calling; swap to OpenAI/Gemini/local models |
-| **Embedding** | Claude Embedding API | `EmbeddingProvider` | Semantic search embeddings; swap to OpenAI/Cohere/local embedding models |
+| **LLM** | Qwen API (Alibaba Cloud Model Studio) | `LLMProvider` | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models |
+| **Embedding** | Qwen Embedding (text-embedding-v4) | `EmbeddingProvider` | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models |
 | **MCP** | @modelcontextprotocol/sdk | — | Standard MCP implementation, Streamable HTTP transport |
 | **Storage** | Local filesystem | `StorageProvider` | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage |
 | **Diff** | diff (or custom renderer) | — | Side-by-side comparison for version history and AI edits |
@@ -863,7 +863,7 @@ packages/auth/
 
 ### 5.5.1 Design Philosophy
 
-Apigent is an **open-source, self-hosted** platform. Different teams have different infrastructure preferences — some run MySQL, some use Milvus for vector search, some want OpenAI instead of Claude. Rather than forcing a single stack, Apigent defines **TypeScript interfaces** for each infrastructure concern and ships with sensible defaults. Users swap implementations by changing configuration, not code.
+Apigent is an **open-source, self-hosted** platform. Different teams have different infrastructure preferences — some run MySQL, some use Milvus for vector search, some want OpenAI instead of Qwen. Rather than forcing a single stack, Apigent defines **TypeScript interfaces** for each infrastructure concern and ships with sensible defaults. Users swap implementations by changing configuration, not code.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -899,8 +899,8 @@ Apigent is an **open-source, self-hosted** platform. Different teams have differ
 | Component | Interface | Default | Common Alternatives |
 |-----------|-----------|---------|-------------------|
 | **Vector Store** | `VectorStore` | pgvector | Milvus, Qdrant, Weaviate, Pinecone, Chroma |
-| **LLM Provider** | `LLMProvider` | Claude API | OpenAI, Gemini, Ollama (local), vLLM |
-| **Embedding Provider** | `EmbeddingProvider` | Claude Embedding | OpenAI Embedding, Cohere, BGE (local) |
+| **LLM Provider** | `LLMProvider` | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM |
+| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4) | Claude Embedding, OpenAI Embedding, Cohere, BGE (local) |
 | **Storage Provider** | `StorageProvider` | Local filesystem | AWS S3, MinIO, Google Cloud Storage, Azure Blob |
 | **Queue Provider** | `QueueProvider` | BullMQ + Redis | RabbitMQ, AWS SQS, Google Pub/Sub |
 | **Auth Provider** | `AuthProvider` | NextAuth.js | Custom OIDC, LDAP, SAML, Authentik |
@@ -1066,8 +1066,8 @@ export interface LLMProvider {
 }
 ```
 
-**Default:** `ClaudeProvider` wraps `@anthropic-ai/sdk`.  
-**Alternatives:** `OpenAIProvider` wraps `openai` SDK, `OllamaProvider` wraps Ollama HTTP API, `GeminiProvider` wraps `@google/generative-ai`.
+**Default:** `QwenProvider` wraps Alibaba Cloud Model Studio (DashScope) via its OpenAI-compatible API.  
+**Alternatives:** `ClaudeProvider` wraps `@anthropic-ai/sdk`, `OpenAIProvider` wraps `openai` SDK, `OllamaProvider` wraps Ollama HTTP API, `GeminiProvider` wraps `@google/generative-ai`.
 
 ### 5.5.5 Embedding Provider Interface
 
@@ -1087,12 +1087,12 @@ export interface EmbeddingProvider {
 ```
 
 This interface is separate from `LLMProvider` because:
-- Some deployments use different services for chat vs. embeddings (e.g., Claude for chat + Cohere for embeddings)
+- Some deployments use different services for chat vs. embeddings (e.g., Qwen for chat + Cohere for embeddings)
 - Local embedding models (BGE, GTE) have no chat capability
 - Decoupled interfaces allow independent swap
 
-**Default:** `ClaudeEmbeddingProvider` using Claude Embedding API.  
-**Alternatives:** `OpenAIEmbeddingProvider`, `CohereEmbeddingProvider`, `LocalEmbeddingProvider` (wraps FastEmbed/Transformers.js).
+**Default:** `QwenEmbeddingProvider` using Alibaba Cloud Model Studio's `text-embedding-v4`.  
+**Alternatives:** `ClaudeEmbeddingProvider`, `OpenAIEmbeddingProvider`, `CohereEmbeddingProvider`, `LocalEmbeddingProvider` (wraps FastEmbed/Transformers.js).
 
 ### 5.5.6 Storage Provider Interface
 
@@ -1152,8 +1152,8 @@ Apigent uses a **two-layer configuration system** designed for easy switching be
 
 | Layer | File | What goes here | Examples |
 |-------|------|---------------|----------|
-| **Scheme choices** | `apigent.config.yaml` | Which provider / model / strategy to use (structured YAML, supports comments) | `llm.provider: claude`, `rag.retrievalMode: hybrid` |
-| **Secrets** | `.env` | API keys, passwords, connection strings (`APIGENT_` prefix) | `ANTHROPIC_API_KEY`, `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET` |
+| **Scheme choices** | `apigent.config.yaml` | Which provider / model / strategy to use (structured YAML, supports comments) | `llm.provider: qwen`, `rag.retrievalMode: hybrid` |
+| **Secrets** | `.env` | API keys, passwords, connection strings (`APIGENT_` prefix) | `DASHSCOPE_API_KEY`, `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET` |
 | **Programmatic config** | `apigent.config.ts` | Custom provider factories, advanced wiring (optional — most users only need `.yaml` + `.env`) | Custom `VectorStore` implementation, plugin registration |
 
 **Default workflow — apigent.config.yaml + .env (95% of users):**
@@ -1161,26 +1161,26 @@ Apigent uses a **two-layer configuration system** designed for easy switching be
 `apigent.config.yaml` (scheme choices):
 ```yaml
 llm:
-  provider: claude
+  provider: qwen
   models:
-    default: claude-sonnet-5
-    query_rewrite: claude-haiku-4-5-20251001
-    rag_answer: claude-sonnet-5
+    default: qwen3.7-plus
+    query_rewrite: qwen3.7-flash
+    rag_answer: qwen3.7-plus
 
 embedding:
-  provider: claude
-  model: claude-embedding
+  provider: qwen
+  model: text-embedding-v4
 
 rag:
   retrievalMode: hybrid
   reranker:
-    provider: bge-reranker
-    model: BAAI/bge-reranker-v2-m3
+    provider: qwen
+    model: qwen3-rerank
 ```
 
 `.env` (secrets only):
 ```bash
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+DASHSCOPE_API_KEY=sk-your-dashscope-key-here
 APIGENT_DATABASE_URL=postgresql://localhost:5432/apigent_dev
 APIGENT_REDIS_URL=redis://localhost:6379
 APIGENT_AUTH_SECRET=your-secret-here
@@ -1215,7 +1215,7 @@ const config: ApigentConfig = {
 export default config;
 ```
 
-**Swap example — dev (Claude + pgvector) → production (OpenAI + Milvus):**
+**Swap example — dev (Qwen + pgvector) → production (OpenAI + Milvus):**
 
 No code change needed. Just use different files per environment:
 

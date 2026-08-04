@@ -57,9 +57,9 @@ vectorStore:
 # 3. LLM — large language model provider + per-flow model selection
 # ───────────────────────────────────────────────────────────────────
 llm:
-  # "claude" | "openai" | "gemini" | "ollama"
-  # API key comes from .env (ANTHROPIC_API_KEY / OPENAI_API_KEY / etc.)
-  provider: claude
+  # "qwen" | "claude" | "openai" | "gemini" | "ollama"
+  # API key comes from .env (DASHSCOPE_API_KEY / ANTHROPIC_API_KEY / etc.)
+  provider: qwen
 
   # --- Per-flow model selection ---
   # Each flow can use a different model:
@@ -69,11 +69,20 @@ llm:
   #   - rag_answer:         generate final RAG answer from retrieved context
   #   - editing:            AI-assisted description editing (user-triggered)
   models:
-    default: claude-sonnet-5
-    business_context: claude-sonnet-5
-    query_rewrite: claude-haiku-4-5-20251001
-    rag_answer: claude-sonnet-5
-    editing: claude-sonnet-5
+    default: qwen3.7-plus
+    business_context: qwen3.7-plus
+    query_rewrite: qwen3.7-flash
+    rag_answer: qwen3.7-plus
+    editing: qwen3.7-plus
+
+  # --- Example: switch to Claude ---
+  # provider: claude
+  # models:
+  #   default: claude-sonnet-5
+  #   business_context: claude-sonnet-5
+  #   query_rewrite: claude-haiku-4-5-20251001
+  #   rag_answer: claude-sonnet-5
+  #   editing: claude-sonnet-5
 
   # --- Example: switch to OpenAI ---
   # provider: openai
@@ -98,10 +107,14 @@ llm:
 # 4. Embedding — text → vector for semantic search
 # ───────────────────────────────────────────────────────────────────
 embedding:
-  # "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed"
-  # API key comes from .env (uses same key as LLM for claude/openai)
-  provider: claude
-  model: claude-embedding
+  # "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed"
+  # API key comes from .env (uses same key as LLM for qwen/claude/openai)
+  provider: qwen
+  model: text-embedding-v4
+
+  # --- Claude ---
+  # provider: claude
+  # model: claude-embedding
 
   # --- OpenAI ---
   # provider: openai
@@ -147,11 +160,17 @@ rag:
   queryRewrite: true
   queryRewriteCacheTtl: 3600  # seconds (1 hour)
 
-  # Reranker: "bge-reranker" | "cohere" | "none"
+  # Reranker: "qwen" | "bge-reranker" | "cohere" | "none"
   reranker:
-    provider: bge-reranker
-    model: BAAI/bge-reranker-v2-m3
-    device: cpu
+    provider: qwen
+    model: qwen3-rerank
+    # API key from .env: DASHSCOPE_API_KEY
+
+  # --- Local BGE reranker (self-hosted) ---
+  # reranker:
+  #   provider: bge-reranker
+  #   model: BAAI/bge-reranker-v2-m3
+  #   device: cpu
 
   # --- Cohere reranker ---
   # reranker:
