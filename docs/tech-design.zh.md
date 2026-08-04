@@ -37,7 +37,7 @@ Apigent 由三个应用层组成：
 
 - **Platform Webapp** — 面向开发者的主应用，用于管理 API
 - **Admin Webapp** — 面向平台管理员的后台
-- **Core Engine** — API 知识流水线（OpenAPI Parser → Business Context Agent → Knowledge Graph → MCP Gateway），详见 [docs/modules/](./modules/)
+- **Core Engine** — API 知识流水线（OpenAPI Parser → Business Context Agent → MCP Gateway；Knowledge Graph 为 V1+ 可选增强），详见 [docs/modules/](./modules/)
 
 ---
 
@@ -121,7 +121,7 @@ Apigent 由三个应用层组成：
 
 ## 2.5 Repository（仓库）
 
-技术资产容器。**一个仓库对应一份 OpenAPI 文件及其版本历史。** Repository 只承载技术层；业务知识属于 Project（见 [2.9](#29-project项目)）。
+技术资产容器。**一个仓库对应一份 OpenAPI 文件及其版本历史。** Repository 承载技术层 + **能力上下文**（V0）——该后端项目提供了哪些能力。消费方的**使用上下文**属于 Project（见 [2.9](#29-project项目)）。
 
 | 字段 | 类型 | 说明 |
 |-------|------|------|
@@ -129,6 +129,7 @@ Apigent 由三个应用层组成：
 | `org_id` | UUID | 所属 Organization |
 | `name` | string | 仓库名称 |
 | `description` | string | 仓库描述（支持 LLM 辅助生成） |
+| `capability_context` | object | 能力上下文（V0）：能力意图、约束、副作用、示例——由 Business Context Agent 产出 |
 | `openapi_versions` | Version[] | OpenAPI 版本历史 |
 | `current_version` | string | 当前活跃版本标识 |
 | `mcp_enabled` | boolean | 是否开启 MCP 服务 |
@@ -192,7 +193,7 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 | `repo_viewer` | Repository | 只读访问 API 和模型 |
 | `project_owner` | Project（V1+） | 完全控制 Project 及其 Repository 关联 |
 | `project_admin` | Project（V1+） | 管理 Project 成员与 Repository 关联 |
-| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的业务上下文 |
+| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文 |
 | `platform_admin` | Platform | 跨 Organization 管理员访问（Admin Webapp） |
 
 ### 2.8.2 权限枚举
@@ -203,12 +204,12 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 | `org:delete` | Organization | 删除 Organization |
 | `org:manage_settings` | Organization | 编辑 Organization 名称、slug 和设置 |
 | `repo:read` | Repository | 查看 API、模型和描述 |
-| `repo:write` | Repository | 编辑 API 描述和业务上下文 |
+| `repo:write` | Repository | 编辑 API 描述和能力上下文 |
 | `repo:import` | Repository | 导入新 OpenAPI 版本 |
 | `repo:delete` | Repository | 删除仓库 |
 | `repo:manage_permissions` | Repository | 分配和修改仓库用户角色 |
 | `repo:manage_mcp` | Repository | 开启/关闭 MCP、配置工具暴露范围 |
-| `project:read` | Project（V1+） | 查看 Project 及其聚合的业务上下文 |
+| `project:read` | Project（V1+） | 查看 Project 及其聚合的使用上下文 |
 | `project:manage` | Project（V1+） | 管理 Project 设置与成员 |
 | `project:link_repo` | Project（V1+） | 将 Repository 关联/取消关联到 Project |
 | `mcp:search` | MCP | 访问 `search_apis` 工具 |
@@ -259,14 +260,14 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ## 2.9 Project（项目）
 
-独立的业务层实体，通过 `ProjectRepository` 跨 Organization 聚合多个 Repository（多对多）。Project **不挂靠在 Organization 下**。
+独立的业务层实体，通过 `ProjectRepository` 跨 Organization 聚合多个 Repository（多对多）。Project **不挂靠在 Organization 下**，承载**使用上下文**（V1+）——该项目如何使用各关联 Repository 的能力。
 
 | 字段 | 类型 | 说明 |
 |-------|------|------|
 | `id` | UUID | 唯一标识 |
 | `name` | string | 项目显示名称 |
 | `description` | string | 项目描述（业务用途） |
-| `business_context` | object | 业务上下文、领域术语、项目约定（由关联的 Repository 聚合而成） |
+| `usage_context` | object | 使用上下文（V1+，按 `(project, repo)`）：使用场景、使用政策、工作流；以及领域术语与项目约定 |
 | `created_at` | timestamp | 创建时间 |
 | `updated_at` | timestamp | 最后更新时间 |
 
@@ -287,7 +288,7 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 **双层访问规则：** Project 成员身份只决定能否看到项目存在；项目内任何 Repository 的内容访问始终由 `repo:*` 权限控制——项目视图按用户可访问的 Repository 子集组装。
 
-**V0 状态：** Project 在领域模型中定义，但 **V0 不实现其功能**（Project CRUD、跨 Repository 知识聚合、`get_project_context` 均在 V1+ 提供）。
+**V0 状态：** Project 在领域模型中定义，但 **V0 不实现其功能**（Project CRUD、使用上下文、跨 Repository 知识聚合、`get_project_context` 均在 V1+ 提供）。
 
 # 3. Platform Webapp
 
@@ -347,7 +348,7 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 **接口视图（Endpoints View）：**
 - 按 tag 分组列出所有 API 接口
-- 每个接口展示：HTTP 方法、路径、摘要、业务意图（来自 Business Context Agent）
+- 每个接口展示：HTTP 方法、路径、摘要、能力意图（来自 Business Context Agent）
 - 点击展开：请求/响应 Schema、业务规则、示例、关联 API
 
 **数据模型视图（Data Models View）：**
@@ -377,7 +378,7 @@ Organization 角色 (org_owner / org_admin / org_member)
 | **权限感知** | 基于 RBAC effective permissions 检索前过滤——用户只能搜到有权限访问的 API |
 | **搜索范围** | 全局搜索（跨所有有权限的仓库）或限定单个仓库/Organization |
 | **筛选条件** | 按 HTTP 方法、tag、路径前缀过滤 |
-| **结果展示** | 方法 + 路径、业务意图摘要、匹配原因、相关度评分 |
+| **结果展示** | 方法 + 路径、能力意图摘要、匹配原因、相关度评分 |
 | **快捷跳转** | 点击结果 → API 详情页 |
 
 **实现方式：** [Semantic Search Agent](./modules/semantic-search.agent.md)——与 MCP `search_apis` 共用同一引擎。每次查询 LLM 调用 ≤1 次（query rewriting 可选；检索步骤为确定性操作）。
@@ -1416,7 +1417,7 @@ const config: ApigentConfig = {
 | **Organization** | 创建组织、邀请成员、基础角色 |
 | **仓库** | 创建仓库、导入 OpenAPI（文件/URL）、版本列表 |
 | **浏览** | 接口列表（按 tag 分组）、数据模型列表、语义搜索（自然语言） |
-| **Core Engine** | OpenAPI Parser → Business Context Agent（Knowledge Graph 为 V1+ 可选增强，默认关闭） |
+| **Core Engine** | OpenAPI Parser → Business Context Agent（能力上下文；Knowledge Graph 为 V1+ 可选增强，默认关闭） |
 | **MCP** | 基础 MCP Gateway，提供 `search_apis` + `get_api_detail`（`get_project_context` 随 Project 在 V1+ 提供） |
 | **Secret Key** | 生成、查看、删除密钥 |
 | **Dashboard** | 简单仓库列表 + 最近活动 |

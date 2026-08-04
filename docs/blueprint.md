@@ -190,7 +190,7 @@ Represents the technical asset container for **one OpenAPI file** and its versio
 - Owned by exactly one Organization
 - Holds OpenAPI specs, imported versions, and parsed API technical models (method/path/schema)
 - The smallest unit of permission filtering (`repo:*` permissions)
-- Repository is the technical layer only — business knowledge lives in Project
+- Repository holds the technical layer plus **Capability Context** (V0): what capabilities this backend provides — intent, constraints, side effects
 
 ## 5.3 Project
 
@@ -204,7 +204,7 @@ E-commerce Order System
 
 - An independent entity: **not attached to an Organization**
 - Aggregates one or more Repositories (many-to-many), possibly across Organizations
-- Contains project basic info, business context, domain glossary, conventions, and project members/roles (`project_owner` / `project_admin` / `project_viewer`)
+- Contains project basic info, **Usage Context** (how the project uses each Repository's capabilities), domain glossary, conventions, and project members/roles (`project_owner` / `project_admin` / `project_viewer`)
 - V0 defines the model only; Project features ship in V1+
 
 ---

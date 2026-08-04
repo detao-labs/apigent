@@ -19,7 +19,8 @@
 
 - **Organization（组织）**：顶层租户边界；Repository 归属 Organization
 - **Repository（仓库）**：OpenAPI 技术资产与版本历史，是权限过滤的最小单元（`repo_id`）
-- **Project（项目）**：独立业务实体，跨 Organization 聚合多个 Repository（多对多）；业务上下文、项目成员与角色挂在 Project（`project_id`）。V0 仅定义模型，功能 V1+ 提供
+- **Project（项目）**：独立业务实体，跨 Organization 聚合多个 Repository（多对多）；**使用上下文**（项目如何使用各 Repository 的能力）、项目成员与角色挂在 Project（`project_id`）。V0 仅定义模型，功能 V1+ 提供
+- **能力上下文（V0）**：Repository 级，描述后端项目提供了哪些能力（意图、约束、副作用）——提供方视角，每个仓库一份
 - 技术/权限层用 `repo_id`，业务/知识层用 `project_id`；双层规则：Project 成员只决定能否看到项目存在，仓库内容始终走 `repo:*` 权限
 
 ---
@@ -79,7 +80,7 @@
 
 | Agent | 版本 | 职责 | 为什么需要 LLM |
 |-------|------|------|---------------|
-| [Business Context Agent](./business-context.agent.md) | V0 | 从 API description/path/schema 推断业务含义、使用规则、约束 | 自然语言描述 → 结构化业务知识，需要语义理解 |
+| [Business Context Agent](./business-context.agent.md) | V0 | 推断**能力上下文**（repo 级，V0）与**使用上下文**（project 级，V1+） | 自然语言描述 → 结构化业务知识，需要语义理解 |
 | [Semantic Search Agent](./semantic-search.agent.md) | V0 | 理解自然语言查询意图，匹配最相关的 API | "查找退款相关的 API" → 需要理解"退款"对应哪些 API，语义而非关键词匹配 |
 | Knowledge Assistant Agent | V1 | 对话式 API 知识问答 | 多轮对话、模糊问题、需要推理 |
 | API Generation Agent | V1 | 从需求描述生成 API 设计 | 自然语言 → OpenAPI Schema |

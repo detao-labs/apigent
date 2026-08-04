@@ -11,7 +11,7 @@
 **粒度分两层：**
 
 - **Repository 技术层**：`$ref` 引用、同路径、参数依赖等纯技术关联
-- **Project 业务层**：`follow_up` / `depends_on` / `alternative` 等工作流与业务关系（由 Business Context Agent 的业务知识构建）
+- **Project 业务层**：`follow_up` / `depends_on` / `alternative` 等工作流与业务关系（由 Business Context Agent 产出的**使用上下文**构建）
 
 一个 Project 的图谱聚合其关联的多个 Repository（可跨 Organization）。
 
@@ -19,7 +19,7 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `apis` | `EnrichedAPI[]` | 带业务上下文的 API 列表 |
+| `apis` | `APIWithContext[]` | 带能力上下文（repo）/使用上下文（project）的 API 列表 |
 | `repo_id` | `string` | Repository ID（技术层边） |
 | `project_id` | `string` | Project ID（业务层边） |
 

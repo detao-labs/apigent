@@ -189,7 +189,7 @@ Apigent 在此基础上增加：
 - 必属且仅属一个 Organization
 - 存放 OpenAPI 规范、导入的版本、解析出的 API 技术模型（method/path/schema）
 - 是权限过滤的最小单元（`repo:*` 权限）
-- Repository 只承载技术层；业务知识属于 Project
+- Repository 承载技术层 + **能力上下文**（V0）：描述该后端项目提供了哪些能力——意图、约束、副作用
 
 ## 5.3 Project（项目）
 
@@ -203,10 +203,8 @@ Apigent 在此基础上增加：
 
 - 独立实体：**不挂靠在 Organization 下**
 - 聚合一个或多个 Repository（多对多），可跨 Organization
-- 包含项目基本信息、业务上下文、领域术语、项目约定，以及项目成员/角色（`project_owner` / `project_admin` / `project_viewer`）
+- 包含项目基本信息、**使用上下文**（该项目如何使用各 Repository 的能力）、领域术语、项目约定，以及项目成员/角色（`project_owner` / `project_admin` / `project_viewer`）
 - V0 仅定义模型；Project 功能在 V1+ 提供
-
----
 
 ---
 

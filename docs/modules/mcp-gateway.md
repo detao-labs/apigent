@@ -40,10 +40,10 @@ apis   api  context
 ### Tool 2: `get_api_detail`
 
 ```
-描述: 获取 API 完整知识卡片。包含 Schema、业务规则、示例、关联 API。
+描述: 获取 API 完整知识卡片。包含 Schema、能力上下文、使用上下文、示例、关联 API。
 输入:
   - api_id (string, required): API 标识
-  - project_id (string, required): 业务上下文所属 Project（或默认取用户可访问的第一个项目）
+  - project_id (string, required): 使用上下文所属 Project（或默认取用户可访问的第一个项目）
   - include_examples (boolean, optional): 默认 true
   - include_relations (boolean, optional): 默认 true
 输出: APIKnowledgeCard

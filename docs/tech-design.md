@@ -37,7 +37,7 @@ Apigent consists of three application layers:
 
 - **Platform Webapp** — the main application for developers to manage APIs
 - **Admin Webapp** — the admin panel for platform operators
-- **Core Engine** — the API knowledge pipeline (OpenAPI Parser → Business Context Agent → Knowledge Graph → MCP Gateway), detailed in [docs/modules/](./modules/)
+- **Core Engine** — the API knowledge pipeline (OpenAPI Parser → Business Context Agent → MCP Gateway; Knowledge Graph is a V1+ optional enhancement), detailed in [docs/modules/](./modules/)
 
 ---
 
@@ -121,7 +121,7 @@ Associates a User with an Organization and their role.
 
 ## 2.5 Repository
 
-The technical asset container. **One Repository = one OpenAPI file + its version history.** Repository is the technical layer only — business knowledge lives in Project (see [2.9](#29-project)).
+The technical asset container. **One Repository = one OpenAPI file + its version history.** Repository holds the technical layer plus **Capability Context** (V0) — what capabilities this backend provides. Consumer-side **Usage Context** lives in Project (see [2.9](#29-project)).
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -129,6 +129,7 @@ The technical asset container. **One Repository = one OpenAPI file + its version
 | `org_id` | UUID | Parent Organization |
 | `name` | string | Repository name |
 | `description` | string | Repository description (LLM-assisted) |
+| `capability_context` | object | Capability Context (V0): capability intent, constraints, side effects, examples — produced by Business Context Agent |
 | `openapi_versions` | Version[] | OpenAPI version history |
 | `current_version` | string | Active version identifier |
 | `mcp_enabled` | boolean | Whether MCP is enabled for this repo |
@@ -192,7 +193,7 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 | `repo_viewer` | Repository | Read-only access to APIs and models |
 | `project_owner` | Project (V1+) | Full control over a Project and its Repository links |
 | `project_admin` | Project (V1+) | Manage Project members and Repository links |
-| `project_viewer` | Project (V1+) | View a Project and its aggregated business context |
+| `project_viewer` | Project (V1+) | View a Project and its aggregated usage context |
 | `platform_admin` | Platform | Cross-Organization admin access (Admin Webapp) |
 
 ### 2.8.2 Permissions
@@ -203,12 +204,12 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 | `org:delete` | Organization | Delete the Organization |
 | `org:manage_settings` | Organization | Edit Organization name, slug, settings |
 | `repo:read` | Repository | View APIs, models, descriptions |
-| `repo:write` | Repository | Edit API descriptions and business context |
+| `repo:write` | Repository | Edit API descriptions and capability context |
 | `repo:import` | Repository | Import new OpenAPI versions |
 | `repo:delete` | Repository | Delete the Repository |
 | `repo:manage_permissions` | Repository | Assign/change user roles on the Repository |
 | `repo:manage_mcp` | Repository | Enable/disable MCP, configure tool exposure |
-| `project:read` | Project (V1+) | View a Project and its aggregated business context |
+| `project:read` | Project (V1+) | View a Project and its aggregated usage context |
 | `project:manage` | Project (V1+) | Manage Project settings and members |
 | `project:link_repo` | Project (V1+) | Link/unlink Repositories to/from a Project |
 | `mcp:search` | MCP | Access `search_apis` tool |
@@ -260,14 +261,14 @@ Organization Role (org_owner / org_admin / org_member)
 
 ## 2.9 Project
 
-An independent business-layer entity that aggregates Repositories across Organizations (many-to-many via `ProjectRepository`). Project is **not** attached to an Organization.
+An independent business-layer entity that aggregates Repositories across Organizations (many-to-many via `ProjectRepository`). Project is **not** attached to an Organization. It holds the **Usage Context** (V1+): how the project uses each linked Repository's capabilities.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Unique identifier |
 | `name` | string | Project display name |
 | `description` | string | Project description (business purpose) |
-| `business_context` | object | Business context, domain glossary, conventions (assembled from linked Repositories) |
+| `usage_context` | object | Usage Context (V1+, per `(project, repo)`): usage scenarios, usage policy, workflows; plus domain glossary and conventions |
 | `created_at` | timestamp | Creation time |
 | `updated_at` | timestamp | Last update time |
 
@@ -288,7 +289,7 @@ An independent business-layer entity that aggregates Repositories across Organiz
 
 **Double-layer access rule:** Project membership only determines whether a user can see the Project exists. Content inside any linked Repository is always gated by `repo:*` permissions — a Project view is assembled from the subset of Repositories the user can access.
 
-**V0 status:** Project is defined in the domain model but **not implemented in V0**. Features (Project CRUD, cross-Repository knowledge aggregation, `get_project_context`) ship in V1+.
+**V0 status:** Project is defined in the domain model but **not implemented in V0**. Features (Project CRUD, Usage Context, cross-Repository knowledge aggregation, `get_project_context`) ship in V1+.
 
 # 3. Platform Webapp
 
@@ -348,7 +349,7 @@ Two primary views for browsing a repository:
 
 **Endpoints View:**
 - List of all API endpoints, grouped by tag
-- Each endpoint shows: method, path, summary, business intent (from Business Context Agent)
+- Each endpoint shows: method, path, summary, capability intent (from Business Context Agent)
 - Click to expand: request/response schema, business rules, examples, related APIs
 
 **Data Models View:**
@@ -378,7 +379,7 @@ The primary entry point for developers to find and understand APIs within the pl
 | **Permission-aware** | Results pre-filtered by RBAC effective permissions — users only see APIs they can access |
 | **Search Scope** | Global (across all accessible repos) or scoped to a single Repository/Organization |
 | **Filters** | Filter by HTTP method, tag, path prefix |
-| **Result Display** | API method + path, business intent summary, match reason, relevance score |
+| **Result Display** | API method + path, capability intent summary, match reason, relevance score |
 | **Quick Actions** | Click result → navigate to API detail page |
 
 **Implementation:** The [Semantic Search Agent](./modules/semantic-search.agent.md) — same engine powering MCP `search_apis`. LLM calls ≤1 per query (optional query rewriting; retrievals are deterministic).
@@ -1417,7 +1418,7 @@ Consolidating from the blueprint roadmap, V0 covers the minimal usable product:
 | **Organization** | Create organization, invite members, basic roles |
 | **Repository** | Create repo, import OpenAPI (file/URL), version list |
 | **Browsing** | Endpoint list (grouped by tag), model list, semantic search (natural language) |
-| **Core Engine** | OpenAPI Parser → Business Context Agent (Knowledge Graph is a V1+ optional enhancement, disabled by default) |
+| **Core Engine** | OpenAPI Parser → Business Context Agent (capability context; Knowledge Graph is a V1+ optional enhancement, disabled by default) |
 | **MCP** | Basic MCP Gateway with `search_apis` + `get_api_detail` (`get_project_context` ships with Project in V1+) |
 | **Secret Keys** | Generate, list, delete keys |
 | **Dashboard** | Simple repo list + recent activity |

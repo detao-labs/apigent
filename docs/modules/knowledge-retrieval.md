@@ -6,14 +6,14 @@
 
 知识检索层核心模块。根据 API ID 聚合多方数据源，返回完整 API 知识卡片。本质是 SQL JOIN + 数据拼装，不涉及语言理解。
 
-**知识卡片 = Repository 技术模型 + Project 业务知识。** API 属于某个 Repository（`repo_id`），其业务上下文挂在 Project（`project_id`）上；同一 API 在不同 Project 中的业务部分可不同。
+**知识卡片 = Repository 技术模型 + 能力上下文（repo 级）+ 使用上下文（project 级）。** API 属于某个 Repository（`repo_id`），能力上下文每个仓库一份；使用上下文挂在 Project（`project_id`）上、按 `(project, repo)` 各存一份——同一 API 在不同 Project 中的使用部分可不同。
 
 ## 输入
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `api_id` | `string` | API 唯一标识 |
-| `project_id` | `string` | 业务上下文所属 Project（必填，或默认取用户可访问的第一个项目） |
+| `project_id` | `string` | 使用上下文所属 Project（必填，或默认取用户可访问的第一个项目） |
 | `include_examples?` | `boolean` | 是否包含请求/响应示例，默认 true |
 | `include_relations?` | `boolean` | 是否包含关联 API，默认 true |
 
@@ -38,13 +38,18 @@ interface APIKnowledgeCard {
     security: SecurityRequirement[];
   };
   
-  // 业务知识（来自 Business Context Agent）
-  business: {
+  // 能力上下文（来自 Business Context Agent，repo 级，V0）
+  capability: {
     intent: string;
-    when_to_use: string[];
-    when_not_to_use: string[];
     constraints: BusinessRule[];
     side_effects: string[];
+  };
+
+  // 使用上下文（来自 Business Context Agent，project 级，V1+）
+  usage?: {
+    when_to_use: string[];
+    when_not_to_use: string[];
+    usage_policy: string[];
   };
   
   // 示例（来自 Business Context Agent）
@@ -120,5 +125,5 @@ Knowledge Retrieval Service
 | 场景 | 行为 |
 |------|------|
 | API ID 不存在 | 返回 `404`，附带最相似 API 的搜索建议 |
-| 业务上下文尚未构建 | `business` 字段返回 `null`，`needs_enrichment: true` |
+| 使用上下文尚未构建 | `usage` 字段返回 `undefined`，`needs_enrichment: true` |
 | 关联 API 中部分已被删除 | `relations` 中过滤掉已删除 API，添加 `stale_refs` 提示 |

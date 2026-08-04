@@ -81,7 +81,7 @@ interface ScoredAPI {
   fine_score: number;             // Cross-encoder 精排分数
   match_reason: string;           // 为什么匹配："业务意图匹配'退款'场景"
   highlights: {                   // 匹配的关键片段
-    field: string;                // "business.intent" | "description" | "path"
+    field: string;                // "capability.intent" | "usage.when_to_use" | "description" | "path"
     snippet: string;
   }[];
 }
@@ -280,7 +280,7 @@ Repository (repo-level)
   │   │   │     包含: method + path + summary + description
   │   │   │          + 全部参数（名称+类型+必填+业务含义）
   │   │   │          + 响应字段（名称+类型+业务含义）
-  │   │   │          + business context + usage rules
+  │   │   │          + 能力上下文（repo）+ 使用上下文（project，V1+）
   │   │   │
   │   │   ├── Chunk L3a: Request Schema
   │   │   │     ≈ 300 tokens
@@ -566,8 +566,8 @@ Output: { relevant: true/false, reason: "..." }
 每个 L2 Endpoint Chunk 的 embedding 由以下字段拼接：
   1. method + path                  (权重: 天然高——setweight 'A')
   2. summary + description          (权重: embedding 语义主体)
-  3. business.intent                (权重: 核心区分度——"退款" vs "取消")
-  4. business.when_to_use           (权重: 使用场景补充)
+  3. capability.intent              (权重: 核心区分度——"退款" vs "取消")
+  4. usage.when_to_use              (权重: 使用场景补充，V1+ 使用上下文)
   5. tags                           (权重: 分类信号)
 
 模型：text-embedding-v4 (维度 1024) 或 BGE-M3 (维度 1024, 中英双语)
@@ -603,7 +603,7 @@ Output: { relevant: true/false, reason: "..." }
 ## 依赖
 
 - **上游**：Vector Store（pgvector/Milvus/Qdrant）、PostgreSQL `tsvector`（BM25）
-- **查询时查询**：Business Context Agent 的 `intent` 字段；Knowledge Graph Service 的关联数据（V1+ 可选，启用后）
+- **查询时查询**：Business Context Agent 的能力上下文（`capability.intent`）与使用上下文（V1+）；Knowledge Graph Service 的关联数据（V1+ 可选，启用后）
 - **权限层**：RBAC `getAccessibleRepoIds(userId)`
 - **下游**：Knowledge Retrieval Service（用户选择结果后获取完整详情）
 
