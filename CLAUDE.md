@@ -10,6 +10,8 @@ The project is in **early design/implementation phase** (V0). Most architecture 
 
 **Domain model terminology:** Organization (top-level tenant) → Repository (OpenAPI technical assets + version history); Project is an independent business entity that aggregates Repositories across Organizations (M:N). Project is model-only in V0, with features shipping in V1+. Technical/permission layer uses `repo_id`; business/knowledge layer uses `project_id`. Business knowledge is split into two layers: **Capability Context** (Repository-level, V0 — what the backend provides) and **Usage Context** (Project-level, V1+ — how a project uses each Repository's capabilities).
 
+**Calling modes:** the platform exposes three surfaces — internal Webapps (session auth, Hono RPC typed client), external REST (OpenAPI spec, SecretKey `api:*` scopes), and external AI agents via MCP Gateway (SecretKey `mcp:*` scopes). All REST routes are defined with `@hono/zod-openapi`: one contract, with the public spec filtered to `public` routes only.
+
 ## Key Architecture Decisions
 
 ### Agent vs. Platform Service distinction
@@ -45,7 +47,7 @@ All `docs/*.md` files have a `.zh.md` counterpart. Both must be kept in sync whe
 |-------|--------|
 | API Server | Hono (TypeScript, independent process — not bundled with Next.js) |
 | Webapps | Next.js App Router (Platform + Admin, separate instances) |
-| Type bridge | tRPC |
+| Webapp ↔ API | REST + Hono RPC (`hc`) + OpenAPI (Zod schemas); public REST uses SecretKey `api:*`, MCP uses `mcp:*` |
 | Database | PostgreSQL + Drizzle ORM |
 | Vector store | pgvector (swappable to Milvus/Qdrant/etc.) |
 | LLM | Qwen API (DashScope; swappable to Claude/OpenAI/Gemini/Ollama) |

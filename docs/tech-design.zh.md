@@ -172,7 +172,7 @@ Apigent 由三个应用层组成：
 | `name` | string | 密钥名称（可读） |
 | `key_hash` | string | 密钥哈希（原始密钥仅在创建时展示一次） |
 | `key_prefix` | string | 前 8 个字符用于识别（如 `apigent_sk_...`） |
-| `scopes` | string[] | 权限范围：`mcp:search`、`mcp:detail`、`mcp:context` |
+| `scopes` | string[] | 权限范围：`api:read`、`api:write`（外部 REST）、`mcp:search`、`mcp:detail`、`mcp:context`（MCP） |
 | `last_used_at` | timestamp | 最后使用时间 |
 | `expires_at` | timestamp | 过期时间（可选） |
 | `created_at` | timestamp | 创建时间 |
@@ -212,6 +212,8 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 | `project:read` | Project（V1+） | 查看 Project 及其聚合的使用上下文 |
 | `project:manage` | Project（V1+） | 管理 Project 设置与成员 |
 | `project:link_repo` | Project（V1+） | 将 Repository 关联/取消关联到 Project |
+| `api:read` | REST API | 访问外部 REST 端点（只读） |
+| `api:write` | REST API | 访问外部 REST 端点（写入） |
 | `mcp:search` | MCP | 访问 `search_apis` 工具 |
 | `mcp:detail` | MCP | 访问 `get_api_detail` 工具 |
 | `mcp:context` | MCP | 访问 `get_project_context` 工具 |
@@ -253,7 +255,7 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 1. 用户对某仓库的**有效权限**取以下两者中较高的：继承自 Organization 角色的权限 **或** 显式分配的仓库级角色
 2. `platform_admin` 对所有 Organization 和仓库有只读权限（用于审计），但除非被显式添加为成员，否则不能修改
-3. MCP 工具受 Secret Key `scopes` 控制——即使用户拥有 `repo:read`，其 Secret Key 也必须具有 `mcp:*` 范围才能通过 MCP 调用工具
+3. MCP 工具与外部 REST API 均受 Secret Key `scopes` 控制——即使用户拥有 `repo:read`，其 Secret Key 也必须具有 `mcp:*`（MCP）或 `api:*`（REST）范围
 4. **双层访问规则（V1+）：** Project 成员身份只决定"能否看到项目存在"；项目内任何 Repository 的内容访问始终走 `repo:*` 权限——项目视图按用户有权限的 repo 子集组装
 
 ---
@@ -566,7 +568,7 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 | **Webapp 前端** | Next.js App Router、React、TypeScript | — | SSR、Streaming、Server Components、丰富生态 |
 | **Webapp 样式** | Tailwind CSS | — | 原子化 CSS，快速 UI 开发 |
 | **API Server** | Hono（TypeScript） | — | 轻量（12KB）、多运行时、Web 标准 `Request`/`Response`、Express 风格 API |
-| **类型桥梁** | tRPC | — | Webapp 与 API Server 端到端类型安全 |
+| **类型桥梁** | REST + Hono RPC（`hc`）+ OpenAPI（Zod） | — | 标准 REST 契约；Hono RPC 提供类型安全客户端；OpenAPI 文档由 Zod Schema 自动生成 |
 | **数据库** | PostgreSQL | `DatabaseAdapter` | 关系型数据；Drizzle ORM 已支持 MySQL、SQLite——仅需更换驱动和 Schema |
 | **向量存储** | pgvector | `VectorStore` | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate |
 | **ORM** | Drizzle | `DatabaseAdapter` | SQL 优先、类型安全；Drizzle 以统一 API 支持 PostgreSQL、MySQL、SQLite |
@@ -581,23 +583,47 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 ## 5.3 API 层设计
 
 ```
-Platform Webapp ──→ tRPC ──→ Core API Server (Hono) ──→ PostgreSQL
-Admin Webapp    ──→ tRPC ──→ Core API Server (Hono) ──→ PostgreSQL
-                                           │
-                                    ┌──────┴──────┐
-                                    │  MCP Gateway │  ← 嵌入 Core API Server 进程，
-                                    │  (Streamable │     直接调用 Services
-                                    │   HTTP)      │
-                                    └──────────────┘
-                                           ↑
-                                    外部 AI Agent
-                                   (Cursor / Claude)
+                       ┌──────────────────────────────┐
+                       │  内部 Webapp                 │
+                       │  （Platform / Admin）        │
+                       │  认证：Session Cookie        │
+                       └──────────────┬───────────────┘
+                                      │ REST + Hono RPC（hc）
+                       ┌──────────────┴───────────────┐
+                       │  外部开发者 / SDK             │
+                       │  认证：Bearer SecretKey      │
+                       │  （api:* scopes）            │
+                       └──────────────┬───────────────┘
+                                      │ REST（同一份契约）
+                                      ▼
+                       ┌──────────────────────────────┐
+                       │  外部 AI Agent               │
+                       │  认证：Bearer SecretKey      │
+                       │  （mcp:* scopes）            │
+                       └──────────────┬───────────────┘
+                                      │ MCP（Streamable HTTP）
+                                      ▼
+                      Core API Server (Hono)
+                      ├── REST 路由（@hono/zod-openapi）
+                      └── MCP Gateway（直接调用 Services）
+                                      │
+                                      ▼
+                             PostgreSQL + Vector DB
 ```
 
-- **tRPC** 提供 Webapp 与 Core API Server 之间的端到端类型安全
-- **MCP Gateway** 嵌入同一个 Hono 进程，直接调用 Core Services（内部调用无 HTTP 开销），对外暴露 Streamable HTTP 端点
-- **两个 Webapp** 是独立的 Next.js 实例；API Server 是独立进程，可单独扩缩
-- **异步任务**（OpenAPI 导入、Business Context LLM 推理）分发到 BullMQ Worker 执行，不阻塞 HTTP 请求
+**三种调用方式——一份 REST 契约、三条认证路径：**
+
+| 调用方式 | 通道 | 认证 | 类型安全 |
+|---------|------|------|---------|
+| 内部 Webapp | REST + Hono RPC（`hc`） | Session Cookie（NextAuth JWT） | 服务端路由类型（无 codegen） |
+| 外部 OpenAPI | REST（同一份契约） | Bearer SecretKey + `api:*` scopes | OpenAPI 生成 SDK |
+| 外部 AI Agent | MCP Gateway（Streamable HTTP） | Bearer SecretKey + `mcp:*` scopes | MCP SDK |
+
+- **一份契约**：所有路由用 `@hono/zod-openapi` 定义（Zod 校验 + 自动生成 OpenAPI 文档）。Webapp 的类型化客户端（Hono RPC）与对外 OpenAPI 规范都从同一份路由定义派生，不会互相漂移。
+- **路由可见性**：路由标记为 `internal` / `public`；对外 OpenAPI 规范只暴露 `public` 路由——admin、健康检查、内部端点会被过滤掉。
+- **MCP Gateway** 嵌入同一个 Hono 进程，直接调用 Core Services（内部调用无 HTTP 开销），对外暴露 Streamable HTTP 端点。
+- **两个 Webapp** 是独立的 Next.js 实例；API Server 是独立进程，可单独扩缩。
+- **异步任务**（OpenAPI 导入、Business Context LLM 推理）分发到 BullMQ Worker 执行，不阻塞 HTTP 请求。
 
 ## 5.4 认证与 RBAC 实现
 

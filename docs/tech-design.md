@@ -172,7 +172,7 @@ User-level API key for MCP access. External AI Agents use this key to authentica
 | `name` | string | Human-readable key name |
 | `key_hash` | string | Hashed key (raw key shown only once at creation) |
 | `key_prefix` | string | First 8 chars for identification (e.g., `apigent_sk_...`) |
-| `scopes` | string[] | Permission scopes: `mcp:search`, `mcp:detail`, `mcp:context` |
+| `scopes` | string[] | Permission scopes: `api:read`, `api:write` (external REST), `mcp:search`, `mcp:detail`, `mcp:context` (MCP) |
 | `last_used_at` | timestamp | Last usage timestamp |
 | `expires_at` | timestamp | Expiration time (optional) |
 | `created_at` | timestamp | Creation time |
@@ -212,6 +212,8 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 | `project:read` | Project (V1+) | View a Project and its aggregated usage context |
 | `project:manage` | Project (V1+) | Manage Project settings and members |
 | `project:link_repo` | Project (V1+) | Link/unlink Repositories to/from a Project |
+| `api:read` | REST API | Access external REST endpoints (read) |
+| `api:write` | REST API | Access external REST endpoints (write) |
 | `mcp:search` | MCP | Access `search_apis` tool |
 | `mcp:detail` | MCP | Access `get_api_detail` tool |
 | `mcp:context` | MCP | Access `get_project_context` tool |
@@ -254,7 +256,7 @@ Organization Role (org_owner / org_admin / org_member)
 
 1. A user's effective permission on a Repository = the higher of: their inherited Organization-role permission **or** any explicit repo-level role assignment
 2. `platform_admin` has read access to all Organizations and repos for audit purposes, but cannot modify unless explicitly added as a member
-3. MCP tools are controlled by Secret Key `scopes` — even if a user has `repo:read`, their Secret Key must also have `mcp:*` scopes to call MCP tools
+3. MCP tools and the external REST API are controlled by Secret Key `scopes` — even if a user has `repo:read`, their Secret Key must also have `mcp:*` (MCP) or `api:*` (REST) scopes
 4. **Double-layer rule (V1+):** Project membership only grants visibility of the Project itself. Content inside linked Repositories is always governed by `repo:*` permissions — Project views are assembled from the Repositories the user can access
 
 ---
@@ -567,7 +569,7 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 | **Webapp Frontend** | Next.js App Router, React, TypeScript | — | SSR, streaming, Server Components, rich ecosystem |
 | **Webapp Styling** | Tailwind CSS | — | Utility-first, rapid UI development |
 | **API Server** | Hono (TypeScript) | — | Lightweight (12KB), multi-runtime, Web standard `Request`/`Response`, Express-like API |
-| **Type Bridge** | tRPC | — | End-to-end type safety between Webapps and API Server |
+| **Type Bridge** | REST + Hono RPC (`hc`) + OpenAPI (Zod) | — | Standard REST contract; typed client via Hono RPC; OpenAPI docs generated from Zod schemas |
 | **Database** | PostgreSQL | `DatabaseAdapter` | Relational data; Drizzle ORM already supports MySQL, SQLite — swap driver + schema |
 | **Vector Store** | pgvector | `VectorStore` | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale |
 | **ORM** | Drizzle | `DatabaseAdapter` | SQL-first, type-safe; Drizzle supports PostgreSQL, MySQL, SQLite with same API |
@@ -582,23 +584,47 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 ## 5.3 API Layer Design
 
 ```
-Platform Webapp ──→ tRPC ──→ Core API Server (Hono) ──→ PostgreSQL
-Admin Webapp    ──→ tRPC ──→ Core API Server (Hono) ──→ PostgreSQL
-                                           │
-                                    ┌──────┴──────┐
-                                    │  MCP Gateway │  ← runs inside Core API Server,
-                                    │  (Streamable │     shares Services directly
-                                    │   HTTP)      │
-                                    └──────────────┘
-                                           ↑
-                                    External AI Agents
-                                   (Cursor / Claude)
+                       ┌──────────────────────────────┐
+                       │  Internal Webapps            │
+                       │  (Platform / Admin)          │
+                       │  Auth: Session Cookie        │
+                       └──────────────┬───────────────┘
+                                      │ REST + Hono RPC (hc)
+                       ┌──────────────┴───────────────┐
+                       │  External Developers / SDK   │
+                       │  Auth: Bearer SecretKey      │
+                       │  (api:* scopes)              │
+                       └──────────────┬───────────────┘
+                                      │ REST (same contract)
+                                      ▼
+                       ┌──────────────────────────────┐
+                       │  External AI Agents          │
+                       │  Auth: Bearer SecretKey      │
+                       │  (mcp:* scopes)              │
+                       └──────────────┬───────────────┘
+                                      │ MCP (Streamable HTTP)
+                                      ▼
+                      Core API Server (Hono)
+                      ├── REST routes (@hono/zod-openapi)
+                      └── MCP Gateway (calls Services directly)
+                                      │
+                                      ▼
+                             PostgreSQL + Vector DB
 ```
 
-- **tRPC** provides end-to-end type safety between Webapps and the Core API Server
-- **MCP Gateway** is embedded in the same Hono process; it calls Core Services directly (no HTTP overhead), and exposes a Streamable HTTP endpoint for external agents
-- **Both Webapps** are separate Next.js instances; the API Server is an independent process that can be scaled separately
-- **Async tasks** (OpenAPI import, Business Context LLM inference) are dispatched to BullMQ workers, not blocking HTTP requests
+**Three calling modes — one REST contract, three auth paths:**
+
+| Calling Mode | Channel | Auth | Type Safety |
+|--------------|---------|------|-------------|
+| Internal Webapps | REST + Hono RPC (`hc`) | Session cookie (NextAuth JWT) | Server route types (no codegen) |
+| External OpenAPI | REST (same contract) | Bearer SecretKey + `api:*` scopes | OpenAPI-generated SDK |
+| External AI Agents | MCP Gateway (Streamable HTTP) | Bearer SecretKey + `mcp:*` scopes | MCP SDK |
+
+- **One contract**: all routes are defined with `@hono/zod-openapi` (Zod validation + OpenAPI generation). The Webapps' typed client (Hono RPC) and the public OpenAPI spec are both derived from the same route definitions, so they cannot drift.
+- **Route visibility**: routes are tagged `internal` or `public`; the public OpenAPI spec exposes only `public` routes — admin, health checks, and internal endpoints are filtered out.
+- **MCP Gateway** is embedded in the same Hono process; it calls Core Services directly (no HTTP overhead), and exposes a Streamable HTTP endpoint for external agents.
+- **Both Webapps** are separate Next.js instances; the API Server is an independent process that can be scaled separately.
+- **Async tasks** (OpenAPI import, Business Context LLM inference) are dispatched to BullMQ workers, not blocking HTTP requests.
 
 ## 5.4 Auth & RBAC Implementation
 
