@@ -6,11 +6,13 @@
 
 知识层唯一需要 LLM 的核心 Agent。将 API 的文本描述（description/path/schema）推理转化为结构化业务知识：意图、使用场景、约束条件、副作用。
 
+**粒度：Project 级。** 业务知识属于业务层（Project）而非技术层（Repository）：同一 API 在不同 Project 中可有不同业务含义，按 Project 隔离存储。V0 阶段 Project 实体尚未实现，业务上下文先以 Repository 为临时宿主，V1 引入 Project 后迁入项目层并按项目聚合。
+
 ## 输入
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `api` | `APIEntry` | 来自 OpenAPI Parser 的 API 结构 |
+| `api` | `APIEntry` | 来自 OpenAPI Parser Service 的 API 技术模型（repo 级） |
 | `project_context` | `ProjectContext` | 项目全局上下文（认证方式、领域术语等） |
 | `human_annotations?` | `string` | 人工添加的业务描述 |
 
@@ -88,13 +90,13 @@ interface EnrichedAPI {
 
 ## 依赖
 
-- 上游：OpenAPI Parser Agent
-- 下游：Knowledge Graph Agent、Knowledge Retrieval Agent
-- 辅助：需要 LLM 支持（RAG 层提供 embedding）
+- 上游：OpenAPI Parser Service（repo 级技术模型）
+- 下游：Knowledge Retrieval Service；Knowledge Graph Service（V1+ 可选，提供业务关系输入）
+- 辅助：需要 LLM 支持
 
 ## 触发方式
 
-- OpenAPI Parser 完成解析后自动触发
+- OpenAPI Parser Service 完成解析后，按项目关联的 Repository 触发（V0 直接按 Repository 触发）
 - 用户手动编辑业务上下文后重新推断
 - Project Context 变更时重新计算受影响 API
 

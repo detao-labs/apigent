@@ -8,6 +8,8 @@ Apigent is an API collaboration platform that annotates APIs with business conte
 
 The project is in **early design/implementation phase** (V0). Most architecture exists in `docs/`; code under `packages/` is the beginning of implementation.
 
+**Domain model terminology:** Organization (top-level tenant) → Repository (OpenAPI technical assets + version history); Project is an independent business entity that aggregates Repositories across Organizations (M:N). Project is model-only in V0, with features shipping in V1+. Technical/permission layer uses `repo_id`; business/knowledge layer uses `project_id`.
+
 ## Key Architecture Decisions
 
 ### Agent vs. Platform Service distinction

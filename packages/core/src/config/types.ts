@@ -208,10 +208,10 @@ export type EmbeddingConfig =
 // ───────────────────────────────────────────────────────────────────
 
 export type RetrievalMode =
-  | "hybrid"       // Dense + Sparse + KG
+  | "hybrid"       // Dense + Sparse (+ KG traversal when knowledgeGraph.enabled)
   | "dense-only"   // Embedding only
   | "sparse-only"  // BM25 only
-  | "kg-only";     // Knowledge Graph only
+  | "kg-only";     // Knowledge Graph only (requires knowledgeGraph.enabled)
 
 export type FusionMethod = "rrf" | "linear";
 
@@ -247,8 +247,18 @@ export type RerankerConfig =
   | QwenRerankerConfig
   | NoRerankerConfig;
 
+/**
+ * Knowledge Graph enhancement (V1+).
+ * Disabled by default — when enabled, hybrid retrieval adds graph-traversal
+ * recall and workflow discovery becomes available.
+ */
+export interface KnowledgeGraphConfig {
+  /** Enable KG traversal in retrieval (default: false) */
+  enabled: boolean;
+}
+
 export interface RAGConfig {
-  /** Retrieval mode: hybrid combines dense+sparse+KG */
+  /** Retrieval mode: hybrid combines dense+sparse (+KG when enabled) */
   retrievalMode: RetrievalMode;
   /** Fusion method for combining dense + sparse results */
   fusionMethod: FusionMethod;
@@ -264,6 +274,8 @@ export interface RAGConfig {
   queryRewrite: boolean;
   /** Cache TTL for rewritten queries (seconds) */
   queryRewriteCacheTtl: number;
+  /** Knowledge Graph enhancement (V1+, default disabled) */
+  knowledgeGraph: KnowledgeGraphConfig;
 }
 
 // ───────────────────────────────────────────────────────────────────

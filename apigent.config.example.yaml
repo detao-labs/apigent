@@ -160,6 +160,11 @@ rag:
   queryRewrite: true
   queryRewriteCacheTtl: 3600  # seconds (1 hour)
 
+  # Knowledge Graph enhancement (V1+, default disabled)
+  # When enabled, hybrid retrieval adds graph-traversal recall
+  knowledgeGraph:
+    enabled: false
+
   # Reranker: "qwen" | "bge-reranker" | "cohere" | "none"
   reranker:
     provider: qwen

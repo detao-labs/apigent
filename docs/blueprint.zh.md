@@ -174,9 +174,26 @@ Apigent 在此基础上增加：
 
 # 5. 核心领域模型
 
-## 5.1 Project（项目）
+## 5.1 Organization（组织）
 
-代表一个 API 服务或业务系统。
+代表顶层租户边界——公司、团队或业务单元。
+
+- 组织成员拥有组织级角色（`org_owner` / `org_admin` / `org_member`）
+- Repository 归属于某个 Organization
+- 默认为单层（不嵌套）
+
+## 5.2 Repository（仓库）
+
+代表**一份 OpenAPI 文件**及其版本历史的技术资产容器。
+
+- 必属且仅属一个 Organization
+- 存放 OpenAPI 规范、导入的版本、解析出的 API 技术模型（method/path/schema）
+- 是权限过滤的最小单元（`repo:*` 权限）
+- Repository 只承载技术层；业务知识属于 Project
+
+## 5.3 Project（项目）
+
+代表业务层——一个 API 服务或业务系统。
 
 示例：
 
@@ -184,17 +201,16 @@ Apigent 在此基础上增加：
 电商订单系统
 ```
 
-包含：
-
-- 项目描述
-- 全局业务上下文
-- 认证配置
-- API 约定
-- 公共模型
+- 独立实体：**不挂靠在 Organization 下**
+- 聚合一个或多个 Repository（多对多），可跨 Organization
+- 包含项目基本信息、业务上下文、领域术语、项目约定，以及项目成员/角色（`project_owner` / `project_admin` / `project_viewer`）
+- V0 仅定义模型；Project 功能在 V1+ 提供
 
 ---
 
-## 5.2 API
+---
+
+## 5.4 API
 
 代表一个独立的 API 能力。
 
@@ -223,7 +239,7 @@ POST /orders/refund
 
 ---
 
-## 5.3 API 关联关系
+## 5.5 API 关联关系
 
 定义 API 之间的依赖和工作流。
 
@@ -305,7 +321,7 @@ API 语义发现。
 
 功能：
 
-- 项目管理
+- Organization / Repository 管理
 - API 管理
 - OpenAPI 导入/导出
 - 业务上下文
@@ -313,6 +329,7 @@ API 语义发现。
 - 语义搜索
 - 基础 AI 辅助
 
+> 说明：Project 实体在领域模型中定义（见 5.3），但 V0 不实现其功能。
 
 ---
 
@@ -320,6 +337,7 @@ API 语义发现。
 
 功能：
 
+- Project 管理（基本信息、成员、跨 Repository 聚合）
 - AI API 生成
 - AI 文档改进
 - API 变更分析

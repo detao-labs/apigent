@@ -315,8 +315,17 @@ function loadReranker(): RerankerConfig {
 }
 
 function loadRAG(): RAGConfig {
+  const retrievalMode = env("APIGENT_RAG_RETRIEVAL_MODE", DEFAULT_RAG_CONFIG.retrievalMode) as RAGConfig["retrievalMode"];
+  const knowledgeGraphEnabled = envBool(
+    "APIGENT_RAG_KNOWLEDGE_GRAPH_ENABLED",
+    DEFAULT_RAG_CONFIG.knowledgeGraph.enabled,
+  );
+  if (retrievalMode === "kg-only" && !knowledgeGraphEnabled) {
+    throw new Error("retrievalMode 'kg-only' requires rag.knowledgeGraph.enabled = true");
+  }
+
   return {
-    retrievalMode: env("APIGENT_RAG_RETRIEVAL_MODE", DEFAULT_RAG_CONFIG.retrievalMode) as RAGConfig["retrievalMode"],
+    retrievalMode,
     fusionMethod: env("APIGENT_RAG_FUSION_METHOD", DEFAULT_RAG_CONFIG.fusionMethod) as RAGConfig["fusionMethod"],
     coarseRankTopK: envInt("APIGENT_RAG_COARSE_RANK_TOP_K", DEFAULT_RAG_CONFIG.coarseRankTopK),
     reranker: loadReranker(),
@@ -324,6 +333,7 @@ function loadRAG(): RAGConfig {
     chunkStrategy: env("APIGENT_RAG_CHUNK_STRATEGY", DEFAULT_RAG_CONFIG.chunkStrategy) as RAGConfig["chunkStrategy"],
     queryRewrite: envBool("APIGENT_RAG_QUERY_REWRITE", DEFAULT_RAG_CONFIG.queryRewrite),
     queryRewriteCacheTtl: envInt("APIGENT_RAG_QUERY_REWRITE_CACHE_TTL", DEFAULT_RAG_CONFIG.queryRewriteCacheTtl),
+    knowledgeGraph: { enabled: knowledgeGraphEnabled },
   };
 }
 

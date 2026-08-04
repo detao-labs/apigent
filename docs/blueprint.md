@@ -175,9 +175,26 @@ Capabilities:
 
 # 5. Core Domain Model
 
-## 5.1 Project
+## 5.1 Organization
 
-Represents an API service or business system.
+Represents the top-level tenant boundary — a company, team, or business unit.
+
+- Organization members with org-level roles (`org_owner` / `org_admin` / `org_member`)
+- Repositories belong to an Organization
+- Flat by default (no nested Organizations)
+
+## 5.2 Repository
+
+Represents the technical asset container for **one OpenAPI file** and its version history.
+
+- Owned by exactly one Organization
+- Holds OpenAPI specs, imported versions, and parsed API technical models (method/path/schema)
+- The smallest unit of permission filtering (`repo:*` permissions)
+- Repository is the technical layer only — business knowledge lives in Project
+
+## 5.3 Project
+
+Represents the business layer — an API service or business system.
 
 Example:
 
@@ -185,17 +202,14 @@ Example:
 E-commerce Order System
 ```
 
-Contains:
-
-- Project description
-- Global business context
-- Authentication configuration
-- API conventions
-- Common models
+- An independent entity: **not attached to an Organization**
+- Aggregates one or more Repositories (many-to-many), possibly across Organizations
+- Contains project basic info, business context, domain glossary, conventions, and project members/roles (`project_owner` / `project_admin` / `project_viewer`)
+- V0 defines the model only; Project features ship in V1+
 
 ---
 
-## 5.2 API
+## 5.4 API
 
 Represents an individual API capability.
 
@@ -225,7 +239,7 @@ for paid orders within 7 days.
 
 ---
 
-## 5.3 API Relationship
+## 5.5 API Relationship
 
 Defines API dependency and workflow.
 
@@ -307,7 +321,7 @@ Build the minimum Agent-native API knowledge platform.
 
 Features:
 
-- Project management
+- Organization / Repository management
 - API management
 - OpenAPI import/export
 - Business context
@@ -315,6 +329,7 @@ Features:
 - Semantic search
 - Basic AI assistance
 
+> Note: The Project entity is defined in the domain model (see 5.3) but not implemented in V0.
 
 ---
 
@@ -322,6 +337,7 @@ Features:
 
 Features:
 
+- Project management (business info, members, cross-Repository aggregation)
 - AI API generation
 - AI documentation improvement
 - API change analysis

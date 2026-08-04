@@ -46,9 +46,9 @@ Apigent 由三个应用层组成：
 ## 2.1 实体概览
 
 ```
-┌──────────┐     ┌──────────────┐     ┌────────────────┐
-│   User   │────→│  TeamMember  │←────│     Team       │
-└──────────┘     └──────────────┘     └────────────────┘
+┌──────────┐     ┌──────────────────┐     ┌────────────────┐
+│   User   │────→│ OrganizationMember│←────│  Organization  │
+└──────────┘     └──────────────────┘     └────────────────┘
      │                                      │
      │  ┌──────────────────┐               │
      ├──│  SecretKey       │               │
@@ -56,13 +56,22 @@ Apigent 由三个应用层组成：
      │                               ┌─────┴──────┐
      │  ┌──────────────────┐        │ Repository  │
      └──│  RepoPermission  │←──────→│  (一个仓库 = │
-        └──────────────────┘        │  一个项目)   │
+        └──────────────────┘        │  一份 OpenAPI│
+                                    │  文件)       │
                                     └─────────────┘
                                            │
                                     ┌──────┴──────┐
                                     │   OpenAPI   │
                                     │  Versions   │
                                     └─────────────┘
+
+┌──────────┐     ┌──────────────────┐     ┌─────────────┐
+│ Project  │────→│ ProjectRepository │←────│ Repository │
+└──────────┘     └──────────────────┘     └─────────────┘
+     │
+     │  ┌──────────────────┐
+     └──│   ProjectMember  │
+        └──────────────────┘
 ```
 
 ## 2.2 User（用户）
@@ -80,44 +89,44 @@ Apigent 由三个应用层组成：
 | `created_at` | timestamp | 注册时间 |
 | `updated_at` | timestamp | 最后更新时间 |
 
-## 2.3 Team（团队）
+## 2.3 Organization（组织）
 
-组织单元。用户先创建 Team，再在 Team 下创建 Repository。
+顶层租户边界。用户先创建 Organization，再在 Organization 下创建 Repository。
 
 | 字段 | 类型 | 说明 |
 |-------|------|------|
 | `id` | UUID | 唯一标识 |
-| `name` | string | 团队显示名称 |
+| `name` | string | 组织显示名称 |
 | `slug` | string | URL 友好的唯一标识 |
 | `owner_id` | UUID | 创建者 |
 | `created_at` | timestamp | 创建时间 |
 
-## 2.4 TeamMember（团队成员）
+## 2.4 OrganizationMember（组织成员）
 
-关联用户与团队及其角色。
+关联用户与组织及其角色。
 
 | 字段 | 类型 | 说明 |
 |-------|------|------|
 | `user_id` | UUID | 用户引用 |
-| `team_id` | UUID | 团队引用 |
+| `org_id` | UUID | 组织引用 |
 | `role` | string | 角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
 
-**团队级角色：**
+**组织级角色：**
 
 | 角色 | 范围 | 概述 |
 |------|------|------|
-| `team_owner` | Team | 完全控制：删除团队、管理成员、管理所有仓库 |
-| `team_admin` | Team | 管理成员、管理团队内所有仓库 |
-| `team_member` | Team | 根据仓库级角色分配访问仓库 |
+| `org_owner` | Organization | 完全控制：删除组织、管理成员、管理所有仓库 |
+| `org_admin` | Organization | 管理成员、管理组织内所有仓库 |
+| `org_member` | Organization | 根据仓库级角色分配访问仓库 |
 
 ## 2.5 Repository（仓库）
 
-核心组织单元。**一个仓库对应一个后端项目的 OpenAPI 文件。**
+技术资产容器。**一个仓库对应一份 OpenAPI 文件及其版本历史。** Repository 只承载技术层；业务知识属于 Project（见 [2.9](#29-project项目)）。
 
 | 字段 | 类型 | 说明 |
 |-------|------|------|
 | `id` | UUID | 唯一标识 |
-| `team_id` | UUID | 所属 Team |
+| `org_id` | UUID | 所属 Organization |
 | `name` | string | 仓库名称 |
 | `description` | string | 仓库描述（支持 LLM 辅助生成） |
 | `openapi_versions` | Version[] | OpenAPI 版本历史 |
@@ -135,7 +144,7 @@ Apigent 由三个应用层组成：
 
 ## 2.6 RepositoryPermission（仓库权限）
 
-针对特定仓库的用户角色。设置后**覆盖**从 Team 级角色继承的默认权限。
+针对特定仓库的用户角色。设置后**覆盖**从 Organization 级角色继承的默认权限。
 
 | 字段 | 类型 | 说明 |
 |-------|------|------|
@@ -169,33 +178,39 @@ Apigent 由三个应用层组成：
 
 ## 2.8 RBAC 模型
 
-Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**是**权限**的命名集合。用户通过被分配角色来获得权限——在 Team 级、Repository 级或 Platform 级。
+Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**是**权限**的命名集合。用户通过被分配角色来获得权限——在 Organization 级、Repository 级或 Platform 级。
 
 ### 2.8.1 角色定义
 
 | 角色 ID | 级别 | 说明 |
 |---------|------|------|
-| `team_owner` | Team | 完全控制 Team 及其所有仓库 |
-| `team_admin` | Team | 管理成员和团队内所有仓库 |
-| `team_member` | Team | 基础团队成员；仓库访问取决于仓库级角色 |
+| `org_owner` | Organization | 完全控制 Organization 及其所有仓库 |
+| `org_admin` | Organization | 管理成员和组织内所有仓库 |
+| `org_member` | Organization | 基础组织成员；仓库访问取决于仓库级角色 |
 | `repo_admin` | Repository | 完全控制特定仓库 |
 | `repo_editor` | Repository | 编辑 API 描述、导入新版本 |
 | `repo_viewer` | Repository | 只读访问 API 和模型 |
-| `platform_admin` | Platform | 跨 Team 管理员访问（Admin Webapp） |
+| `project_owner` | Project（V1+） | 完全控制 Project 及其 Repository 关联 |
+| `project_admin` | Project（V1+） | 管理 Project 成员与 Repository 关联 |
+| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的业务上下文 |
+| `platform_admin` | Platform | 跨 Organization 管理员访问（Admin Webapp） |
 
 ### 2.8.2 权限枚举
 
 | 权限 | 级别 | 说明 |
 |------|------|------|
-| `team:manage_members` | Team | 邀请、移除和修改成员角色 |
-| `team:delete` | Team | 删除 Team |
-| `team:manage_settings` | Team | 编辑 Team 名称、slug 和设置 |
+| `org:manage_members` | Organization | 邀请、移除和修改成员角色 |
+| `org:delete` | Organization | 删除 Organization |
+| `org:manage_settings` | Organization | 编辑 Organization 名称、slug 和设置 |
 | `repo:read` | Repository | 查看 API、模型和描述 |
 | `repo:write` | Repository | 编辑 API 描述和业务上下文 |
 | `repo:import` | Repository | 导入新 OpenAPI 版本 |
 | `repo:delete` | Repository | 删除仓库 |
 | `repo:manage_permissions` | Repository | 分配和修改仓库用户角色 |
 | `repo:manage_mcp` | Repository | 开启/关闭 MCP、配置工具暴露范围 |
+| `project:read` | Project（V1+） | 查看 Project 及其聚合的业务上下文 |
+| `project:manage` | Project（V1+） | 管理 Project 设置与成员 |
+| `project:link_repo` | Project（V1+） | 将 Repository 关联/取消关联到 Project |
 | `mcp:search` | MCP | 访问 `search_apis` 工具 |
 | `mcp:detail` | MCP | 访问 `get_api_detail` 工具 |
 | `mcp:context` | MCP | 访问 `get_project_context` 工具 |
@@ -207,36 +222,72 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 
 | 角色 | 权限 |
 |------|------|
-| `team_owner` | `team:*`、`repo:*`（该 Team 所有仓库） |
-| `team_admin` | `team:manage_members`、`team:manage_settings`、`repo:*`（该 Team 所有仓库） |
-| `team_member` | `repo:read`（仅在分配了仓库级角色的仓库） |
+| `org_owner` | `org:*`、`repo:*`（该 Organization 所有仓库） |
+| `org_admin` | `org:manage_members`、`org:manage_settings`、`repo:*`（该 Organization 所有仓库） |
+| `org_member` | `repo:read`（仅在分配了仓库级角色的仓库） |
 | `repo_admin` | `repo:*`（特定仓库） |
 | `repo_editor` | `repo:read`、`repo:write`、`repo:import` |
 | `repo_viewer` | `repo:read` |
-| `platform_admin` | `admin:*`、跨 Team 只读访问 |
+| `project_owner` | `project:*`（V1+） |
+| `project_admin` | `project:read`、`project:manage`、`project:link_repo`（V1+） |
+| `project_viewer` | `project:read`（V1+） |
+| `platform_admin` | `admin:*`、跨 Organization 只读访问 |
 
 ### 2.8.4 继承与覆盖规则
 
 ```
-Team 角色 (team_owner / team_admin / team_member)
+Organization 角色 (org_owner / org_admin / org_member)
         │
-        ├──→ 默认仓库级权限从 Team 角色继承
-        │      team_owner  → repo_admin（所有仓库）
-        │      team_admin  → repo_editor（所有仓库）
-        │      team_member → repo_viewer（所有仓库）
+        ├──→ 默认仓库级权限从 Organization 角色继承
+        │      org_owner  → repo_admin（所有仓库）
+        │      org_admin  → repo_editor（所有仓库）
+        │      org_member → repo_viewer（所有仓库）
         │
         └──→ 可按仓库覆盖 (Override)
-               例：一个 team_member 在仓库 X 被指定为 repo_admin
+               例：一个 org_member 在仓库 X 被指定为 repo_admin
                    则该成员对仓库 X 拥有完全控制权，对其他仓库仍为 viewer
 ```
 
 **规则：**
 
-1. 用户对某仓库的**有效权限**取以下两者中较高的：继承自 Team 角色的权限 **或** 显式分配的仓库级角色
-2. `platform_admin` 对所有 Team 和仓库有只读权限（用于审计），但除非被显式添加为成员，否则不能修改
+1. 用户对某仓库的**有效权限**取以下两者中较高的：继承自 Organization 角色的权限 **或** 显式分配的仓库级角色
+2. `platform_admin` 对所有 Organization 和仓库有只读权限（用于审计），但除非被显式添加为成员，否则不能修改
 3. MCP 工具受 Secret Key `scopes` 控制——即使用户拥有 `repo:read`，其 Secret Key 也必须具有 `mcp:*` 范围才能通过 MCP 调用工具
+4. **双层访问规则（V1+）：** Project 成员身份只决定"能否看到项目存在"；项目内任何 Repository 的内容访问始终走 `repo:*` 权限——项目视图按用户有权限的 repo 子集组装
 
 ---
+
+## 2.9 Project（项目）
+
+独立的业务层实体，通过 `ProjectRepository` 跨 Organization 聚合多个 Repository（多对多）。Project **不挂靠在 Organization 下**。
+
+| 字段 | 类型 | 说明 |
+|-------|------|------|
+| `id` | UUID | 唯一标识 |
+| `name` | string | 项目显示名称 |
+| `description` | string | 项目描述（业务用途） |
+| `business_context` | object | 业务上下文、领域术语、项目约定（由关联的 Repository 聚合而成） |
+| `created_at` | timestamp | 创建时间 |
+| `updated_at` | timestamp | 最后更新时间 |
+
+**ProjectRepository（M:N 关联表）：**
+
+| 字段 | 类型 | 说明 |
+|-------|------|------|
+| `project_id` | UUID | Project 引用 |
+| `repo_id` | UUID | Repository 引用（可属于不同 Organization） |
+
+**ProjectMember：**
+
+| 字段 | 类型 | 说明 |
+|-------|------|------|
+| `user_id` | UUID | 用户引用 |
+| `project_id` | UUID | Project 引用 |
+| `role` | string | `project_owner` / `project_admin` / `project_viewer` |
+
+**双层访问规则：** Project 成员身份只决定能否看到项目存在；项目内任何 Repository 的内容访问始终由 `repo:*` 权限控制——项目视图按用户可访问的 Repository 子集组装。
+
+**V0 状态：** Project 在领域模型中定义，但 **V0 不实现其功能**（Project CRUD、跨 Repository 知识聚合、`get_project_context` 均在 V1+ 提供）。
 
 # 3. Platform Webapp
 
@@ -260,11 +311,11 @@ Team 角色 (team_owner / team_admin / team_member)
 | **安全设置** | 修改密码、管理 SSO 绑定 |
 | **通知偏好** | 邮件通知设置 |
 
-## 3.3 团队管理
+## 3.3 Organization 管理
 
 | 功能 | 说明 |
 |------|------|
-| **创建团队** | 填写名称 + slug，创建者自动成为 Owner |
+| **创建 Organization** | 填写名称 + slug，创建者自动成为 Owner |
 | **邀请成员** | 通过邮箱邀请，指定角色 |
 | **成员列表** | 查看所有成员及其角色 |
 | **角色管理** | Owner/Admin 可修改成员角色 |
@@ -274,9 +325,9 @@ Team 角色 (team_owner / team_admin / team_member)
 
 登录后展示：
 
-- **仓库概览**：跨 Team 的仓库列表，显示最后更新时间和 API 数量
+- **仓库概览**：跨 Organization 的仓库列表，显示最后更新时间和 API 数量
 - **最近活动**：最近的导入、编辑、成员变更
-- **快捷操作**：创建 Team、创建仓库、导入 OpenAPI
+- **快捷操作**：创建 Organization、创建仓库、导入 OpenAPI
 - **全局搜索**：跨仓库搜索 API
 
 ## 3.5 仓库管理
@@ -324,7 +375,7 @@ Team 角色 (team_owner / team_admin / team_member)
 | **全局搜索栏** | Dashboard 和仓库页面均可使用，自然语言输入 |
 | **混合搜索** | Embedding（Dense）+ BM25（Sparse）+ Knowledge Graph——RRF 融合 + Cross-encoder 精排。详见 [Semantic Search Agent](./modules/semantic-search.agent.md) |
 | **权限感知** | 基于 RBAC effective permissions 检索前过滤——用户只能搜到有权限访问的 API |
-| **搜索范围** | 全局搜索（跨所有有权限的仓库）或限定单个仓库/Team |
+| **搜索范围** | 全局搜索（跨所有有权限的仓库）或限定单个仓库/Organization |
 | **筛选条件** | 按 HTTP 方法、tag、路径前缀过滤 |
 | **结果展示** | 方法 + 路径、业务意图摘要、匹配原因、相关度评分 |
 | **快捷跳转** | 点击结果 → API 详情页 |
@@ -340,7 +391,7 @@ Team 角色 (team_owner / team_admin / team_member)
 | **对话式问答** | 多轮对话，可自然追问 |
 | **RAG 流水线** | Query Rewriting → 权限预过滤 → 混合检索（Embedding + BM25 + KG）→ RRF 粗排 → Cross-encoder 精排 → 上下文拼装 → LLM 回答生成 |
 | **来源引用** | 每个回答附带引用链接，指向具体的 API 和模型 |
-| **知识范围** | 单个仓库内，或跨 Team 仓库 |
+| **知识范围** | 单个仓库内，或跨 Organization 仓库 |
 
 **检索实现详见：** [Semantic Search Agent](./modules/semantic-search.agent.md) 涵盖 chunk 策略、BM25 + Embedding 混合检索、query rewriting、权限过滤、两阶段排序的完整设计。
 
@@ -362,20 +413,20 @@ Team 角色 (team_owner / team_admin / team_member)
 
 Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Platform Webapp 中通过以下交互体现：
 
-### 3.8.1 Team 级角色管理
+### 3.8.1 Organization 级角色管理
 
 | 功能 | 说明 |
 |------|------|
-| **角色分配** | 邀请成员或编辑已有成员时，分配 Team 角色：`team_owner`、`team_admin`、`team_member` |
-| **角色继承** | Team 角色自动授予该 Team 下所有现有及未来仓库的对应仓库级权限 |
-| **角色变更** | Team Owner/Admin 可随时修改成员角色 |
-| **转让所有权** | Team Owner 可将所有权转让给其他成员 |
+| **角色分配** | 邀请成员或编辑已有成员时，分配 Organization 角色：`org_owner`、`org_admin`、`org_member` |
+| **角色继承** | Organization 角色自动授予该 Organization 下所有现有及未来仓库的对应仓库级权限 |
+| **角色变更** | Organization Owner/Admin 可随时修改成员角色 |
+| **转让所有权** | Organization Owner 可将所有权转让给其他成员 |
 
 ### 3.8.2 仓库级角色覆盖
 
 | 功能 | 说明 |
 |------|------|
-| **按仓库覆盖** | 在任何仓库上，可将 `team_member` 提升为 `repo_admin` 或 `repo_editor`，无需改变其 Team 角色 |
+| **按仓库覆盖** | 在任何仓库上，可将 `org_member` 提升为 `repo_admin` 或 `repo_editor`，无需改变其 Organization 角色 |
 | **覆盖展示** | 仓库成员列表同时显示继承角色和显式覆盖（带视觉标记） |
 | **有效权限** | 每个仓库取继承权限和覆盖权限中较高者 |
 
@@ -383,9 +434,9 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 
 | 场景 | 设置 | 效果 |
 |------|------|------|
-| **新成员加入** | 邀请为 `team_member` | 可查看所有仓库（继承 `repo_viewer`），但不可编辑 |
-| **提升为编辑者** | `team_member` + 仓库 A 覆盖为 `repo_editor` | 可编辑仓库 A，其他仓库仍为 viewer |
-| **外部协作者** | 非 Team 成员，仅分配仓库 B 的 `repo_viewer` | 只能查看仓库 B，无法访问其他仓库 |
+| **新成员加入** | 邀请为 `org_member` | 可查看所有仓库（继承 `repo_viewer`），但不可编辑 |
+| **提升为编辑者** | `org_member` + 仓库 A 覆盖为 `repo_editor` | 可编辑仓库 A，其他仓库仍为 viewer |
+| **外部协作者** | 非 Organization 成员，仅分配仓库 B 的 `repo_viewer` | 只能查看仓库 B，无法访问其他仓库 |
 | **MCP 访问** | 仓库 C 的 `repo_admin` + Secret Key 具有 `mcp:*` 范围 | 可对仓库 C 使用 MCP 工具 |
 
 ## 3.9 MCP 设置
@@ -393,7 +444,7 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 | 功能 | 说明 |
 |------|------|
 | **按仓库开关** | 为每个仓库独立开启/关闭 MCP 访问 |
-| **访问范围控制** | 控制暴露哪些工具：`search_apis`、`get_api_detail`、`get_project_context` |
+| **访问范围控制** | 控制暴露哪些工具。V0：`search_apis` + `get_api_detail`；`get_project_context` 随 Project 在 V1+ 提供 |
 | **用量监控** | 按 Key 查看 MCP 调用次数和历史 |
 | **连接信息** | 展示 MCP 端点 URL，用户配置到 Cursor/Claude 中 |
 
@@ -429,7 +480,7 @@ Key 格式：`apigent_sk_<random_hex>`
 | 指标 | 说明 |
 |------|------|
 | **用户数** | 注册用户总数、新增用户（日/周） |
-| **团队数** | 团队总数、活跃团队数 |
+| **组织数** | 组织总数、活跃组织数 |
 | **仓库数** | 仓库总数、已开启 MCP 的仓库数 |
 | **API 数量** | 全平台 API 端点总数 |
 | **MCP 用量** | MCP 调用总量、按仓库、按 Key、时间序列 |
@@ -440,7 +491,7 @@ Key 格式：`apigent_sk_<random_hex>`
 | 功能 | 说明 |
 |------|------|
 | **用户列表** | 可搜索、可筛选的全量用户列表 |
-| **用户详情** | 完整个人信息、所属团队、仓库、活动日志 |
+| **用户详情** | 完整个人信息、所属组织、仓库、活动日志 |
 | **禁用账号** | 临时暂停用户账号 |
 | **启用账号** | 重新激活已禁用的账号 |
 | **删除账号** | 永久删除用户及其数据（需确认 + 冷却期） |
@@ -501,9 +552,9 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 |----------|---------|------|
 | `search_apis` | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
 | `get_api_detail` | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
-| `get_project_context` | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
+| `get_project_context`（V1+） | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
 
-三个 tool 都是**普通请求-响应**——不需要流式返回，不需要服务端推送，不需要持久连接。MCP 对 Apigent 的使用场景不需要 SSE 或长连接。分离成独立服务是**架构选择**（独立扩缩 + 部署灵活），而非协议要求。
+所有 tool 都是**普通请求-响应**——不需要流式返回，不需要服务端推送，不需要持久连接。MCP 对 Apigent 的使用场景不需要 SSE 或长连接。分离成独立服务是**架构选择**（独立扩缩 + 部署灵活），而非协议要求。
 
 ## 5.2 技术选型
 
@@ -649,10 +700,10 @@ checkPermission(userId, resourceType, resourceId, requiredPermission)
         └── 有 → 使用该覆盖角色对应的权限
         └── 无 → 进入步骤 3
 
-步骤 3：用户在 Team 中的角色是什么？
-        └── team_owner  → 继承 repo_admin（Team 内所有仓库）
-        └── team_admin  → 继承 repo_editor（Team 内所有仓库）
-        └── team_member → 继承 repo_viewer（Team 内所有仓库）
+步骤 3：用户在 Organization 中的角色是什么？
+        └── org_owner  → 继承 repo_admin（Organization 内所有仓库）
+        └── org_admin  → 继承 repo_editor（Organization 内所有仓库）
+        └── org_member → 继承 repo_viewer（Organization 内所有仓库）
 
 步骤 4：映射角色 → 权限列表，检查 requiredPermission 是否包含其中
         └── 是 → 通过
@@ -663,17 +714,17 @@ checkPermission(userId, resourceType, resourceId, requiredPermission)
 
 ```ts
 import { db } from "@/server/db"
-import { teamMembers, repoPermissions, users } from "@/server/db/schema"
+import { orgMembers, repoPermissions, users } from "@/server/db/schema"
 import { eq, and } from "drizzle-orm"
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  team_owner:  ["team:manage_members", "team:delete", "team:manage_settings",
-                "repo:read", "repo:write", "repo:import", "repo:delete",
-                "repo:manage_permissions", "repo:manage_mcp"],
-  team_admin:  ["team:manage_members", "team:manage_settings",
-                "repo:read", "repo:write", "repo:import", "repo:delete",
-                "repo:manage_permissions", "repo:manage_mcp"],
-  team_member: ["repo:read"],
+  org_owner:  ["org:manage_members", "org:delete", "org:manage_settings",
+               "repo:read", "repo:write", "repo:import", "repo:delete",
+               "repo:manage_permissions", "repo:manage_mcp"],
+  org_admin:  ["org:manage_members", "org:manage_settings",
+               "repo:read", "repo:write", "repo:import", "repo:delete",
+               "repo:manage_permissions", "repo:manage_mcp"],
+  org_member: ["repo:read"],
   repo_admin:  ["repo:read", "repo:write", "repo:import", "repo:delete",
                 "repo:manage_permissions", "repo:manage_mcp"],
   repo_editor: ["repo:read", "repo:write", "repo:import"],
@@ -681,15 +732,15 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   platform_admin: ["admin:manage_users", "admin:view_stats", "admin:view_audit"],
 }
 
-const TEAM_ROLE_INHERITANCE: Record<string, string> = {
-  team_owner:  "repo_admin",
-  team_admin:  "repo_editor",
-  team_member: "repo_viewer",
+const ORG_ROLE_INHERITANCE: Record<string, string> = {
+  org_owner:  "repo_admin",
+  org_admin:  "repo_editor",
+  org_member: "repo_viewer",
 }
 
 async function checkPermission(
   userId: string,
-  resourceType: "team" | "repo" | "mcp" | "admin",
+  resourceType: "org" | "repo" | "mcp" | "admin",
   resourceId: string,
   requiredPermission: string,
 ): Promise<boolean> {
@@ -713,31 +764,31 @@ async function checkPermission(
       return ROLE_PERMISSIONS[explicitRole.role]?.includes(requiredPermission) ?? false
     }
 
-    // 2b. 回退到继承的 Team 角色
-    const { teamId } = await db.query.repos.findFirst({
+    // 2b. 回退到继承的 Organization 角色
+    const { orgId } = await db.query.repos.findFirst({
       where: eq(repos.id, resourceId),
-      columns: { teamId: true },
+      columns: { orgId: true },
     }) ?? {}
-    if (teamId) {
-      const membership = await db.query.teamMembers.findFirst({
+    if (orgId) {
+      const membership = await db.query.orgMembers.findFirst({
         where: and(
-          eq(teamMembers.userId, userId),
-          eq(teamMembers.teamId, teamId),
+          eq(orgMembers.userId, userId),
+          eq(orgMembers.orgId, orgId),
         ),
       })
       if (membership) {
-        const inheritedRole = TEAM_ROLE_INHERITANCE[membership.role]
+        const inheritedRole = ORG_ROLE_INHERITANCE[membership.role]
         return ROLE_PERMISSIONS[inheritedRole]?.includes(requiredPermission) ?? false
       }
     }
   }
 
-  // 3. Team 级权限检查
-  if (resourceType === "team") {
-    const membership = await db.query.teamMembers.findFirst({
+  // 3. Organization 级权限检查
+  if (resourceType === "org") {
+    const membership = await db.query.orgMembers.findFirst({
       where: and(
-        eq(teamMembers.userId, userId),
-        eq(teamMembers.teamId, resourceId),
+        eq(orgMembers.userId, userId),
+        eq(orgMembers.orgId, resourceId),
       ),
     })
     if (membership) {
@@ -768,8 +819,8 @@ const ROUTE_PERMISSIONS: Record<string, { type: string; permission: string }> = 
   "/api/repos/:repoId/import":     { type: "repo", permission: "repo:import" },
   "/api/repos/:repoId/settings":   { type: "repo", permission: "repo:manage_permissions" },
   "/api/repos/:repoId/mcp":        { type: "repo", permission: "repo:manage_mcp" },
-  "/api/teams/:teamId/members":    { type: "team", permission: "team:manage_members" },
-  "/api/teams/:teamId/settings":   { type: "team", permission: "team:manage_settings" },
+  "/api/orgs/:orgId/members":      { type: "org", permission: "org:manage_members" },
+  "/api/orgs/:orgId/settings":     { type: "org", permission: "org:manage_settings" },
   "/api/admin/*":                  { type: "admin", permission: "admin:view_stats" },
 }
 
@@ -1362,11 +1413,12 @@ const config: ApigentConfig = {
 | 领域 | V0 功能 |
 |------|--------|
 | **认证** | 邮箱登录/注册、Session 管理 |
-| **团队** | 创建团队、邀请成员、基础角色 |
+| **Organization** | 创建组织、邀请成员、基础角色 |
 | **仓库** | 创建仓库、导入 OpenAPI（文件/URL）、版本列表 |
 | **浏览** | 接口列表（按 tag 分组）、数据模型列表、语义搜索（自然语言） |
-| **Core Engine** | OpenAPI Parser → Business Context Agent → Knowledge Graph |
-| **MCP** | 基础 MCP Gateway，提供 `search_apis` + `get_api_detail` + `get_project_context` |
+| **Core Engine** | OpenAPI Parser → Business Context Agent（Knowledge Graph 为 V1+ 可选增强，默认关闭） |
+| **MCP** | 基础 MCP Gateway，提供 `search_apis` + `get_api_detail`（`get_project_context` 随 Project 在 V1+ 提供） |
 | **Secret Key** | 生成、查看、删除密钥 |
 | **Dashboard** | 简单仓库列表 + 最近活动 |
 | **Admin** | 基础用户列表、平台统计 |
+| **Project** | 仅领域模型定义，V0 不实现功能 |

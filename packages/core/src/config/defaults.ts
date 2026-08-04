@@ -90,6 +90,7 @@ export const DEFAULT_RAG_CONFIG: RAGConfig = {
   chunkStrategy: "hierarchical",
   queryRewrite: true,
   queryRewriteCacheTtl: 3600,
+  knowledgeGraph: { enabled: false },
 };
 
 // ───────────────────────────────────────────────────────────────────

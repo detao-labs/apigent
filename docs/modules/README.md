@@ -15,6 +15,15 @@
 
 ---
 
+## 层级与粒度（Repository vs Project）
+
+- **Organization（组织）**：顶层租户边界；Repository 归属 Organization
+- **Repository（仓库）**：OpenAPI 技术资产与版本历史，是权限过滤的最小单元（`repo_id`）
+- **Project（项目）**：独立业务实体，跨 Organization 聚合多个 Repository（多对多）；业务上下文、项目成员与角色挂在 Project（`project_id`）。V0 仅定义模型，功能 V1+ 提供
+- 技术/权限层用 `repo_id`，业务/知识层用 `project_id`；双层规则：Project 成员只决定能否看到项目存在，仓库内容始终走 `repo:*` 权限
+
+---
+
 ## 1. 架构全景
 
 ```
@@ -30,19 +39,21 @@
               ┌───────────────────┼───────────────────┐
               |                   |                   |
     ┌─────────┴──────────┐  ┌────┴─────┐  ┌──────────┴──────────┐
-    | Semantic Search    |  | Knowledge|  | Project Context     |  ← AI Agent
-    | Agent (LLM)        |  | Retrieval|  | Service             |     ↑ 仅这个
+    | Semantic Search    |  | Knowledge|  | Project Context     |
+    | Agent (LLM)        |  | Retrieval|  | Service             |
     └────────────────────┘  | Service  |  └─────────────────────┘
                             └──────────┘
+         ↑ AI Agent             ↑ Platform Service     ↑ Platform Service
                                   |
               ┌───────────────────┼───────────────────┐
               |                   |                   |
     ┌─────────┴──────────┐  ┌────┴─────┐  ┌──────────┴──────────┐
-    | OpenAPI Parser     |  | Business |  | Knowledge Graph     |  ← Platform
-    | Service            |  | Context  |  | Service             |     Service
+    | OpenAPI Parser     |  | Business |  | Knowledge Graph     |
+    | Service            |  | Context  |  | Service (V1+ 可选)   |
     └────────────────────┘  | Agent    |  └─────────────────────┘
                             | (LLM)    |
                             └──────────┘
+         ↑ Platform Service    ↑ AI Agent
                                   |
                             ┌─────┴─────┐
                             | PostgreSQL |
@@ -59,7 +70,7 @@
 | Service | 职责 | 为什么不需要 LLM |
 |--------|------|-----------------|
 | [OpenAPI Parser Service](./openapi-parser.md) | 解析 OpenAPI JSON/YAML，生成结构化 API Model | 规范有明确的 JSON Schema，纯解析+验证逻辑 |
-| [Knowledge Graph Service](./knowledge-graph.md) | 构建 API 关联图谱（depends_on / follow_up 等） | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
+| [Knowledge Graph Service](./knowledge-graph.md) | 构建 API 关联图谱（depends_on / follow_up 等）——**V1+ 可选增强，默认关闭**（`rag.knowledgeGraph.enabled`） | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
 | [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片 | SQL JOIN + 数据拼装，不涉及理解或推理 |
 | [Project Context Service](./project-context.md) | 提取项目级约定（base_url、分页、认证） | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理 |
 | [MCP Gateway](./mcp-gateway.md) | MCP 协议服务器：路由、鉴权、限流 | 协议适配和请求路由，纯工程逻辑 |
@@ -82,9 +93,11 @@
 | | 之前（错误） | 之后（正确） |
 |------|------------|------------|
 | "Agent" 数量 | 7 | 2 (V0) + 4 (V1) |
-| Platform Service | 0 | 5 |
+| Platform Service | 0 | 5（其中 Knowledge Graph 为 V1+ 可选） |
 | MCP Gateway | 归为 Agent | 协议服务器 |
 | 需要 LLM 调用的组件 | 7（夸大） | 2（精确） |
+
+> V0 实际落地的 Platform Service 为 4 个（不含 Knowledge Graph）；KG 启用后作为第 5 个。
 
 ---
 
@@ -102,10 +115,9 @@ OpenAPI Parser Service       ← 确定性解析（无 LLM）
 Business Context Agent       ← LLM 推断业务含义（唯一需要 AI 的步骤）
         |
         v
-Knowledge Graph Service      ← 规则匹配构建关联（无 LLM）
-        |
-        v
 PostgreSQL + Vector DB       ← 持久化
+
+（V1+ 可选：启用 Knowledge Graph 后，在持久化前构建关联图谱）
 ```
 
 **LLM 调用次数：1 次**（仅 Business Context Agent），其余都是普通函数调用。
@@ -120,7 +132,7 @@ MCP Gateway                  ← 协议路由（无 LLM）
         |
         ├── "search_apis"        → Semantic Search Agent (LLM)
         ├── "get_api_detail"     → Knowledge Retrieval Service (无 LLM)
-        └── "get_project_context" → Project Context Service (无 LLM)
+        └── "get_project_context" → Project Context Service (无 LLM, V1+ 随 Project 提供)
 ```
 
 **LLM 调用次数：仅 search_apis 触发 1 次**，其余查询走普通数据库。
@@ -180,7 +192,7 @@ Cursor Agent → 生成带业务规则校验的代码
 ```
 Tool 1: search_apis        → Semantic Search Agent (LLM)
 Tool 2: get_api_detail     → Knowledge Retrieval Service (无 LLM)
-Tool 3: get_project_context → Project Context Service (无 LLM)
+Tool 3: get_project_context → Project Context Service (无 LLM, V1+ 随 Project 提供)
 ```
 
 ---

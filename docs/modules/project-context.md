@@ -6,6 +6,8 @@
 
 检索和维护项目级别的全局知识。从 OpenAPI 结构字段中提取项目约定（base_url、分页方式、认证类型等），纯规则匹配，不涉及推理。
 
+**粒度：Project 级。** 一个 Project 聚合其关联的多个 Repository（可跨 Organization），项目约定从这些 Repository 的 OpenAPI 中提取并合并。V0 阶段 Project 实体未实现，本服务随 Project 在 V1+ 提供。
+
 ## 输入
 
 | 字段 | 类型 | 说明 |
@@ -74,17 +76,17 @@ interface ProjectContext {
 ## 行为规范
 
 1. **单一数据源**：每个项目只有一份 Project Context
-2. **变更通知**：关键配置变更主动通知 MCP Gateway Agent
+2. **变更通知**：关键配置变更主动通知 MCP Gateway
 3. **自动补全**：未检测到的配置允许人工填写
 
 ## 依赖
 
-- 上游：OpenAPI Parser Agent（提取项目级信息）
-- 下游：MCP Gateway Agent、Business Context Agent
+- 上游：OpenAPI Parser Service（从项目关联的 Repository 提取）
+- 下游：MCP Gateway、Business Context Agent
 
 ## 触发方式
 
-- MCP Gateway Agent 调用 `get_project_context` tool
+- MCP Gateway 调用 `get_project_context` tool（V1+，随 Project 提供）
 - 项目创建/更新时自动构建
 - API 导入后增量更新
 

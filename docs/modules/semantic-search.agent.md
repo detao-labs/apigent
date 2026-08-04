@@ -25,7 +25,7 @@ User Query: "退款接口在哪里？"
 │ 3. Multi-path Retrieval（并行，0 LLM 调用）            │
 │    ├── Embedding (Dense)  → top-50                    │
 │    ├── BM25 (Sparse)      → top-50                    │
-│    └── Knowledge Graph    → top-20                    │
+│    └── Knowledge Graph    → top-20（V1+ 可选，开启后） │
 ├──────────────────────────────────────────────────────┤
 │ 4. Coarse Rank: RRF Fusion → top-30（~50ms）          │
 ├──────────────────────────────────────────────────────┤
@@ -50,7 +50,8 @@ User Query: "退款接口在哪里？"
 |------|------|------|
 | `query` | `string` | 自然语言查询："查找与退款相关的 API" |
 | `repo_id?` | `string` | 限定搜索范围（Repo） |
-| `team_id?` | `string` | 限定搜索范围（Team 下所有 Repo） |
+| `org_id?` | `string` | 限定搜索范围（Organization 下所有 Repo） |
+| `project_id?` | `string` | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
 | `top_k?` | `number` | 返回数量，默认 10 |
 | `filter?` | `SearchFilter` | HTTP 方法、tag、路径前缀等筛选条件 |
 | `user_id` | `string` | 当前用户 ID（用于权限过滤） |
@@ -64,7 +65,7 @@ interface SearchResult {
   rewritten_query?: string;       // 改写后的查询（如有）
   results: ScoredAPI[];
   total_hits: number;
-  search_strategy: "hybrid" | "semantic" | "keyword" | "graph";
+  search_strategy: "hybrid" | "semantic" | "keyword" | "graph";  // "graph" 仅在 KG 启用后出现
   latency_ms: number;
   llm_calls: number;
 }
@@ -240,7 +241,7 @@ LIMIT 50;
 
 ## 2.3 Knowledge Graph Traversal（结构召回）
 
-利用 Knowledge Graph 中的 API 关联关系扩展召回：
+**V1+ 可选路径**：由配置 `rag.knowledgeGraph.enabled` 控制（默认关闭）。启用后利用 Knowledge Graph 中的 API 关联关系扩展召回：
 
 ```
 匹配 API → 沿关系图扩展：
@@ -261,11 +262,11 @@ LIMIT 50;
 不可按固定 token 长度硬切——API 文档有天然语义边界。正确做法是分层 chunk：
 
 ```
-Repository (project-level)
+Repository (repo-level)
   │
   ├── Chunk L0: Project Context（全局约定、认证方式、分页格式）
   │     ≈ 300 tokens
-  │     metadata: { level: "project", repo_id, team_id }
+  │     metadata: { level: "project", repo_id, org_id }
   │
   ├── Tag Group（tag="订单管理"）
   │   ├── Chunk L1: Tag Summary（该 tag 下接口的业务概述）
@@ -297,7 +298,7 @@ Repository (project-level)
   │   └── API Endpoint（GET /orders/{id}）
   │       └── ... (同上)
   │
-  └── Workflow Chunk L1: "退款流程"
+  └── Workflow Chunk L1: "退款流程"（V1+，随 Knowledge Graph 启用）
         ≈ 1000 tokens
         metadata: { level: "workflow" }
         包含: [POST /orders/refund → POST /payments/refund → GET /orders/{id}]
@@ -327,7 +328,7 @@ Repository (project-level)
 interface ChunkMetadata {
   level: "project" | "tag" | "workflow" | "endpoint" | "schema" | "rules"
   repo_id: string              // 用于权限过滤
-  team_id: string              // 冗余，加速 team 级查询
+  org_id: string               // 冗余，加速 org 级查询
   method?: string
   path?: string
   tag?: string
@@ -380,9 +381,9 @@ async function retrieveWithPermission(
 ): Promise<ChunkResult[]> {
   // 1. 查用户有权访问的仓库列表
   const accessibleRepos = await getAccessibleRepoIds(userId)
-  // → SELECT team_id, role FROM team_members WHERE user_id = $1
+  // → SELECT org_id, role FROM org_members WHERE user_id = $1
   // → SELECT repo_id, role FROM repo_permissions WHERE user_id = $1
-  // → 合并 Team 继承权限 + Repo 覆盖权限
+  // → 合并 Organization 继承权限 + Repo 覆盖权限
   // → 返回 repo_id 集合
 
   if (accessibleRepos.length === 0) return []
@@ -404,8 +405,9 @@ async function retrieveWithPermission(
 | 搜索入口 | 过滤维度 | 说明 |
 |---------|---------|------|
 | **平台全局搜索** | `WHERE repo_id IN (user_accessible_repos)` | 用户有权限的所有 repo |
-| **Team 内搜索** | `WHERE team_id = :team_id AND repo_id IN (...)` | 限定 team + 权限双重过滤 |
+| **Organization 内搜索** | `WHERE org_id = :org_id AND repo_id IN (...)` | 限定 organization + 权限双重过滤 |
 | **单 Repo 搜索** | `WHERE repo_id = :repo_id` + RBAC check | 先检查用户对该 repo 的权限，无权限直接拒绝 |
+| **Project 内搜索（V1+）** | `WHERE repo_id IN (project_repos ∩ user_accessible_repos)` | 双层规则：项目过滤 + 仓库权限 |
 | **MCP search_apis** | `WHERE repo_id IN (key_scoped_repos)` + RBAC | Secret Key scopes 限定 + 用户权限 |
 
 ## 4.4 额外安全措施
@@ -415,7 +417,7 @@ async function retrieveWithPermission(
 | **审计日志** | 记录每次搜索：`(user_id, query, repo_filter, timestamp, latency_ms)` |
 | **Rate Limiting** | 每用户每分钟最多 30 次搜索；MCP 调用按 Key 限流 |
 | **敏感字段 Mask** | LLM 回答 Prompt 中不注入完整 Schema 值，只注入名称 + 类型 + 描述 |
-| **Chunk 级 team_id 冗余** | repo 迁移 team 后，chunk 的 team_id 保持不变（snapshot 语义避免数据泄露） |
+| **Chunk 级 org_id 冗余** | repo 迁移 organization 后，chunk 的 org_id 保持不变（snapshot 语义避免数据泄露） |
 
 ---
 
@@ -432,7 +434,7 @@ async function retrieveWithPermission(
 │                                           │
 │ Embedding rank ─┐                         │
 │ BM25 rank ──────┼─→ RRF → top-30          │
-│ KG bonus ───────┘                         │
+│ KG bonus ───────┘（V1+ 启用后）            │
 │                                           │
 │ 延迟: ~50ms   LLM 调用: 0                 │
 └──────────────────┬───────────────────────┘
@@ -584,7 +586,7 @@ Output: { relevant: true/false, reason: "..." }
 | 短查询 (≤5 词，英文) | `hybrid`（embedding + BM25） | 默认策略 |
 | 长查询 (>5 词) | `semantic` 优先 | LLM 改写 → embedding 主导 |
 | 中文查询 | 触发 query rewriting → `hybrid` | 改写为英文检索词 |
-| 含 workflow/流程关键词 | `hybrid` + KG bonus 翻倍 | "退款流程"、"调用顺序" |
+| 含 workflow/流程关键词 | `hybrid` + KG bonus 翻倍（V1+，KG 启用后） | "退款流程"、"调用顺序" |
 | 模糊问题 | `deep` mode → 完整 pipeline | LLM 改写 + 子查询多路召回 |
 
 ---
@@ -601,7 +603,7 @@ Output: { relevant: true/false, reason: "..." }
 ## 依赖
 
 - **上游**：Vector Store（pgvector/Milvus/Qdrant）、PostgreSQL `tsvector`（BM25）
-- **查询时查询**：Business Context Agent 的 `intent` 字段、Knowledge Graph Service 的关联数据
+- **查询时查询**：Business Context Agent 的 `intent` 字段；Knowledge Graph Service 的关联数据（V1+ 可选，启用后）
 - **权限层**：RBAC `getAccessibleRepoIds(userId)`
 - **下游**：Knowledge Retrieval Service（用户选择结果后获取完整详情）
 
@@ -621,7 +623,7 @@ Output: { relevant: true/false, reason: "..." }
 |------|------|
 | 查询无结果 | 降级 BM25 → 仍无结果返回空列表 + 搜索建议 + "尝试用英文搜索" |
 | 用户无任何仓库权限 | 返回空列表，不暴露 repo 存在信息 |
-| 跨 Team 搜索 | 返回用户有权限的所有 repo 结果，按 repo 分组 |
+| 跨 Organization 搜索 | 返回用户有权限的所有 repo 结果，按 repo 分组 |
 | 中英混合查询 | LLM 改写统一翻译为英文检索词，中英双 chunk 同时召回 |
 | 查询包含拼写错误 | LLM 改写阶段自动纠正，保留原始查询记录 |
 | 目标 repo 无 embedding 数据 | 降级为纯 BM25 关键词搜索 |

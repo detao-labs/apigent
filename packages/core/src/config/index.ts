@@ -48,6 +48,7 @@ export type {
   QwenRerankerConfig,
   NoRerankerConfig,
   RerankerConfig,
+  KnowledgeGraphConfig,
   RAGConfig,
   // Storage
   StorageProviderType,

@@ -1,23 +1,34 @@
 # Knowledge Graph Service
 
 > **类型：Platform Service**（确定性逻辑，不需要 LLM）
+>
+> **状态：V1+ 可选增强，默认关闭**（配置开关 `rag.knowledgeGraph.enabled`）。V0 不构建图谱。
 
 ## 定位
 
 构建和管理 API 之间的关联关系图谱。基于 `$ref` 引用、路径模式、字段命名匹配等确定性规则，将孤立的 API 端点连接成有向图。
+
+**粒度分两层：**
+
+- **Repository 技术层**：`$ref` 引用、同路径、参数依赖等纯技术关联
+- **Project 业务层**：`follow_up` / `depends_on` / `alternative` 等工作流与业务关系（由 Business Context Agent 的业务知识构建）
+
+一个 Project 的图谱聚合其关联的多个 Repository（可跨 Organization）。
 
 ## 输入
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `apis` | `EnrichedAPI[]` | 带业务上下文的 API 列表 |
-| `project_id` | `string` | 项目 ID |
+| `repo_id` | `string` | Repository ID（技术层边） |
+| `project_id` | `string` | Project ID（业务层边） |
 
 ## 输出
 
 ```typescript
 interface APIRelationGraph {
-  project_id: string;
+  repo_id: string;
+  project_id?: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
   
@@ -92,12 +103,12 @@ Create Order → Payment → Order Confirmation
 
 ## 依赖
 
-- 上游：OpenAPI Parser Agent、Business Context Agent
-- 下游：Knowledge Retrieval Agent、Semantic Search Agent
+- 上游：OpenAPI Parser Service（技术层边）、Business Context Agent（业务层边）
+- 下游：Knowledge Retrieval Service、Semantic Search Agent（启用后作为召回路径）
 
 ## 触发方式
 
-- API 导入完成后自动触发
+- （启用后）API 导入完成后自动触发
 - API 变更时增量更新
 - 手动触发全量重建
 

@@ -6,11 +6,14 @@
 
 知识检索层核心模块。根据 API ID 聚合多方数据源，返回完整 API 知识卡片。本质是 SQL JOIN + 数据拼装，不涉及语言理解。
 
+**知识卡片 = Repository 技术模型 + Project 业务知识。** API 属于某个 Repository（`repo_id`），其业务上下文挂在 Project（`project_id`）上；同一 API 在不同 Project 中的业务部分可不同。
+
 ## 输入
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `api_id` | `string` | API 唯一标识 |
+| `project_id` | `string` | 业务上下文所属 Project（必填，或默认取用户可访问的第一个项目） |
 | `include_examples?` | `boolean` | 是否包含请求/响应示例，默认 true |
 | `include_relations?` | `boolean` | 是否包含关联 API，默认 true |
 
@@ -19,6 +22,7 @@
 ```typescript
 interface APIKnowledgeCard {
   api_id: string;
+  repo_id: string;
   project_id: string;
   
   // 基础信息
@@ -50,7 +54,7 @@ interface APIKnowledgeCard {
     errors: Example[];
   };
   
-  // 关联 API（来自 Knowledge Graph Agent）
+  // 关联 API（来自 Knowledge Graph Service，V1+ 可选）
   relations?: {
     depends_on: string[];       // 前置依赖 API
     follow_up: string[];        // 后继 API
@@ -71,14 +75,14 @@ interface APIKnowledgeCard {
 
 ### 1. 知识拼装
 
-本 Agent 本身不产生知识，而是从各上游 Agent 聚合：
+本 Service 本身不产生知识，而是从各上游组件聚合：
 
 ```
-Knowledge Retrieval Agent
+Knowledge Retrieval Service
         │
-        ├── OpenAPI Parser Agent   → schema
-        ├── Business Context Agent → business + examples
-        └── Knowledge Graph Agent  → relations
+        ├── OpenAPI Parser Service      → schema（repo 级）
+        ├── Business Context Agent      → business + examples（project 级）
+        └── Knowledge Graph Service     → relations（V1+ 可选，启用后）
 ```
 
 ### 2. 按需裁剪
@@ -97,17 +101,17 @@ Knowledge Retrieval Agent
 ## 行为规范
 
 1. **一次请求，一次返回**：不发送多次事件，聚合后单次返回
-2. **降级返回**：任一下游 Agent 不可用时，缺失字段标记 `unavailable`
+2. **降级返回**：任一下游组件不可用时，缺失字段标记 `unavailable`
 3. **延迟可控**：p50 < 50ms, p99 < 200ms
 
 ## 依赖
 
-- 上游：OpenAPI Parser Agent、Business Context Agent、Knowledge Graph Agent
-- 下游：MCP Gateway Agent、Web UI
+- 上游：OpenAPI Parser Service、Business Context Agent、Knowledge Graph Service（V1+ 可选）
+- 下游：MCP Gateway、Web UI
 
 ## 触发方式
 
-- MCP Gateway Agent 调用 `get_api_detail` tool
+- MCP Gateway 调用 `get_api_detail` tool（含 `project_id`）
 - Web UI API 详情页面
 - Change Analysis Agent (V1) 获取变更基线
 

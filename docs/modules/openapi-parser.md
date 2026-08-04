@@ -6,19 +6,21 @@
 
 知识构建层的入口模块。负责将外部 API 规范（OpenAPI/Swagger）解析为 Apigent 内部统一的 API Model。纯解析和校验逻辑，不涉及 AI 推理。
 
+**粒度：Repository 级。** 解析对象是某个 Organization 下的一个 Repository 所持有的单份 OpenAPI 文件，输出的是该仓库的技术模型（method/path/schema）；业务知识不在此层产生。
+
 ## 输入
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `source` | `file` \| `url` \| `text` | 输入来源类型 |
 | `content` | `string` | OpenAPI JSON/YAML 内容或 URL |
-| `project_id` | `string` | 所属项目 ID |
+| `repo_id` | `string` | 所属 Repository ID |
 
 ## 输出
 
 ```typescript
 interface ParsedAPIModel {
-  project_id: string;
+  repo_id: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
   parse_errors: ParseError[];   // 解析警告（不阻塞）
@@ -74,7 +76,7 @@ interface APIEntry {
 ## 依赖
 
 - 无上游 Agent 依赖（入口 Agent）
-- 下游：Business Context Agent、Knowledge Graph Agent
+- 下游：Business Context Agent、Knowledge Graph Service（V1+ 可选）
 
 ## 触发方式
 
@@ -88,5 +90,5 @@ interface APIEntry {
 |------|------|
 | 超大文件（>10MB, >500 paths） | 分批解析，每批 100 个 path |
 | 空文件 / 无效 JSON | 返回 `ParseError`，不崩溃 |
-| 已在其他 Project 导入过同一文件 | 提示确认，支持跨项目复用 API Model |
+| 已在其他 Repository 导入过同一文件 | 提示确认，支持跨仓库复用 API Model |
 | 中文/特殊字符的 path/summary | 完整保留，不做转义 |

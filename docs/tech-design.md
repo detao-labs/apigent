@@ -46,9 +46,9 @@ Apigent consists of three application layers:
 ## 2.1 Entity Overview
 
 ```
-┌──────────┐     ┌──────────────┐     ┌────────────────┐
-│   User   │────→│  TeamMember  │←────│     Team       │
-└──────────┘     └──────────────┘     └────────────────┘
+┌──────────┐     ┌──────────────────┐     ┌────────────────┐
+│   User   │────→│ OrganizationMember│←────│  Organization  │
+└──────────┘     └──────────────────┘     └────────────────┘
      │                                      │
      │  ┌──────────────────┐               │
      ├──│  SecretKey       │               │
@@ -56,13 +56,22 @@ Apigent consists of three application layers:
      │                               ┌─────┴──────┐
      │  ┌──────────────────┐        │ Repository  │
      └──│  RepoPermission  │←──────→│  (1 repo =  │
-        └──────────────────┘        │  1 project) │
+        └──────────────────┘        │  1 OpenAPI  │
+                                    │  file)      │
                                     └─────────────┘
                                            │
                                     ┌──────┴──────┐
                                     │   OpenAPI   │
                                     │  Versions   │
                                     └─────────────┘
+
+┌──────────┐     ┌──────────────────┐     ┌─────────────┐
+│ Project  │────→│ ProjectRepository │←────│ Repository │
+└──────────┘     └──────────────────┘     └─────────────┘
+     │
+     │  ┌──────────────────┐
+     └──│   ProjectMember  │
+        └──────────────────┘
 ```
 
 ## 2.2 User
@@ -80,44 +89,44 @@ Represents a registered user account.
 | `created_at` | timestamp | Registration time |
 | `updated_at` | timestamp | Last update time |
 
-## 2.3 Team
+## 2.3 Organization
 
-An organization unit. Users create Teams first, then create Repositories within Teams.
+The top-level tenant boundary. Users create Organizations first, then create Repositories within them.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Unique identifier |
-| `name` | string | Team display name |
+| `name` | string | Organization display name |
 | `slug` | string | URL-friendly unique identifier |
-| `owner_id` | UUID | Team creator |
+| `owner_id` | UUID | Organization creator |
 | `created_at` | timestamp | Creation time |
 
-## 2.4 TeamMember
+## 2.4 OrganizationMember
 
-Associates a User with a Team and their role.
+Associates a User with an Organization and their role.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `user_id` | UUID | User reference |
-| `team_id` | UUID | Team reference |
+| `org_id` | UUID | Organization reference |
 | `role` | string | Role identifier (see [2.8 RBAC Model](#28-rbac-model)) |
 
-**Team-level roles:**
+**Organization-level roles:**
 
 | Role | Scope | Summary |
 |------|-------|---------|
-| `team_owner` | Team | Full control: delete Team, manage members, manage all repos |
-| `team_admin` | Team | Manage members, manage all repos within the Team |
-| `team_member` | Team | Access repos based on repo-level role assignment |
+| `org_owner` | Organization | Full control: delete Organization, manage members, manage all repos |
+| `org_admin` | Organization | Manage members, manage all repos within the Organization |
+| `org_member` | Organization | Access repos based on repo-level role assignment |
 
 ## 2.5 Repository
 
-The core organizational unit. **One Repository = one backend project's OpenAPI file.**
+The technical asset container. **One Repository = one OpenAPI file + its version history.** Repository is the technical layer only — business knowledge lives in Project (see [2.9](#29-project)).
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Unique identifier |
-| `team_id` | UUID | Parent Team |
+| `org_id` | UUID | Parent Organization |
 | `name` | string | Repository name |
 | `description` | string | Repository description (LLM-assisted) |
 | `openapi_versions` | Version[] | OpenAPI version history |
@@ -135,7 +144,7 @@ The core organizational unit. **One Repository = one backend project's OpenAPI f
 
 ## 2.6 RepositoryPermission
 
-Per-user role within a specific Repository. When set, this **overrides** the default inherited from the Team-level role.
+Per-user role within a specific Repository. When set, this **overrides** the default inherited from the Organization-level role.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -169,33 +178,39 @@ User-level API key for MCP access. External AI Agents use this key to authentica
 
 ## 2.8 RBAC Model
 
-Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a named collection of **permissions**. Users gain permissions by being assigned roles — at the Team level, Repository level, or Platform level.
+Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a named collection of **permissions**. Users gain permissions by being assigned roles — at the Organization level, Repository level, or Platform level.
 
 ### 2.8.1 Roles
 
 | Role ID | Level | Description |
 |---------|-------|-------------|
-| `team_owner` | Team | Full control over Team and all its repos |
-| `team_admin` | Team | Manage members and all repos within the Team |
-| `team_member` | Team | Basic Team membership; repo access depends on repo-level role |
+| `org_owner` | Organization | Full control over Organization and all its repos |
+| `org_admin` | Organization | Manage members and all repos within the Organization |
+| `org_member` | Organization | Basic Organization membership; repo access depends on repo-level role |
 | `repo_admin` | Repository | Full control over a specific Repository |
 | `repo_editor` | Repository | Edit API descriptions, import new versions |
 | `repo_viewer` | Repository | Read-only access to APIs and models |
-| `platform_admin` | Platform | Cross-Team admin access (Admin Webapp) |
+| `project_owner` | Project (V1+) | Full control over a Project and its Repository links |
+| `project_admin` | Project (V1+) | Manage Project members and Repository links |
+| `project_viewer` | Project (V1+) | View a Project and its aggregated business context |
+| `platform_admin` | Platform | Cross-Organization admin access (Admin Webapp) |
 
 ### 2.8.2 Permissions
 
 | Permission | Level | Description |
 |------------|-------|-------------|
-| `team:manage_members` | Team | Invite, remove, and change member roles |
-| `team:delete` | Team | Delete the Team |
-| `team:manage_settings` | Team | Edit Team name, slug, settings |
+| `org:manage_members` | Organization | Invite, remove, and change member roles |
+| `org:delete` | Organization | Delete the Organization |
+| `org:manage_settings` | Organization | Edit Organization name, slug, settings |
 | `repo:read` | Repository | View APIs, models, descriptions |
 | `repo:write` | Repository | Edit API descriptions and business context |
 | `repo:import` | Repository | Import new OpenAPI versions |
 | `repo:delete` | Repository | Delete the Repository |
 | `repo:manage_permissions` | Repository | Assign/change user roles on the Repository |
 | `repo:manage_mcp` | Repository | Enable/disable MCP, configure tool exposure |
+| `project:read` | Project (V1+) | View a Project and its aggregated business context |
+| `project:manage` | Project (V1+) | Manage Project settings and members |
+| `project:link_repo` | Project (V1+) | Link/unlink Repositories to/from a Project |
 | `mcp:search` | MCP | Access `search_apis` tool |
 | `mcp:detail` | MCP | Access `get_api_detail` tool |
 | `mcp:context` | MCP | Access `get_project_context` tool |
@@ -207,37 +222,73 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 
 | Role | Permissions |
 |------|------------|
-| `team_owner` | `team:*`, `repo:*` (on all Team repos) |
-| `team_admin` | `team:manage_members`, `team:manage_settings`, `repo:*` (on all Team repos) |
-| `team_member` | `repo:read` (on repos where assigned a repo-level role) |
+| `org_owner` | `org:*`, `repo:*` (on all Organization repos) |
+| `org_admin` | `org:manage_members`, `org:manage_settings`, `repo:*` (on all Organization repos) |
+| `org_member` | `repo:read` (on repos where assigned a repo-level role) |
 | `repo_admin` | `repo:*` (on specific repo) |
 | `repo_editor` | `repo:read`, `repo:write`, `repo:import` |
 | `repo_viewer` | `repo:read` |
-| `platform_admin` | `admin:*`, cross-Team read access |
+| `project_owner` | `project:*` (V1+) |
+| `project_admin` | `project:read`, `project:manage`, `project:link_repo` (V1+) |
+| `project_viewer` | `project:read` (V1+) |
+| `platform_admin` | `admin:*`, cross-Organization read access |
 
 ### 2.8.4 Inheritance & Override Rules
 
 ```
-Team Role (team_owner / team_admin / team_member)
+Organization Role (org_owner / org_admin / org_member)
         │
-        ├──→ Default repo-level permission inherited from Team role
-        │      team_owner  → repo_admin (on all repos)
-        │      team_admin  → repo_editor (on all repos)
-        │      team_member → repo_viewer (on all repos)
+        ├──→ Default repo-level permission inherited from Organization role
+        │      org_owner  → repo_admin (on all repos)
+        │      org_admin  → repo_editor (on all repos)
+        │      org_member → repo_viewer (on all repos)
         │
         └──→ Can be OVERRIDDEN per Repository
-               Example: A team_member assigned repo_admin on Repo X
+               Example: An org_member assigned repo_admin on Repo X
                         gets full control over Repo X, while remaining
-                        a viewer on all other Team repos.
+                        a viewer on all other Organization repos.
 ```
 
 **Rules:**
 
-1. A user's effective permission on a Repository = the higher of: their inherited Team-role permission **or** any explicit repo-level role assignment
-2. `platform_admin` has read access to all Teams and repos for audit purposes, but cannot modify unless explicitly added as a member
+1. A user's effective permission on a Repository = the higher of: their inherited Organization-role permission **or** any explicit repo-level role assignment
+2. `platform_admin` has read access to all Organizations and repos for audit purposes, but cannot modify unless explicitly added as a member
 3. MCP tools are controlled by Secret Key `scopes` — even if a user has `repo:read`, their Secret Key must also have `mcp:*` scopes to call MCP tools
+4. **Double-layer rule (V1+):** Project membership only grants visibility of the Project itself. Content inside linked Repositories is always governed by `repo:*` permissions — Project views are assembled from the Repositories the user can access
 
 ---
+
+## 2.9 Project
+
+An independent business-layer entity that aggregates Repositories across Organizations (many-to-many via `ProjectRepository`). Project is **not** attached to an Organization.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Unique identifier |
+| `name` | string | Project display name |
+| `description` | string | Project description (business purpose) |
+| `business_context` | object | Business context, domain glossary, conventions (assembled from linked Repositories) |
+| `created_at` | timestamp | Creation time |
+| `updated_at` | timestamp | Last update time |
+
+**ProjectRepository (M:N join):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `project_id` | UUID | Project reference |
+| `repo_id` | UUID | Repository reference (may belong to a different Organization) |
+
+**ProjectMember:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_id` | UUID | User reference |
+| `project_id` | UUID | Project reference |
+| `role` | string | `project_owner` / `project_admin` / `project_viewer` |
+
+**Double-layer access rule:** Project membership only determines whether a user can see the Project exists. Content inside any linked Repository is always gated by `repo:*` permissions — a Project view is assembled from the subset of Repositories the user can access.
+
+**V0 status:** Project is defined in the domain model but **not implemented in V0**. Features (Project CRUD, cross-Repository knowledge aggregation, `get_project_context`) ship in V1+.
 
 # 3. Platform Webapp
 
@@ -261,11 +312,11 @@ The main application for developers to manage their APIs as Agent-accessible kno
 | **Security Settings** | Change password, manage SSO links |
 | **Notification Preferences** | Email notification settings |
 
-## 3.3 Team Management
+## 3.3 Organization Management
 
 | Feature | Description |
 |---------|-------------|
-| **Create Team** | Name + slug, creator becomes Owner |
+| **Create Organization** | Name + slug, creator becomes Owner |
 | **Invite Members** | Email invitation, role assignment |
 | **Member List** | View all members with roles |
 | **Role Management** | Owner/Admin can change member roles |
@@ -275,9 +326,9 @@ The main application for developers to manage their APIs as Agent-accessible kno
 
 After login, users see:
 
-- **Repository Overview**: list of repos across all Teams, with last update time, API count
+- **Repository Overview**: list of repos across all Organizations, with last update time, API count
 - **Recent Activity**: recent imports, edits, member changes
-- **Quick Actions**: Create Team, Create Repository, Import OpenAPI
+- **Quick Actions**: Create Organization, Create Repository, Import OpenAPI
 - **Global Search**: search across repos and APIs
 
 ## 3.5 Repository Management
@@ -325,7 +376,7 @@ The primary entry point for developers to find and understand APIs within the pl
 | **Global Search Bar** | Accessible from Dashboard and Repository pages. Natural language input |
 | **Hybrid Search** | Embedding (Dense) + BM25 (Sparse) + Knowledge Graph — fused via RRF, re-ranked by cross-encoder. See [Semantic Search Agent](./modules/semantic-search.agent.md) |
 | **Permission-aware** | Results pre-filtered by RBAC effective permissions — users only see APIs they can access |
-| **Search Scope** | Global (across all accessible repos) or scoped to a single Repository/Team |
+| **Search Scope** | Global (across all accessible repos) or scoped to a single Repository/Organization |
 | **Filters** | Filter by HTTP method, tag, path prefix |
 | **Result Display** | API method + path, business intent summary, match reason, relevance score |
 | **Quick Actions** | Click result → navigate to API detail page |
@@ -341,7 +392,7 @@ Conversational RAG interface for deeper API understanding.
 | **Conversational Q&A** | Multi-turn chat; ask follow-up questions naturally |
 | **RAG Pipeline** | Query Rewriting → Permission Pre-filter → Hybrid Retrieval (Embedding + BM25 + KG) → RRF Coarse Rank → Cross-encoder Fine Rank → Context Assembly → Answer Generation (LLM) |
 | **Source Citations** | Every answer links back to the specific APIs and models it references |
-| **Knowledge Scope** | Single Repository, or cross-repo within a Team |
+| **Knowledge Scope** | Single Repository, or cross-repo within an Organization |
 
 **Retrieval details:** [Semantic Search Agent](./modules/semantic-search.agent.md) covers chunk strategy, BM25 + embedding hybrid, query rewriting, permission filtering, and two-stage ranking in depth.
 
@@ -363,20 +414,20 @@ This is a **user-triggered LLM call** — separate from the automated Business C
 
 Apigent's RBAC model (defined in [2.8 RBAC Model](#28-rbac-model)) is surfaced in the Platform Webapp through the following interactions:
 
-### 3.8.1 Team-level Role Management
+### 3.8.1 Organization-level Role Management
 
 | Feature | Description |
 |---------|-------------|
-| **Role Assignment** | When inviting a member or editing an existing member, assign a Team role: `team_owner`, `team_admin`, or `team_member` |
-| **Role Inheritance** | Team role automatically grants the corresponding repo-level role on all current and future repos in the Team |
-| **Role Change** | Team Owner/Admin can change a member's role at any time |
-| **Transfer Ownership** | Team Owner can transfer ownership to another member |
+| **Role Assignment** | When inviting a member or editing an existing member, assign an Organization role: `org_owner`, `org_admin`, or `org_member` |
+| **Role Inheritance** | Organization role automatically grants the corresponding repo-level role on all current and future repos in the Organization |
+| **Role Change** | Organization Owner/Admin can change a member's role at any time |
+| **Transfer Ownership** | Organization Owner can transfer ownership to another member |
 
 ### 3.8.2 Repository-level Role Override
 
 | Feature | Description |
 |---------|-------------|
-| **Per-repo Override** | On any Repository, a `team_member` can be promoted to `repo_admin` or `repo_editor` without changing their Team role |
+| **Per-repo Override** | On any Repository, an `org_member` can be promoted to `repo_admin` or `repo_editor` without changing their Organization role |
 | **Override Display** | Repository member list shows both inherited role and explicit override (with visual indicator) |
 | **Effective Permission** | The higher of inherited + override applies per repository |
 
@@ -384,9 +435,9 @@ Apigent's RBAC model (defined in [2.8 RBAC Model](#28-rbac-model)) is surfaced i
 
 | Scenario | Setup | Result |
 |----------|-------|--------|
-| **New Team Member** | Invited as `team_member` | Can view all repos (inherited `repo_viewer`) but cannot edit |
-| **Promoted Editor** | `team_member` + override `repo_editor` on Repo A | Can edit Repo A, viewer on all other repos |
-| **External Collaborator** | Not a Team member, assigned `repo_viewer` on Repo B | Can only view Repo B, no access to other repos |
+| **New Organization Member** | Invited as `org_member` | Can view all repos (inherited `repo_viewer`) but cannot edit |
+| **Promoted Editor** | `org_member` + override `repo_editor` on Repo A | Can edit Repo A, viewer on all other repos |
+| **External Collaborator** | Not an Organization member, assigned `repo_viewer` on Repo B | Can only view Repo B, no access to other repos |
 | **MCP Access** | `repo_admin` on Repo C + Secret Key with `mcp:*` scopes | Can use MCP tools on Repo C |
 
 ## 3.9 MCP Settings
@@ -394,7 +445,7 @@ Apigent's RBAC model (defined in [2.8 RBAC Model](#28-rbac-model)) is surfaced i
 | Feature | Description |
 |---------|-------------|
 | **Enable/Disable per Repo** | Toggle MCP access for each repository |
-| **Access Scope** | Control which tools are exposed: `search_apis`, `get_api_detail`, `get_project_context` |
+| **Access Scope** | Control which tools are exposed. V0: `search_apis` + `get_api_detail`; `get_project_context` ships with Project in V1+ |
 | **Usage Monitoring** | View MCP call count and history per key |
 | **Connection Info** | Display MCP endpoint URL for users to configure in Cursor/Claude |
 
@@ -430,7 +481,7 @@ A separate application for platform administrators. Accessible only by users wit
 | Metric | Description |
 |--------|-------------|
 | **User Count** | Total registered users, new registrations (daily/weekly) |
-| **Team Count** | Total teams, active teams |
+| **Organization Count** | Total organizations, active organizations |
 | **Repository Count** | Total repos, repos with MCP enabled |
 | **API Count** | Total API endpoints across all repos |
 | **MCP Usage** | Total MCP calls, by repo, by key, time series |
@@ -441,7 +492,7 @@ A separate application for platform administrators. Accessible only by users wit
 | Feature | Description |
 |---------|-------------|
 | **User List** | Searchable, filterable list of all users |
-| **User Detail** | Full profile, teams, repos, activity log |
+| **User Detail** | Full profile, organizations, repos, activity log |
 | **Disable Account** | Temporarily suspend a user account |
 | **Enable Account** | Reactivate a disabled account |
 | **Delete Account** | Permanently remove a user and their data (with confirmation + cooling period) |
@@ -502,9 +553,9 @@ Apigent's MCP Gateway uses **Streamable HTTP** (2025 spec), not the older SSE-ba
 |----------|------------------|-------|
 | `search_apis` | Standard request → response | One HTTP POST, JSON result |
 | `get_api_detail` | Standard request → response | One HTTP POST, JSON result |
-| `get_project_context` | Standard request → response | One HTTP POST, JSON result |
+| `get_project_context` (V1+) | Standard request → response | One HTTP POST, JSON result |
 
-All three tools are **plain request-response** — no streaming, no server push, no persistent connection needed. MCP does not require SSE or long-lived connections for this use case. The separation is an **architectural choice** (independent scaling + deployment flexibility), not a protocol requirement.
+All tools are **plain request-response** — no streaming, no server push, no persistent connection needed. MCP does not require SSE or long-lived connections for this use case. The separation is an **architectural choice** (independent scaling + deployment flexibility), not a protocol requirement.
 
 ## 5.2 Technology Choices
 
@@ -650,10 +701,10 @@ Step 2: Is there an explicit RepoPermission for (userId, repoId)?
         └── Yes → use that role's permissions
         └── No  → fall through to Step 3
 
-Step 3: What is the user's Team role?
-        └── team_owner  → inherits repo_admin (all repos in Team)
-        └── team_admin  → inherits repo_editor (all repos in Team)
-        └── team_member → inherits repo_viewer (all repos in Team)
+Step 3: What is the user's Organization role?
+        └── org_owner  → inherits repo_admin (all repos in Organization)
+        └── org_admin  → inherits repo_editor (all repos in Organization)
+        └── org_member → inherits repo_viewer (all repos in Organization)
 
 Step 4: Map role → permissions, check if requiredPermission is included
         └── Yes → ALLOW
@@ -664,17 +715,17 @@ Step 4: Map role → permissions, check if requiredPermission is included
 
 ```ts
 import { db } from "@/server/db"
-import { teamMembers, repoPermissions, users } from "@/server/db/schema"
+import { orgMembers, repoPermissions, users } from "@/server/db/schema"
 import { eq, and } from "drizzle-orm"
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  team_owner:  ["team:manage_members", "team:delete", "team:manage_settings",
-                "repo:read", "repo:write", "repo:import", "repo:delete",
-                "repo:manage_permissions", "repo:manage_mcp"],
-  team_admin:  ["team:manage_members", "team:manage_settings",
-                "repo:read", "repo:write", "repo:import", "repo:delete",
-                "repo:manage_permissions", "repo:manage_mcp"],
-  team_member: ["repo:read"],
+  org_owner:  ["org:manage_members", "org:delete", "org:manage_settings",
+               "repo:read", "repo:write", "repo:import", "repo:delete",
+               "repo:manage_permissions", "repo:manage_mcp"],
+  org_admin:  ["org:manage_members", "org:manage_settings",
+               "repo:read", "repo:write", "repo:import", "repo:delete",
+               "repo:manage_permissions", "repo:manage_mcp"],
+  org_member: ["repo:read"],
   repo_admin:  ["repo:read", "repo:write", "repo:import", "repo:delete",
                 "repo:manage_permissions", "repo:manage_mcp"],
   repo_editor: ["repo:read", "repo:write", "repo:import"],
@@ -682,15 +733,15 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   platform_admin: ["admin:manage_users", "admin:view_stats", "admin:view_audit"],
 }
 
-const TEAM_ROLE_INHERITANCE: Record<string, string> = {
-  team_owner:  "repo_admin",
-  team_admin:  "repo_editor",
-  team_member: "repo_viewer",
+const ORG_ROLE_INHERITANCE: Record<string, string> = {
+  org_owner:  "repo_admin",
+  org_admin:  "repo_editor",
+  org_member: "repo_viewer",
 }
 
 async function checkPermission(
   userId: string,
-  resourceType: "team" | "repo" | "mcp" | "admin",
+  resourceType: "org" | "repo" | "mcp" | "admin",
   resourceId: string,
   requiredPermission: string,
 ): Promise<boolean> {
@@ -714,31 +765,31 @@ async function checkPermission(
       return ROLE_PERMISSIONS[explicitRole.role]?.includes(requiredPermission) ?? false
     }
 
-    // 2b. Fall back to inherited Team role
-    const { teamId } = await db.query.repos.findFirst({
+    // 2b. Fall back to inherited Organization role
+    const { orgId } = await db.query.repos.findFirst({
       where: eq(repos.id, resourceId),
-      columns: { teamId: true },
+      columns: { orgId: true },
     }) ?? {}
-    if (teamId) {
-      const membership = await db.query.teamMembers.findFirst({
+    if (orgId) {
+      const membership = await db.query.orgMembers.findFirst({
         where: and(
-          eq(teamMembers.userId, userId),
-          eq(teamMembers.teamId, teamId),
+          eq(orgMembers.userId, userId),
+          eq(orgMembers.orgId, orgId),
         ),
       })
       if (membership) {
-        const inheritedRole = TEAM_ROLE_INHERITANCE[membership.role]
+        const inheritedRole = ORG_ROLE_INHERITANCE[membership.role]
         return ROLE_PERMISSIONS[inheritedRole]?.includes(requiredPermission) ?? false
       }
     }
   }
 
-  // 3. For team-scoped checks
-  if (resourceType === "team") {
-    const membership = await db.query.teamMembers.findFirst({
+  // 3. For org-scoped checks
+  if (resourceType === "org") {
+    const membership = await db.query.orgMembers.findFirst({
       where: and(
-        eq(teamMembers.userId, userId),
-        eq(teamMembers.teamId, resourceId),
+        eq(orgMembers.userId, userId),
+        eq(orgMembers.orgId, resourceId),
       ),
     })
     if (membership) {
@@ -769,8 +820,8 @@ const ROUTE_PERMISSIONS: Record<string, { type: string; permission: string }> = 
   "/api/repos/:repoId/import":     { type: "repo", permission: "repo:import" },
   "/api/repos/:repoId/settings":   { type: "repo", permission: "repo:manage_permissions" },
   "/api/repos/:repoId/mcp":        { type: "repo", permission: "repo:manage_mcp" },
-  "/api/teams/:teamId/members":    { type: "team", permission: "team:manage_members" },
-  "/api/teams/:teamId/settings":   { type: "team", permission: "team:manage_settings" },
+  "/api/orgs/:orgId/members":      { type: "org", permission: "org:manage_members" },
+  "/api/orgs/:orgId/settings":     { type: "org", permission: "org:manage_settings" },
   "/api/admin/*":                  { type: "admin", permission: "admin:view_stats" },
 }
 
@@ -1363,11 +1414,12 @@ Consolidating from the blueprint roadmap, V0 covers the minimal usable product:
 | Area | V0 Features |
 |------|------------|
 | **Auth** | Email login/register, session management |
-| **Team** | Create team, invite members, basic roles |
+| **Organization** | Create organization, invite members, basic roles |
 | **Repository** | Create repo, import OpenAPI (file/URL), version list |
 | **Browsing** | Endpoint list (grouped by tag), model list, semantic search (natural language) |
-| **Core Engine** | OpenAPI Parser → Business Context Agent → Knowledge Graph |
-| **MCP** | Basic MCP Gateway with `search_apis` + `get_api_detail` + `get_project_context` |
+| **Core Engine** | OpenAPI Parser → Business Context Agent (Knowledge Graph is a V1+ optional enhancement, disabled by default) |
+| **MCP** | Basic MCP Gateway with `search_apis` + `get_api_detail` (`get_project_context` ships with Project in V1+) |
 | **Secret Keys** | Generate, list, delete keys |
 | **Dashboard** | Simple repo list + recent activity |
 | **Admin** | Basic user list, platform stats |
+| **Project** | Model defined in the domain model only; no features in V0 |
