@@ -172,7 +172,7 @@ User-level API key for MCP access. External AI Agents use this key to authentica
 | `name` | string | Human-readable key name |
 | `key_hash` | string | Hashed key (raw key shown only once at creation) |
 | `key_prefix` | string | First 8 chars for identification (e.g., `apigent_sk_...`) |
-| `scopes` | string[] | Permission scopes: `mcp:read`, `mcp:search` |
+| `scopes` | string[] | Permission scopes: `mcp:search`, `mcp:detail`, `mcp:context` |
 | `last_used_at` | timestamp | Last usage timestamp |
 | `expires_at` | timestamp | Expiration time (optional) |
 | `created_at` | timestamp | Creation time |

@@ -11,7 +11,7 @@ Apigent 对外服务的唯一入口。实现 MCP (Model Context Protocol) Server
 ```
 外部 Agent (Cursor / Claude / 自定义)
         |
-   MCP Protocol (JSON-RPC over stdio/SSE)
+   MCP Protocol (Streamable HTTP)
         |
 MCP Gateway
         |
@@ -65,7 +65,7 @@ apis   api  context
 ### 1. 协议适配
 
 - 支持 MCP `initialize` → `tools/list` → `tools/call` 完整生命周期
-- 传输层：stdio（本地 Agent）和 SSE（远程 Agent/Web）
+- 传输层：Streamable HTTP（`@modelcontextprotocol/sdk`）——普通请求-响应，无 SSE / 长连接
 - 错误处理：MCP 标准错误码映射
 
 ### 2. Tool 路由
@@ -76,20 +76,20 @@ apis   api  context
 
 ### 3. 会话管理
 
-- 每个外部 Agent 连接维护独立会话
+- Streamable HTTP 无持久连接：按 API Key 维护逻辑会话（可选，V1+）
 - 会话上下文：记录已查询过的 API，辅助理解后续查询
-- 会话超时：30 分钟无活动自动断开
+- 会话超时：30 分钟无活动自动失效
 
 ### 4. 限流与安全
 
-- 每个会话 rate limit：60 次/分钟
+- 每个 API Key rate limit：60 次/分钟
 - API key 认证：外部 Agent 使用用户级 SecretKey（`apigent_sk_...`），按 `scopes` 控制工具访问，仓库内容仍走 `repo:*` 权限
 - 审计日志：记录所有 MCP 调用
 
 ## 行为规范
 
 1. **透明转发**：不修改下游组件返回的数据
-2. **延迟敏感**：search_apis p50 < 200ms, get_api_detail p50 < 100ms
+2. **延迟敏感**：`search_apis`（fast 模式）p50 < 200ms、p99 < 500ms；deep 模式 p50 < 800ms、p99 < 1500ms；`get_api_detail` p50 < 100ms
 3. **优雅降级**：下游 Agent 不可用时返回标准错误，不崩溃
 
 ## 依赖
@@ -100,8 +100,9 @@ apis   api  context
 ## 部署
 
 ```
-开发: stdio 模式，本地 MCP config 直接指向
-生产: SSE 模式，通过反向代理暴露 HTTPS 端点
+开发/生产均使用 Streamable HTTP：
+  开发: 本地启动 Hono 服务（端口 3002，路径 /mcp）
+  生产: 通过反向代理暴露 HTTPS 端点（如 https://apigent.dev/mcp）
 ```
 
 ### 本地 MCP 配置示例
@@ -110,11 +111,10 @@ apis   api  context
 {
   "mcpServers": {
     "apigent": {
-      "command": "npx",
-      "args": ["@apigent/mcp-server"],
-      "env": {
-        "APIGENT_API_KEY": "<your-api-key>",
-        "APIGENT_BASE_URL": "https://apigent.dev"
+      "type": "http",
+      "url": "https://apigent.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer <apigent_sk_your-key>"
       }
     }
   }

@@ -23,12 +23,18 @@ interface ParsedAPIModel {
   repo_id: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
-  parse_errors: ParseError[];   // 解析警告（不阻塞）
+  parse_issues: ParseIssue[];   // 校验问题：warning 不阻塞，error 跳过该 API
   meta: {
     openapi_version: string;
     parsed_at: number;
     source_url?: string;
   };
+}
+
+interface ParseIssue {
+  api_id?: string;              // 关联的 API（error 级时该 API 被跳过）
+  severity: "warning" | "error";
+  message: string;
 }
 
 interface APIEntry {
@@ -64,8 +70,8 @@ interface APIEntry {
 
 ### 4. 校验
 - Schema 完整性检查（必填字段、类型一致性）
-- 不合规项生成 `ParseError`，不阻塞解析
-- 错误分级：`warning`（可继续）/ `error`（该 API 跳过）
+- 不合规项生成 `ParseIssue`，不阻塞解析
+- 错误分级：`warning`（可继续，计入 `parse_issues`）/ `error`（该 API 被跳过并计入 `parse_issues`）
 
 ## 行为规范
 
@@ -89,6 +95,6 @@ interface APIEntry {
 | 场景 | 行为 |
 |------|------|
 | 超大文件（>10MB, >500 paths） | 分批解析，每批 100 个 path |
-| 空文件 / 无效 JSON | 返回 `ParseError`，不崩溃 |
+| 空文件 / 无效 JSON | 返回 error 级 `ParseIssue`，不崩溃 |
 | 已在其他 Repository 导入过同一文件 | 提示确认，支持跨仓库复用 API Model |
 | 中文/特殊字符的 path/summary | 完整保留，不做转义 |

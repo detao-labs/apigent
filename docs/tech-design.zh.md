@@ -172,7 +172,7 @@ Apigent 由三个应用层组成：
 | `name` | string | 密钥名称（可读） |
 | `key_hash` | string | 密钥哈希（原始密钥仅在创建时展示一次） |
 | `key_prefix` | string | 前 8 个字符用于识别（如 `apigent_sk_...`） |
-| `scopes` | string[] | 权限范围：`mcp:read`、`mcp:search` |
+| `scopes` | string[] | 权限范围：`mcp:search`、`mcp:detail`、`mcp:context` |
 | `last_used_at` | timestamp | 最后使用时间 |
 | `expires_at` | timestamp | 过期时间（可选） |
 | `created_at` | timestamp | 创建时间 |
