@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
-// Apigent Core — Barrel Export
+// DI Providers — Barrel Export
 // ═══════════════════════════════════════════════════════════════════
 
-export * from "./config";
-export * from "./types";
-export * from "./di";
+export { MemoryVectorStore } from "./memory-vector-store";
+export { StubLLMProvider } from "./stub-llm";
+export { StubEmbeddingProvider } from "./stub-embedding";
+export { LocalStorageProvider } from "./local-storage";
+export { MemoryQueueProvider } from "./memory-queue";

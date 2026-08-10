@@ -3,4 +3,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, {
   ignores: ["**/dist/", "**/.turbo/", "**/node_modules/", "**/.next/", "**/coverage/"],
+  rules: {
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+      },
+    ],
+  },
 });

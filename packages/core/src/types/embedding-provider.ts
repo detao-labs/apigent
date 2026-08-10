@@ -1,7 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════
-// Apigent Core — Barrel Export
+// Embedding Provider Interface
 // ═══════════════════════════════════════════════════════════════════
 
-export * from "./config";
-export * from "./types";
-export * from "./di";
+export interface EmbeddingProvider {
+  /** Generate embeddings for multiple texts (for indexing) */
+  embed(texts: string[]): Promise<number[][]>;
+
+  /** Generate embedding for a single query string */
+  embedQuery(query: string): Promise<number[]>;
+}
