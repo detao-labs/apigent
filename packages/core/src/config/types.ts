@@ -29,12 +29,7 @@ export interface DatabaseConfig {
 // ───────────────────────────────────────────────────────────────────
 
 export type VectorStoreProvider =
-  | "pgvector"
-  | "milvus"
-  | "qdrant"
-  | "weaviate"
-  | "pinecone"
-  | "chroma";
+  "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma";
 
 export type VectorStoreIndexType = "ivfflat" | "hnsw";
 
@@ -80,12 +75,7 @@ export interface ChromaConfig {
 }
 
 export type VectorStoreConfig =
-  | PgvectorConfig
-  | MilvusConfig
-  | QdrantConfig
-  | WeaviateConfig
-  | PineconeConfig
-  | ChromaConfig;
+  PgvectorConfig | MilvusConfig | QdrantConfig | WeaviateConfig | PineconeConfig | ChromaConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 3. LLM Provider
@@ -98,12 +88,7 @@ export type LLMProviderType = "qwen" | "claude" | "openai" | "gemini" | "ollama"
  * Each flow can use a different model — e.g., a cheap/fast model for
  * query rewriting and a more capable model for RAG answer generation.
  */
-export type LLMFlow =
-  | "default"
-  | "business_context"
-  | "query_rewrite"
-  | "rag_answer"
-  | "editing";
+export type LLMFlow = "default" | "business_context" | "query_rewrite" | "rag_answer" | "editing";
 
 /** Map from flow name to model ID */
 export type LLMFlowModelMap = Record<LLMFlow, string>;
@@ -141,23 +126,14 @@ export interface QwenLLMConfig {
 }
 
 export type LLMConfig =
-  | QwenLLMConfig
-  | ClaudeLLMConfig
-  | OpenAILLMConfig
-  | GeminiLLMConfig
-  | OllamaLLMConfig;
+  QwenLLMConfig | ClaudeLLMConfig | OpenAILLMConfig | GeminiLLMConfig | OllamaLLMConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 4. Embedding Provider
 // ───────────────────────────────────────────────────────────────────
 
 export type EmbeddingProviderType =
-  | "qwen"
-  | "claude"
-  | "openai"
-  | "cohere"
-  | "local-bge"
-  | "local-fastembed";
+  "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed";
 
 export interface QwenEmbeddingConfig {
   provider: "qwen";
@@ -208,10 +184,10 @@ export type EmbeddingConfig =
 // ───────────────────────────────────────────────────────────────────
 
 export type RetrievalMode =
-  | "hybrid"       // Dense + Sparse (+ KG traversal when knowledgeGraph.enabled)
-  | "dense-only"   // Embedding only
-  | "sparse-only"  // BM25 only
-  | "kg-only";     // Knowledge Graph only (requires knowledgeGraph.enabled)
+  | "hybrid" // Dense + Sparse (+ KG traversal when knowledgeGraph.enabled)
+  | "dense-only" // Embedding only
+  | "sparse-only" // BM25 only
+  | "kg-only"; // Knowledge Graph only (requires knowledgeGraph.enabled)
 
 export type FusionMethod = "rrf" | "linear";
 
@@ -242,10 +218,7 @@ export interface NoRerankerConfig {
 }
 
 export type RerankerConfig =
-  | BgeRerankerConfig
-  | CohereRerankerConfig
-  | QwenRerankerConfig
-  | NoRerankerConfig;
+  BgeRerankerConfig | CohereRerankerConfig | QwenRerankerConfig | NoRerankerConfig;
 
 /**
  * Knowledge Graph enhancement (V1+).
@@ -293,7 +266,7 @@ export interface S3StorageConfig {
   provider: "s3" | "minio";
   bucket: string;
   region: string;
-  endpoint?: string;       // for MinIO
+  endpoint?: string; // for MinIO
   accessKeyId: string;
   secretAccessKey: string;
 }
@@ -304,10 +277,7 @@ export interface GCSStorageConfig {
   projectId: string;
 }
 
-export type StorageConfig =
-  | LocalStorageConfig
-  | S3StorageConfig
-  | GCSStorageConfig;
+export type StorageConfig = LocalStorageConfig | S3StorageConfig | GCSStorageConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 7. Queue Provider
@@ -336,10 +306,7 @@ export interface MemoryQueueConfig {
 }
 
 export type QueueConfig =
-  | BullmqQueueConfig
-  | RabbitmqQueueConfig
-  | SqsQueueConfig
-  | MemoryQueueConfig;
+  BullmqQueueConfig | RabbitmqQueueConfig | SqsQueueConfig | MemoryQueueConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 8. Auth

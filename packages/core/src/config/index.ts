@@ -90,9 +90,4 @@ export {
 
 // ── Public API — the only way to load config ──────────────────────
 
-export {
-  loadConfig,
-  findConfigFile,
-  getConfig,
-  resetConfig,
-} from "./file-loader";
+export { loadConfig, findConfigFile, getConfig, resetConfig } from "./file-loader";

@@ -158,7 +158,7 @@ rag:
 
   # Query rewriting (LLM rewrites user query for better retrieval)
   queryRewrite: true
-  queryRewriteCacheTtl: 3600  # seconds (1 hour)
+  queryRewriteCacheTtl: 3600 # seconds (1 hour)
 
   # Knowledge Graph enhancement (V1+, default disabled)
   # When enabled, hybrid retrieval adds graph-traversal recall
@@ -259,8 +259,8 @@ mcp:
 # ───────────────────────────────────────────────────────────────────
 server:
   host: "0.0.0.0"
-  port: 3002          # API server port (webapp runs on 3000, admin on 3001)
-  logLevel: info      # "debug" | "info" | "warn" | "error"
+  port: 3002 # API server port (webapp runs on 3000, admin on 3001)
+  logLevel: info # "debug" | "info" | "warn" | "error"
 
 # ───────────────────────────────────────────────────────────────────
 # 11. Webapp URLs (for CORS, redirects, internal calls)

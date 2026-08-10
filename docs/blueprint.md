@@ -344,7 +344,6 @@ Features:
 - Smart Mock generation
 - API knowledge assistant
 
-
 ---
 
 ## V2 - Agent Engineering Platform
@@ -356,7 +355,6 @@ Features:
 - Advanced MCP tools
 - Agent observability
 - API governance
-
 
 ---
 
@@ -402,7 +400,6 @@ Target users:
 - Full-stack developers
 - Platform engineers
 - Agent Engineering practitioners
-
 
 ## Ecosystem Direction
 

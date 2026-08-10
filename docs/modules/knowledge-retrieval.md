@@ -10,12 +10,12 @@
 
 ## 输入
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `api_id` | `string` | API 唯一标识 |
-| `project_id` | `string` | 使用上下文所属 Project（必填，或默认取用户可访问的第一个项目） |
-| `include_examples?` | `boolean` | 是否包含请求/响应示例，默认 true |
-| `include_relations?` | `boolean` | 是否包含关联 API，默认 true |
+| 字段                 | 类型      | 说明                                                           |
+| -------------------- | --------- | -------------------------------------------------------------- |
+| `api_id`             | `string`  | API 唯一标识                                                   |
+| `project_id`         | `string`  | 使用上下文所属 Project（必填，或默认取用户可访问的第一个项目） |
+| `include_examples?`  | `boolean` | 是否包含请求/响应示例，默认 true                               |
+| `include_relations?` | `boolean` | 是否包含关联 API，默认 true                                    |
 
 ## 输出
 
@@ -24,12 +24,12 @@ interface APIKnowledgeCard {
   api_id: string;
   repo_id: string;
   project_id: string;
-  
+
   // 基础信息
   method: string;
   path: string;
   summary: string;
-  
+
   // 技术 Schema（来自 OpenAPI Parser）
   schema: {
     parameters: Parameter[];
@@ -37,7 +37,7 @@ interface APIKnowledgeCard {
     responses: Record<string, SchemaDef>;
     security: SecurityRequirement[];
   };
-  
+
   // 能力上下文（来自 Business Context Agent，repo 级，V0）
   capability: {
     intent: string;
@@ -51,23 +51,23 @@ interface APIKnowledgeCard {
     when_not_to_use: string[];
     usage_policy: string[];
   };
-  
+
   // 示例（来自 Business Context Agent）
   examples?: {
     request: Example[];
     response: Example[];
     errors: Example[];
   };
-  
+
   // 关联 API（来自 Knowledge Graph Service，V1+ 可选）
   relations?: {
-    depends_on: string[];       // 前置依赖 API
-    follow_up: string[];        // 后继 API
-    alternative: string[];      // 可替代 API
-    related: string[];          // 相关 API
-    workflow?: string;          // 所属工作流
+    depends_on: string[]; // 前置依赖 API
+    follow_up: string[]; // 后继 API
+    alternative: string[]; // 可替代 API
+    related: string[]; // 相关 API
+    workflow?: string; // 所属工作流
   };
-  
+
   // 版本信息
   version: {
     current: string;
@@ -93,6 +93,7 @@ Knowledge Retrieval Service
 ### 2. 按需裁剪
 
 根据调用方需求选择性返回：
+
 - 外部 Agent 调用：返回完整知识卡片
 - 列表展示：仅返回 `method + path + summary + intent`
 - 变更分析：仅返回 `schema + version`
@@ -122,8 +123,8 @@ Knowledge Retrieval Service
 
 ## 边界情况
 
-| 场景 | 行为 |
-|------|------|
-| API ID 不存在 | 返回 `404`，附带最相似 API 的搜索建议 |
-| 使用上下文尚未构建 | `usage` 字段返回 `undefined`，`needs_enrichment: true` |
+| 场景                    | 行为                                                   |
+| ----------------------- | ------------------------------------------------------ |
+| API ID 不存在           | 返回 `404`，附带最相似 API 的搜索建议                  |
+| 使用上下文尚未构建      | `usage` 字段返回 `undefined`，`needs_enrichment: true` |
 | 关联 API 中部分已被删除 | `relations` 中过滤掉已删除 API，添加 `stale_refs` 提示 |

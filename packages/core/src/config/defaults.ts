@@ -10,12 +10,7 @@
 // Secrets come exclusively from process.env / .env.
 // ═══════════════════════════════════════════════════════════════════
 
-import type {
-  ApigentConfig,
-  LLMFlowModelMap,
-  RAGConfig,
-  ServerConfig,
-} from "./types";
+import type { ApigentConfig, LLMFlowModelMap, RAGConfig, ServerConfig } from "./types";
 
 // ───────────────────────────────────────────────────────────────────
 // LLM — per-flow model defaults (Claude)

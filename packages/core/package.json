@@ -10,9 +10,14 @@
     "./config": "./src/config/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "format": "prettier --write src/",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "@types/node": "^26.2.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.0"
   }
 }

@@ -18,21 +18,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ApigentConfig } from "./types";
-import {
-  _buildConfigFromEnv,
-  getConfig,
-  resetConfig,
-  setConfig,
-} from "./loader";
+import { _buildConfigFromEnv, getConfig, resetConfig, setConfig } from "./loader";
 
 // ───────────────────────────────────────────────────────────────────
 // Config file discovery
 // ───────────────────────────────────────────────────────────────────
 
-const CONFIG_FILE_NAMES = [
-  "apigent.config.yaml",
-  "apigent.config.yml",
-] as const;
+const CONFIG_FILE_NAMES = ["apigent.config.yaml", "apigent.config.yml"] as const;
 
 /**
  * Find the first existing config file from the default list.
@@ -61,6 +53,7 @@ export function findConfigFile(rootDir?: string): string | null {
 function parseYAML(content: string): Record<string, unknown> {
   // Try external YAML parser first
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const yaml = require("yaml");
     return yaml.parse(content) ?? {};
   } catch {
@@ -68,6 +61,7 @@ function parseYAML(content: string): Record<string, unknown> {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const jsYaml = require("js-yaml");
     return jsYaml.load(content) ?? {};
   } catch {
@@ -95,7 +89,7 @@ function parseSimpleYAML(content: string): Record<string, unknown> {
     obj: Record<string, unknown>;
     indent: number;
   }> = [];
-  let currentObj = result;
+  const currentObj = result;
 
   for (const rawLine of lines) {
     // Strip comments
@@ -158,8 +152,10 @@ function parseYamlValue(value: string): unknown {
   // number
   if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
   // quoted string
-  if ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
     return value.slice(1, -1);
   }
   return value;
@@ -217,7 +213,7 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   };
   const llmEnvKey = llmApiKeyMap[config.llm.provider];
   if (llmEnvKey && process.env[llmEnvKey]) {
-    (config.llm as Record<string, unknown>).apiKey = process.env[llmEnvKey];
+    (config.llm as unknown as Record<string, unknown>).apiKey = process.env[llmEnvKey];
   }
 
   // Embedding — API keys
@@ -228,18 +224,21 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   };
   const embEnvKey = embApiKeyMap[config.embedding.provider];
   if (embEnvKey && process.env[embEnvKey]) {
-    (config.embedding as Record<string, unknown>).apiKey = process.env[embEnvKey];
+    (config.embedding as unknown as Record<string, unknown>).apiKey = process.env[embEnvKey];
   }
   if (config.embedding.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
-    (config.embedding as Record<string, unknown>).apiKey = process.env.APIGENT_COHERE_API_KEY;
+    (config.embedding as unknown as Record<string, unknown>).apiKey =
+      process.env.APIGENT_COHERE_API_KEY;
   }
 
   // Reranker — Cohere API key
   if (config.rag.reranker.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
-    (config.rag.reranker as Record<string, unknown>).apiKey = process.env.APIGENT_COHERE_API_KEY;
+    (config.rag.reranker as unknown as Record<string, unknown>).apiKey =
+      process.env.APIGENT_COHERE_API_KEY;
   }
   if (config.rag.reranker.provider === "qwen" && process.env.DASHSCOPE_API_KEY) {
-    (config.rag.reranker as Record<string, unknown>).apiKey = process.env.DASHSCOPE_API_KEY;
+    (config.rag.reranker as unknown as Record<string, unknown>).apiKey =
+      process.env.DASHSCOPE_API_KEY;
   }
 
   // Auth secrets
@@ -261,30 +260,37 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   }
 
   // Storage — S3/MinIO credentials
-  if (
-    (config.storage.provider === "s3" || config.storage.provider === "minio")
-  ) {
+  if (config.storage.provider === "s3" || config.storage.provider === "minio") {
     if (process.env.APIGENT_STORAGE_S3_ACCESS_KEY_ID) {
-      (config.storage as Record<string, unknown>).accessKeyId = process.env.APIGENT_STORAGE_S3_ACCESS_KEY_ID;
+      (config.storage as unknown as Record<string, unknown>).accessKeyId =
+        process.env.APIGENT_STORAGE_S3_ACCESS_KEY_ID;
     }
     if (process.env.APIGENT_STORAGE_S3_SECRET_ACCESS_KEY) {
-      (config.storage as Record<string, unknown>).secretAccessKey = process.env.APIGENT_STORAGE_S3_SECRET_ACCESS_KEY;
+      (config.storage as unknown as Record<string, unknown>).secretAccessKey =
+        process.env.APIGENT_STORAGE_S3_SECRET_ACCESS_KEY;
     }
   }
 
   // Vector store secrets
   if (config.vectorStore.provider === "milvus") {
-    if (process.env.APIGENT_MILVUS_USER) (config.vectorStore as Record<string, unknown>).user = process.env.APIGENT_MILVUS_USER;
-    if (process.env.APIGENT_MILVUS_PASSWORD) (config.vectorStore as Record<string, unknown>).password = process.env.APIGENT_MILVUS_PASSWORD;
+    if (process.env.APIGENT_MILVUS_USER)
+      (config.vectorStore as unknown as Record<string, unknown>).user =
+        process.env.APIGENT_MILVUS_USER;
+    if (process.env.APIGENT_MILVUS_PASSWORD)
+      (config.vectorStore as unknown as Record<string, unknown>).password =
+        process.env.APIGENT_MILVUS_PASSWORD;
   }
   if (config.vectorStore.provider === "qdrant" && process.env.APIGENT_QDRANT_API_KEY) {
-    (config.vectorStore as Record<string, unknown>).apiKey = process.env.APIGENT_QDRANT_API_KEY;
+    (config.vectorStore as unknown as Record<string, unknown>).apiKey =
+      process.env.APIGENT_QDRANT_API_KEY;
   }
   if (config.vectorStore.provider === "weaviate" && process.env.APIGENT_WEAVIATE_API_KEY) {
-    (config.vectorStore as Record<string, unknown>).apiKey = process.env.APIGENT_WEAVIATE_API_KEY;
+    (config.vectorStore as unknown as Record<string, unknown>).apiKey =
+      process.env.APIGENT_WEAVIATE_API_KEY;
   }
   if (config.vectorStore.provider === "pinecone" && process.env.APIGENT_PINECONE_API_KEY) {
-    (config.vectorStore as Record<string, unknown>).apiKey = process.env.APIGENT_PINECONE_API_KEY;
+    (config.vectorStore as unknown as Record<string, unknown>).apiKey =
+      process.env.APIGENT_PINECONE_API_KEY;
   }
 
   // Connection URLs (always from env)
@@ -292,10 +298,10 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
     config.database.url = process.env.APIGENT_DATABASE_URL;
   }
   if (process.env.APIGENT_REDIS_URL && config.queue.provider === "bullmq") {
-    (config.queue as Record<string, unknown>).redisUrl = process.env.APIGENT_REDIS_URL;
+    (config.queue as unknown as Record<string, unknown>).redisUrl = process.env.APIGENT_REDIS_URL;
   }
   if (process.env.APIGENT_RABBITMQ_URL && config.queue.provider === "rabbitmq") {
-    (config.queue as Record<string, unknown>).url = process.env.APIGENT_RABBITMQ_URL;
+    (config.queue as unknown as Record<string, unknown>).url = process.env.APIGENT_RABBITMQ_URL;
   }
 
   return config;
@@ -344,7 +350,10 @@ export function loadConfig(rootDir?: string): ApigentConfig {
   let mergedConfig = baseConfig;
   if (filePath) {
     const fileConfig = parseYAML(fs.readFileSync(filePath, "utf-8"));
-    mergedConfig = deepMerge(baseConfig, fileConfig as Record<string, unknown>);
+    mergedConfig = deepMerge(
+      baseConfig as unknown as Record<string, unknown>,
+      fileConfig as Record<string, unknown>,
+    ) as unknown as ApigentConfig;
   }
 
   // 3. Inject secrets from .env

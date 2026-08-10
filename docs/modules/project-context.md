@@ -10,8 +10,8 @@
 
 ## 输入
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
+| 字段         | 类型     | 说明    |
+| ------------ | -------- | ------- |
 | `project_id` | `string` | 项目 ID |
 
 ## 输出
@@ -21,29 +21,29 @@ interface ProjectContext {
   project_id: string;
   name: string;
   description: string;
-  
+
   // 认证
   auth: {
-    type: 'bearer' | 'api_key' | 'oauth2' | 'basic' | 'none';
+    type: "bearer" | "api_key" | "oauth2" | "basic" | "none";
     details: AuthDetail;
-    default_header: string;       // "Authorization: Bearer <token>"
+    default_header: string; // "Authorization: Bearer <token>"
   };
-  
+
   // 领域概念
   domain: {
-    entities: DomainEntity[];     // 核心业务实体
-    glossary: GlossaryEntry[];    // 术语表
+    entities: DomainEntity[]; // 核心业务实体
+    glossary: GlossaryEntry[]; // 术语表
   };
-  
+
   // API 约定
   conventions: {
     base_url: string;
-    version_strategy: 'path' | 'header' | 'query';  // /v1/ vs X-API-Version
-    date_format: string;          // ISO 8601
+    version_strategy: "path" | "header" | "query"; // /v1/ vs X-API-Version
+    date_format: string; // ISO 8601
     pagination: PaginationStyle;
     error_format: ErrorFormat;
   };
-  
+
   // 通用模型
   common_models: {
     name: string;
@@ -57,6 +57,7 @@ interface ProjectContext {
 ### 1. 自动提取
 
 从已导入的 API 中自动提取项目级约定：
+
 - `base_url`：从 OpenAPI `servers[0].url` 提取
 - `pagination`：检测分页参数模式（offset/limit vs cursor）
 - `error_format`：从 responses 中的 error schema 推断
@@ -92,8 +93,8 @@ interface ProjectContext {
 
 ## 边界情况
 
-| 场景 | 行为 |
-|------|------|
-| 新项目（无 API 导入） | 返回空白模板，所有字段 `null`，引导用户填写 |
-| 多环境（dev/staging/prod） | 每个环境独立的 base_url，存储为数组 |
+| 场景                              | 行为                                                         |
+| --------------------------------- | ------------------------------------------------------------ |
+| 新项目（无 API 导入）             | 返回空白模板，所有字段 `null`，引导用户填写                  |
+| 多环境（dev/staging/prod）        | 每个环境独立的 base_url，存储为数组                          |
 | 认证类型混合（部分 API 不同认证） | 主认证类型作为 default，例外 API 在各 API 的 security 中标记 |

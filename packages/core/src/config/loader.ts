@@ -70,7 +70,10 @@ function envInt(key: string, fallback: number): number {
 function envList(key: string, fallback: string[]): string[] {
   const value = process.env[key];
   if (value === undefined || value === "") return fallback;
-  return value.split(",").map((s) => s.trim()).filter(Boolean);
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -89,7 +92,10 @@ function loadDatabase(): DatabaseConfig {
 // ───────────────────────────────────────────────────────────────────
 
 function loadVectorStore(): VectorStoreConfig {
-  const provider = env("APIGENT_VECTOR_STORE_PROVIDER", "pgvector") as VectorStoreConfig["provider"];
+  const provider = env(
+    "APIGENT_VECTOR_STORE_PROVIDER",
+    "pgvector",
+  ) as VectorStoreConfig["provider"];
 
   switch (provider) {
     case "pgvector":
@@ -158,8 +164,14 @@ function loadLLM(): LLMConfig {
         baseUrl: envOptional("APIGENT_LLM_QWEN_BASE_URL"),
         models: {
           default: env("APIGENT_LLM_QWEN_DEFAULT_MODEL", DEFAULT_QWEN_MODELS.default),
-          business_context: env("APIGENT_LLM_QWEN_BUSINESS_CONTEXT_MODEL", DEFAULT_QWEN_MODELS.business_context),
-          query_rewrite: env("APIGENT_LLM_QWEN_QUERY_REWRITE_MODEL", DEFAULT_QWEN_MODELS.query_rewrite),
+          business_context: env(
+            "APIGENT_LLM_QWEN_BUSINESS_CONTEXT_MODEL",
+            DEFAULT_QWEN_MODELS.business_context,
+          ),
+          query_rewrite: env(
+            "APIGENT_LLM_QWEN_QUERY_REWRITE_MODEL",
+            DEFAULT_QWEN_MODELS.query_rewrite,
+          ),
           rag_answer: env("APIGENT_LLM_QWEN_RAG_ANSWER_MODEL", DEFAULT_QWEN_MODELS.rag_answer),
           editing: env("APIGENT_LLM_QWEN_EDITING_MODEL", DEFAULT_QWEN_MODELS.editing),
         },
@@ -171,8 +183,14 @@ function loadLLM(): LLMConfig {
         apiKey: envOptional("ANTHROPIC_API_KEY") ?? "",
         models: {
           default: env("APIGENT_LLM_CLAUDE_DEFAULT_MODEL", DEFAULT_CLAUDE_MODELS.default),
-          business_context: env("APIGENT_LLM_CLAUDE_BUSINESS_CONTEXT_MODEL", DEFAULT_CLAUDE_MODELS.business_context),
-          query_rewrite: env("APIGENT_LLM_CLAUDE_QUERY_REWRITE_MODEL", DEFAULT_CLAUDE_MODELS.query_rewrite),
+          business_context: env(
+            "APIGENT_LLM_CLAUDE_BUSINESS_CONTEXT_MODEL",
+            DEFAULT_CLAUDE_MODELS.business_context,
+          ),
+          query_rewrite: env(
+            "APIGENT_LLM_CLAUDE_QUERY_REWRITE_MODEL",
+            DEFAULT_CLAUDE_MODELS.query_rewrite,
+          ),
           rag_answer: env("APIGENT_LLM_CLAUDE_RAG_ANSWER_MODEL", DEFAULT_CLAUDE_MODELS.rag_answer),
           editing: env("APIGENT_LLM_CLAUDE_EDITING_MODEL", DEFAULT_CLAUDE_MODELS.editing),
         },
@@ -184,8 +202,14 @@ function loadLLM(): LLMConfig {
         apiKey: envOptional("OPENAI_API_KEY") ?? "",
         models: {
           default: env("APIGENT_LLM_OPENAI_DEFAULT_MODEL", DEFAULT_OPENAI_MODELS.default),
-          business_context: env("APIGENT_LLM_OPENAI_BUSINESS_CONTEXT_MODEL", DEFAULT_OPENAI_MODELS.business_context),
-          query_rewrite: env("APIGENT_LLM_OPENAI_QUERY_REWRITE_MODEL", DEFAULT_OPENAI_MODELS.query_rewrite),
+          business_context: env(
+            "APIGENT_LLM_OPENAI_BUSINESS_CONTEXT_MODEL",
+            DEFAULT_OPENAI_MODELS.business_context,
+          ),
+          query_rewrite: env(
+            "APIGENT_LLM_OPENAI_QUERY_REWRITE_MODEL",
+            DEFAULT_OPENAI_MODELS.query_rewrite,
+          ),
           rag_answer: env("APIGENT_LLM_OPENAI_RAG_ANSWER_MODEL", DEFAULT_OPENAI_MODELS.rag_answer),
           editing: env("APIGENT_LLM_OPENAI_EDITING_MODEL", DEFAULT_OPENAI_MODELS.editing),
         },
@@ -197,8 +221,14 @@ function loadLLM(): LLMConfig {
         apiKey: envOptional("GEMINI_API_KEY") ?? "",
         models: {
           default: env("APIGENT_LLM_GEMINI_DEFAULT_MODEL", DEFAULT_GEMINI_MODELS.default),
-          business_context: env("APIGENT_LLM_GEMINI_BUSINESS_CONTEXT_MODEL", DEFAULT_GEMINI_MODELS.business_context),
-          query_rewrite: env("APIGENT_LLM_GEMINI_QUERY_REWRITE_MODEL", DEFAULT_GEMINI_MODELS.query_rewrite),
+          business_context: env(
+            "APIGENT_LLM_GEMINI_BUSINESS_CONTEXT_MODEL",
+            DEFAULT_GEMINI_MODELS.business_context,
+          ),
+          query_rewrite: env(
+            "APIGENT_LLM_GEMINI_QUERY_REWRITE_MODEL",
+            DEFAULT_GEMINI_MODELS.query_rewrite,
+          ),
           rag_answer: env("APIGENT_LLM_GEMINI_RAG_ANSWER_MODEL", DEFAULT_GEMINI_MODELS.rag_answer),
           editing: env("APIGENT_LLM_GEMINI_EDITING_MODEL", DEFAULT_GEMINI_MODELS.editing),
         },
@@ -210,8 +240,14 @@ function loadLLM(): LLMConfig {
         baseUrl: env("APIGENT_LLM_OLLAMA_BASE_URL", "http://localhost:11434"),
         models: {
           default: env("APIGENT_LLM_OLLAMA_DEFAULT_MODEL", DEFAULT_OLLAMA_MODELS.default),
-          business_context: env("APIGENT_LLM_OLLAMA_BUSINESS_CONTEXT_MODEL", DEFAULT_OLLAMA_MODELS.business_context),
-          query_rewrite: env("APIGENT_LLM_OLLAMA_QUERY_REWRITE_MODEL", DEFAULT_OLLAMA_MODELS.query_rewrite),
+          business_context: env(
+            "APIGENT_LLM_OLLAMA_BUSINESS_CONTEXT_MODEL",
+            DEFAULT_OLLAMA_MODELS.business_context,
+          ),
+          query_rewrite: env(
+            "APIGENT_LLM_OLLAMA_QUERY_REWRITE_MODEL",
+            DEFAULT_OLLAMA_MODELS.query_rewrite,
+          ),
           rag_answer: env("APIGENT_LLM_OLLAMA_RAG_ANSWER_MODEL", DEFAULT_OLLAMA_MODELS.rag_answer),
           editing: env("APIGENT_LLM_OLLAMA_EDITING_MODEL", DEFAULT_OLLAMA_MODELS.editing),
         },
@@ -315,7 +351,10 @@ function loadReranker(): RerankerConfig {
 }
 
 function loadRAG(): RAGConfig {
-  const retrievalMode = env("APIGENT_RAG_RETRIEVAL_MODE", DEFAULT_RAG_CONFIG.retrievalMode) as RAGConfig["retrievalMode"];
+  const retrievalMode = env(
+    "APIGENT_RAG_RETRIEVAL_MODE",
+    DEFAULT_RAG_CONFIG.retrievalMode,
+  ) as RAGConfig["retrievalMode"];
   const knowledgeGraphEnabled = envBool(
     "APIGENT_RAG_KNOWLEDGE_GRAPH_ENABLED",
     DEFAULT_RAG_CONFIG.knowledgeGraph.enabled,
@@ -326,13 +365,22 @@ function loadRAG(): RAGConfig {
 
   return {
     retrievalMode,
-    fusionMethod: env("APIGENT_RAG_FUSION_METHOD", DEFAULT_RAG_CONFIG.fusionMethod) as RAGConfig["fusionMethod"],
+    fusionMethod: env(
+      "APIGENT_RAG_FUSION_METHOD",
+      DEFAULT_RAG_CONFIG.fusionMethod,
+    ) as RAGConfig["fusionMethod"],
     coarseRankTopK: envInt("APIGENT_RAG_COARSE_RANK_TOP_K", DEFAULT_RAG_CONFIG.coarseRankTopK),
     reranker: loadReranker(),
     fineRankTopK: envInt("APIGENT_RAG_FINE_RANK_TOP_K", DEFAULT_RAG_CONFIG.fineRankTopK),
-    chunkStrategy: env("APIGENT_RAG_CHUNK_STRATEGY", DEFAULT_RAG_CONFIG.chunkStrategy) as RAGConfig["chunkStrategy"],
+    chunkStrategy: env(
+      "APIGENT_RAG_CHUNK_STRATEGY",
+      DEFAULT_RAG_CONFIG.chunkStrategy,
+    ) as RAGConfig["chunkStrategy"],
     queryRewrite: envBool("APIGENT_RAG_QUERY_REWRITE", DEFAULT_RAG_CONFIG.queryRewrite),
-    queryRewriteCacheTtl: envInt("APIGENT_RAG_QUERY_REWRITE_CACHE_TTL", DEFAULT_RAG_CONFIG.queryRewriteCacheTtl),
+    queryRewriteCacheTtl: envInt(
+      "APIGENT_RAG_QUERY_REWRITE_CACHE_TTL",
+      DEFAULT_RAG_CONFIG.queryRewriteCacheTtl,
+    ),
     knowledgeGraph: { enabled: knowledgeGraphEnabled },
   };
 }
@@ -499,9 +547,7 @@ export function _buildConfigFromEnv(): ApigentConfig {
  */
 export function getConfig(): ApigentConfig {
   if (!_config) {
-    throw new Error(
-      "Config not loaded. Call loadConfig() from @apigent/core/config at startup."
-    );
+    throw new Error("Config not loaded. Call loadConfig() from @apigent/core/config at startup.");
   }
   return _config;
 }
