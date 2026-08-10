@@ -571,9 +571,9 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 | **Webapp 样式** | Tailwind CSS                            | —                   | 原子化 CSS，快速 UI 开发                                                        |
 | **API Server**  | Hono（TypeScript）                      | —                   | 轻量（12KB）、多运行时、Web 标准 `Request`/`Response`、Express 风格 API         |
 | **类型桥梁**    | REST + Hono RPC（`hc`）+ OpenAPI（Zod） | —                   | 标准 REST 契约；Hono RPC 提供类型安全客户端；OpenAPI 文档由 Zod Schema 自动生成 |
-| **数据库**      | PostgreSQL                              | `DatabaseAdapter`   | 关系型数据；Drizzle ORM 已支持 MySQL、SQLite——仅需更换驱动和 Schema             |
+| **数据库**      | PostgreSQL                              | `DatabaseAdapter`   | V0 关系型存储；仅支持 PostgreSQL（Drizzle pg-core Schema）                         |
 | **向量存储**    | pgvector                                | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                    |
-| **ORM**         | Drizzle                                 | `DatabaseAdapter`   | SQL 优先、类型安全；Drizzle 以统一 API 支持 PostgreSQL、MySQL、SQLite           |
+| **ORM**         | Drizzle                                 | `DatabaseAdapter`   | SQL 优先、类型安全；V0 使用 PostgreSQL（pg-core）——其他方言规划中，暂未支持       |
 | **异步任务**    | BullMQ + Redis                          | `QueueProvider`     | OpenAPI 导入、LLM 推理、批处理——可按需换 RabbitMQ/SQS                           |
 | **认证**        | NextAuth.js（credentials + OAuth）      | `AuthProvider`      | Next.js 生态成熟、灵活的认证方案；可接自定义 OIDC/LDAP                          |
 | **LLM**         | Qwen API（阿里云百炼）                  | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型         |
@@ -955,7 +955,7 @@ packages/auth/
 
 ### 5.5.1 设计理念
 
-Apigent 是一个**开源、自托管**的平台。不同团队有不同的基础设施偏好——有的用 MySQL，有的用 Milvus 做向量搜索，有的想用 OpenAI 而非 Qwen。Apigent 不强绑定单一技术栈，而是为每个基础设施关注点定义 **TypeScript 接口**，并提供合理的默认实现。用户通过修改配置来替换实现，无需改动代码。
+Apigent 是一个**开源、自托管**的平台。不同团队有不同的基础设施偏好——有的用 Milvus 做向量搜索，有的想用 OpenAI 而非 Qwen。Apigent 不强绑定单一技术栈，而是为每个基础设施关注点定义 **TypeScript 接口**，并提供合理的默认实现。用户通过修改配置来替换实现，无需改动代码。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1263,7 +1263,7 @@ Apigent 使用**双层配置系统**，方便开发环境和部署环境之间�
 | ------------ | --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释）                 | `llm.provider: qwen`、`rag.retrievalMode: hybrid`                  |
 | **密钥**     | `.env`                | API key、密码、连接字符串（`APIGENT_` 前缀）                             | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
-| **编程配置** | `apigent.config.ts`   | 自定义 provider 工厂、高级配置（可选 — 大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册                                |
+| **编程配置** | `apigent.config.ts`   | 自定义 provider 工厂、高级配置（**规划中，V0 未实现**；大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册 |
 
 **默认工作流 — apigent.config.yaml + .env（95% 用户）：**
 
@@ -1307,6 +1307,8 @@ const config = loadConfig();
 ```
 
 **高级工作流 — apigent.config.ts（自定义 provider）：**
+
+> ⚠️ **状态：规划中（V1+）。** `loadConfig()` 目前只读取 `apigent.config.yaml` + `.env`，`ApigentConfig` 字段是纯数据而非工厂。下面的示例描述的是目标设计。
 
 对于自定义 provider 实现，`apigent.config.ts` 在 YAML + env 基础上提供编程式覆盖：
 

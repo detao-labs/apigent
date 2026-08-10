@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./config": "./src/config/index.ts",
     "./types": "./src/types/index.ts",
-    "./di": "./src/di/index.ts"
+    "./di": "./src/di/index.ts",
+    "./db": "./src/db/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -26,6 +27,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "yaml": "^2.9.0",
+    "zod": "^3.24.0"
   }
 }

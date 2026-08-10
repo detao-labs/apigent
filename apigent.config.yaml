@@ -23,11 +23,8 @@ database:
 # 2. Vector Store — semantic / embedding search
 # ───────────────────────────────────────────────────────────────────
 vectorStore:
-  # "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma" | "memory"
+  # "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma"
   provider: pgvector
-
-  # --- Memory (local development / tests only) ---
-  # provider: memory
 
   # --- pgvector --- (uses same PostgreSQL, no extra config needed)
   # Index type: "ivfflat" | "hnsw"

@@ -13,3 +13,4 @@ export {
 } from "./endpoint";
 export { secretKeys } from "./secret";
 export { operationLogs, operationLogDetails } from "./audit";
+export { knowledgeChunks } from "./knowledge";

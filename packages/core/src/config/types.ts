@@ -16,7 +16,11 @@
 // 1. Database
 // ───────────────────────────────────────────────────────────────────
 
-export type DbProvider = "postgresql" | "mysql" | "sqlite";
+/**
+ * V0 supports PostgreSQL only — the Drizzle schema (packages/core/src/db)
+ * is built on `drizzle-orm/pg-core`. Other dialects are not implemented.
+ */
+export type DbProvider = "postgresql";
 
 export interface DatabaseConfig {
   provider: DbProvider;
@@ -29,9 +33,14 @@ export interface DatabaseConfig {
 // ───────────────────────────────────────────────────────────────────
 
 export type VectorStoreProvider =
-  "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma";
+  "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma" | "memory";
 
 export type VectorStoreIndexType = "ivfflat" | "hnsw";
+
+/** In-memory vector store — local development / tests only */
+export interface MemoryVectorStoreConfig {
+  provider: "memory";
+}
 
 export interface PgvectorConfig {
   provider: "pgvector";
@@ -75,7 +84,13 @@ export interface ChromaConfig {
 }
 
 export type VectorStoreConfig =
-  PgvectorConfig | MilvusConfig | QdrantConfig | WeaviateConfig | PineconeConfig | ChromaConfig;
+  | MemoryVectorStoreConfig
+  | PgvectorConfig
+  | MilvusConfig
+  | QdrantConfig
+  | WeaviateConfig
+  | PineconeConfig
+  | ChromaConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 3. LLM Provider

@@ -74,11 +74,13 @@ All `docs/*.md` files have a `.zh.md` counterpart. Both must be kept in sync whe
 
 ## Package Structure & Import Conventions
 
-Only `@apigent/core` exists so far. There is **no root `package.json`** — each package is self-contained. Work inside the package directory:
+The workspace is a pnpm monorepo with a root `package.json` (scripts: `typecheck`, `lint`, `test`, `format`) — `packages/core` plus the `apps/*` shells. Most work happens inside a package directory:
 
 ```bash
 cd packages/core
 pnpm typecheck    # tsc --noEmit
+pnpm lint         # eslint src/
+pnpm test         # vitest run
 ```
 
 All packages follow this pattern from `packages/core/package.json`:
@@ -96,11 +98,12 @@ The config system is the first (and currently only) implemented module. It has t
 | `types.ts`       | Discriminated unions for every infrastructure component                                         | Yes — all types re-exported                             |
 | `loader.ts`      | Reads `process.env` (with `APIGENT_` prefix), builds typed config objects, manages singleton    | Internal only (`_buildConfigFromEnv`, `setConfig`)      |
 | `file-loader.ts` | Reads `apigent.config.yaml` + calls loader + injects secrets from `.env` → caches via singleton | **Yes — `loadConfig()` is the only public entry point** |
+| `schema.ts`      | Zod schemas mirroring `types.ts`; `loadConfig()` validates the merged config before caching    | Yes — `ApigentConfigSchema` re-exported                 |
 | `defaults.ts`    | Per-provider default model maps and dev defaults                                                | Yes                                                     |
 
 **Resolution priority:** YAML file > env vars > hardcoded defaults. Secrets (API keys, passwords, URLs) are **never** in defaults or YAML — they come exclusively from `process.env` / `.env` via `injectSecrets()`.
 
-**Notable:** `file-loader.ts` includes a built-in simple YAML parser as a fallback when neither `yaml` nor `js-yaml` packages are installed. It handles the Apigent config subset (scalars, nested objects, arrays, comments) and avoids a mandatory dependency for config loading alone.
+**Notable:** `yaml` is a declared dependency (full YAML 1.2 parsing). `loadConfig()` loads `<rootDir>/.env` into `process.env` (shell env wins), then validates the fully-merged config with the zod `ApigentConfigSchema` — wrong-typed YAML values and unknown provider names fail at startup with a readable error.
 
 **Env var naming convention:** `APIGENT_<CATEGORY>_<KEY>` (e.g., `APIGENT_DATABASE_URL`, `APIGENT_LLM_PROVIDER`, `APIGENT_RAG_COARSE_RANK_TOP_K`). Third-party keys use their standard names (`DASHSCOPE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`).
 
@@ -109,13 +112,18 @@ The config system is the first (and currently only) implemented module. It has t
 | Command          | Where            | Description                          |
 | ---------------- | ---------------- | ------------------------------------ |
 | `pnpm typecheck` | `packages/core/` | Run `tsc --noEmit` for type-checking |
+| `pnpm lint`      | `packages/core/` | Run ESLint over `src/`               |
+| `pnpm test`      | `packages/core/` | Run Vitest                           |
+| `pnpm -r <cmd>`  | root             | Run a script across all packages     |
 
-There is no build system (turborepo/nx), no linter, no test framework, and no root `package.json` configured yet. When adding tooling, follow the monorepo pattern established by `packages/core/package.json`.
+There is no build system (turborepo/nx) — TypeScript sources are consumed directly via tsx/ts-node. When adding tooling, follow the monorepo pattern established by `packages/core/package.json`.
 
 ## Current State
 
 No working application yet. What exists:
 
-- `packages/core/src/config/` — fully typed configuration system (the first implemented module)
+- `packages/core/src/config/` — fully typed, runtime-validated configuration system (YAML + `.env` + zod)
+- `packages/core/src/di/` — fail-fast DI container with provider factory registries
+- `packages/core/src/db/` — Drizzle schema (pg-core) exported via `@apigent/core/db`
 - Design documents covering the full V0 architecture
 - `tsconfig.base.json` at root, per-package tsconfigs extending it

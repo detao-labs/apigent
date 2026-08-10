@@ -17,7 +17,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { parse as parseYaml } from "yaml";
 import type { ApigentConfig } from "./types";
+import { ApigentConfigSchema } from "./schema";
 import { _buildConfigFromEnv, getConfig, resetConfig, setConfig } from "./loader";
 
 // ───────────────────────────────────────────────────────────────────
@@ -47,118 +49,15 @@ export function findConfigFile(rootDir?: string): string | null {
 
 /**
  * Parse a YAML string into an object.
- * Tries to use the `yaml` package if available, otherwise falls back
- * to a built-in simple parser (handles the common Apigent config subset).
+ * Uses the `yaml` package (declared dependency) — full YAML 1.2 support.
  */
 function parseYAML(content: string): Record<string, unknown> {
-  // Try external YAML parser first
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const yaml = require("yaml");
-    return yaml.parse(content) ?? {};
-  } catch {
-    // Fall through
+  const parsed = parseYaml(content);
+  if (parsed === null || parsed === undefined) return {};
+  if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("apigent.config.yaml must contain a top-level mapping (object).");
   }
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const jsYaml = require("js-yaml");
-    return jsYaml.load(content) ?? {};
-  } catch {
-    // Fall through
-  }
-
-  // Built-in simple YAML parser — handles Apigent's config subset:
-  // - key: value pairs (scalars, numbers, booleans, quoted strings)
-  // - nested objects (indented blocks)
-  // - arrays ( - item)
-  // - comments (#)
-  return parseSimpleYAML(content);
-}
-
-/**
- * Simple YAML parser for Apigent config files.
- * Handles the common subset: scalars, objects, arrays, comments.
- * Not a full YAML 1.2 spec — but sufficient for apigent.config.yaml.
- */
-function parseSimpleYAML(content: string): Record<string, unknown> {
-  const lines = content.split("\n");
-  const result: Record<string, unknown> = {};
-  const stack: Array<{
-    key: string;
-    obj: Record<string, unknown>;
-    indent: number;
-  }> = [];
-  const currentObj = result;
-
-  for (const rawLine of lines) {
-    // Strip comments
-    const commentIdx = rawLine.indexOf("#");
-    const line = commentIdx >= 0 ? rawLine.slice(0, commentIdx) : rawLine;
-
-    // Skip empty lines
-    if (line.trim() === "") continue;
-
-    const indent = line.search(/\S/);
-    const trimmed = line.trim();
-
-    // Array item: - value
-    if (trimmed.startsWith("- ")) {
-      const value = parseYamlValue(trimmed.slice(2).trim());
-      const lastKey = stack.length > 0 ? stack[stack.length - 1].key : "";
-      const target = stack.length > 0 ? stack[stack.length - 1].obj : currentObj;
-      const existing = target[lastKey];
-      if (Array.isArray(existing)) {
-        existing.push(value);
-      } else {
-        target[lastKey] = [value];
-      }
-      continue;
-    }
-
-    // Pop stack based on indentation
-    while (stack.length > 0 && indent <= stack[stack.length - 1].indent) {
-      stack.pop();
-    }
-
-    // Key: value
-    const colonIdx = trimmed.indexOf(":");
-    if (colonIdx === -1) continue;
-
-    const key = trimmed.slice(0, colonIdx).trim();
-    const valueStr = trimmed.slice(colonIdx + 1).trim();
-
-    const target = stack.length > 0 ? stack[stack.length - 1].obj : currentObj;
-
-    if (valueStr === "" || valueStr === "{}") {
-      // Nested object starts
-      const nested: Record<string, unknown> = {};
-      target[key] = nested;
-      stack.push({ key, obj: nested, indent });
-    } else {
-      target[key] = parseYamlValue(valueStr);
-    }
-  }
-
-  return result;
-}
-
-function parseYamlValue(value: string): unknown {
-  // boolean
-  if (value === "true" || value === "True" || value === "TRUE") return true;
-  if (value === "false" || value === "False" || value === "FALSE") return false;
-  // null
-  if (value === "null" || value === "Null" || value === "NULL" || value === "~") return null;
-  // number
-  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
-  // quoted string
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
+  return parsed as Record<string, unknown>;
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -308,6 +207,60 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
 }
 
 // ───────────────────────────────────────────────────────────────────
+// .env loading
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * Load `<rootDir>/.env` into process.env (secrets only).
+ * Existing shell environment variables take precedence — the file only
+ * fills in missing values, matching Node's `--env-file` semantics.
+ *
+ * Uses `process.loadEnvFile()` when available (Node >= 20.12), with a
+ * minimal KEY=VALUE fallback for older runtimes.
+ */
+function loadDotEnv(rootDir?: string): void {
+  const root = rootDir ?? process.cwd();
+  const envPath = path.join(root, ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  if (typeof process.loadEnvFile === "function") {
+    process.loadEnvFile(envPath);
+    return;
+  }
+
+  for (const [key, value] of Object.entries(parseEnvFile(fs.readFileSync(envPath, "utf-8")))) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+/**
+ * Minimal `.env` parser for older Node versions — supports comments,
+ * blank lines, and single/double-quoted values. Not a full dotenv spec.
+ */
+function parseEnvFile(content: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const eqIndex = line.indexOf("=");
+    if (eqIndex === -1) continue;
+
+    const key = line.slice(0, eqIndex).trim();
+    let value = line.slice(eqIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (key) result[key] = value;
+  }
+  return result;
+}
+
+// ───────────────────────────────────────────────────────────────────
 // Main Entry Point
 // ───────────────────────────────────────────────────────────────────
 
@@ -342,6 +295,10 @@ export function loadConfig(rootDir?: string): ApigentConfig {
     // Not loaded yet — proceed
   }
 
+  // Load .env before building the env-based base config, so secrets are
+  // available even when the runtime didn't source them beforehand.
+  loadDotEnv(rootDir);
+
   // 1. Build base from env vars
   const baseConfig = _buildConfigFromEnv();
 
@@ -359,9 +316,13 @@ export function loadConfig(rootDir?: string): ApigentConfig {
   // 3. Inject secrets from .env
   mergedConfig = injectSecrets(mergedConfig);
 
-  // 4. Cache via shared singleton
-  setConfig(mergedConfig);
-  return mergedConfig;
+  // 4. Validate the fully-merged config before caching — wrong-typed YAML
+  //    values and invalid provider names fail fast with a readable error.
+  const validatedConfig = ApigentConfigSchema.parse(mergedConfig);
+
+  // 5. Cache via shared singleton
+  setConfig(validatedConfig);
+  return validatedConfig;
 }
 
 // Re-export getConfig / resetConfig from loader for convenience

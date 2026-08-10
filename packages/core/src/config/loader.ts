@@ -81,8 +81,14 @@ function envList(key: string, fallback: string[]): string[] {
 // ───────────────────────────────────────────────────────────────────
 
 function loadDatabase(): DatabaseConfig {
+  const provider = env("APIGENT_DB_PROVIDER", "postgresql");
+  if (provider !== "postgresql") {
+    throw new Error(
+      `Unsupported database provider: ${provider}. Apigent V0 supports PostgreSQL only (drizzle-orm/pg-core).`,
+    );
+  }
   return {
-    provider: env("APIGENT_DB_PROVIDER", "postgresql") as DatabaseConfig["provider"],
+    provider,
     url: env("APIGENT_DATABASE_URL"),
   };
 }
@@ -98,6 +104,9 @@ function loadVectorStore(): VectorStoreConfig {
   ) as VectorStoreConfig["provider"];
 
   switch (provider) {
+    case "memory":
+      return { provider: "memory" };
+
     case "pgvector":
       return {
         provider: "pgvector",

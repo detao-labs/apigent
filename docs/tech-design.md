@@ -572,9 +572,9 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 | **Webapp Styling**  | Tailwind CSS                           | —                       | Utility-first, rapid UI development                                                        |
 | **API Server**      | Hono (TypeScript)                      | —                       | Lightweight (12KB), multi-runtime, Web standard `Request`/`Response`, Express-like API     |
 | **Type Bridge**     | REST + Hono RPC (`hc`) + OpenAPI (Zod) | —                       | Standard REST contract; typed client via Hono RPC; OpenAPI docs generated from Zod schemas |
-| **Database**        | PostgreSQL                             | `DatabaseAdapter`       | Relational data; Drizzle ORM already supports MySQL, SQLite — swap driver + schema         |
+| **Database**        | PostgreSQL                             | `DatabaseAdapter`       | V0 relational store; PostgreSQL only (Drizzle pg-core schema)                              |
 | **Vector Store**    | pgvector                               | `VectorStore`           | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale                       |
-| **ORM**             | Drizzle                                | `DatabaseAdapter`       | SQL-first, type-safe; Drizzle supports PostgreSQL, MySQL, SQLite with same API             |
+| **ORM**             | Drizzle                                | `DatabaseAdapter`       | SQL-first, type-safe; PostgreSQL (pg-core) for V0 — other dialects planned, not yet supported |
 | **Async Tasks**     | BullMQ + Redis                         | `QueueProvider`         | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS as needed           |
 | **Auth**            | NextAuth.js (credentials + OAuth)      | `AuthProvider`          | Mature, flexible auth for Next.js; supports custom OIDC/LDAP providers                     |
 | **LLM**             | Qwen API (Alibaba Cloud Model Studio)  | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models             |
@@ -956,7 +956,7 @@ packages/auth/
 
 ### 5.5.1 Design Philosophy
 
-Apigent is an **open-source, self-hosted** platform. Different teams have different infrastructure preferences — some run MySQL, some use Milvus for vector search, some want OpenAI instead of Qwen. Rather than forcing a single stack, Apigent defines **TypeScript interfaces** for each infrastructure concern and ships with sensible defaults. Users swap implementations by changing configuration, not code.
+Apigent is an **open-source, self-hosted** platform. Different teams have different infrastructure preferences — some use Milvus for vector search, some want OpenAI instead of Qwen. Rather than forcing a single stack, Apigent defines **TypeScript interfaces** for each infrastructure concern and ships with sensible defaults. Users swap implementations by changing configuration, not code.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1264,7 +1264,7 @@ Apigent uses a **two-layer configuration system** designed for easy switching be
 | ----------------------- | --------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | **Scheme choices**      | `apigent.config.yaml` | Which provider / model / strategy to use (structured YAML, supports comments)                 | `llm.provider: qwen`, `rag.retrievalMode: hybrid`                  |
 | **Secrets**             | `.env`                | API keys, passwords, connection strings (`APIGENT_` prefix)                                   | `DASHSCOPE_API_KEY`, `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET` |
-| **Programmatic config** | `apigent.config.ts`   | Custom provider factories, advanced wiring (optional — most users only need `.yaml` + `.env`) | Custom `VectorStore` implementation, plugin registration           |
+| **Programmatic config** | `apigent.config.ts`   | Custom provider factories, advanced wiring (**planned for V1+ — not implemented in V0**; most users only need `.yaml` + `.env`) | Custom `VectorStore` implementation, plugin registration |
 
 **Default workflow — apigent.config.yaml + .env (95% of users):**
 
@@ -1308,6 +1308,8 @@ const config = loadConfig();
 ```
 
 **Advanced workflow — apigent.config.ts (custom providers):**
+
+> ⚠️ **Status: planned (V1+).** `loadConfig()` currently reads only `apigent.config.yaml` + `.env`, and `ApigentConfig` fields are plain data, not factories. The example below describes the target design.
 
 For custom provider implementations, `apigent.config.ts` adds programmatic overrides on top of YAML + env:
 

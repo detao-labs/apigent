@@ -5,6 +5,12 @@
 // Maps config choices to provider instances. All access goes through
 // getContainer(), which lazy-initializes instances on first use.
 //
+// Fail-fast contract: a configured provider with no registered factory
+// throws when first accessed — never a silent stub/memory fallback.
+// Providers are registered per-component in factory registries, so
+// adding a real implementation is a one-line registration, not a switch
+// edit.
+//
 // Usage:
 //   import { getContainer } from "@apigent/core/di";
 //   const vs = getContainer().getVectorStore();
@@ -19,13 +25,9 @@ import type {
   StorageProvider,
   QueueProvider,
 } from "../types";
-import {
-  MemoryVectorStore,
-  StubLLMProvider,
-  StubEmbeddingProvider,
-  LocalStorageProvider,
-  MemoryQueueProvider,
-} from "./providers";
+import { MemoryVectorStore, LocalStorageProvider, MemoryQueueProvider } from "./providers";
+
+type ProviderFactory<T> = (config: ApigentConfig) => T;
 
 export class Container {
   private config: ApigentConfig;
@@ -36,108 +38,96 @@ export class Container {
   private _storage?: StorageProvider;
   private _queue?: QueueProvider;
 
+  private readonly vectorStoreFactories: Record<string, ProviderFactory<VectorStore>>;
+  private readonly storageFactories: Record<string, ProviderFactory<StorageProvider>>;
+  private readonly queueFactories: Record<string, ProviderFactory<QueueProvider>>;
+
   constructor(config: ApigentConfig) {
     this.config = config;
+
+    this.vectorStoreFactories = {
+      memory: () => new MemoryVectorStore(),
+    };
+    this.storageFactories = {
+      local: (c) => {
+        if (c.storage.provider !== "local") {
+          throw new Error(`Storage provider '${c.storage.provider}' is not 'local'.`);
+        }
+        return new LocalStorageProvider(c.storage.basePath);
+      },
+    };
+    this.queueFactories = {
+      memory: () => new MemoryQueueProvider(),
+    };
+  }
+
+  private resolve<T>(
+    component: string,
+    registries: Record<string, ProviderFactory<T>>,
+    provider: string,
+    hint?: string,
+  ): ProviderFactory<T> {
+    const factory = registries[provider];
+    if (!factory) {
+      const hintSuffix = hint ? ` ${hint}` : "";
+      throw new Error(`${component} provider '${provider}' is not implemented yet.${hintSuffix}`);
+    }
+    return factory;
   }
 
   getVectorStore(): VectorStore {
     if (!this._vectorStore) {
-      const vs = this.config.vectorStore;
-      switch (vs.provider) {
-        case "pgvector":
-          // TODO: Replace with PgVectorStore when implemented
-          this._vectorStore = new MemoryVectorStore();
-          break;
-        case "milvus":
-        case "qdrant":
-        case "weaviate":
-        case "pinecone":
-        case "chroma":
-          // TODO: Implement real providers
-          this._vectorStore = new MemoryVectorStore();
-          break;
-        default:
-          this._vectorStore = new MemoryVectorStore();
-      }
+      const factory = this.resolve(
+        "Vector store",
+        this.vectorStoreFactories,
+        this.config.vectorStore.provider,
+        "Use 'provider: memory' for local development.",
+      );
+      this._vectorStore = factory(this.config);
     }
     return this._vectorStore;
   }
 
   getLLM(): LLMProvider {
     if (!this._llm) {
-      const llm = this.config.llm;
-      switch (llm.provider) {
-        case "qwen":
-        case "claude":
-        case "openai":
-        case "gemini":
-        case "ollama":
-          // TODO: Implement real LLM providers
-          this._llm = new StubLLMProvider();
-          break;
-        default:
-          this._llm = new StubLLMProvider();
-      }
+      // No LLM providers are implemented yet — fail fast at wiring time
+      // instead of substituting a stub that throws at call time.
+      throw new Error(`LLM provider '${this.config.llm.provider}' is not implemented yet.`);
     }
     return this._llm;
   }
 
   getEmbedding(): EmbeddingProvider {
     if (!this._embedding) {
-      const emb = this.config.embedding;
-      switch (emb.provider) {
-        case "qwen":
-        case "claude":
-        case "openai":
-        case "cohere":
-        case "local-bge":
-        case "local-fastembed":
-          // TODO: Implement real embedding providers
-          this._embedding = new StubEmbeddingProvider();
-          break;
-        default:
-          this._embedding = new StubEmbeddingProvider();
-      }
+      throw new Error(
+        `Embedding provider '${this.config.embedding.provider}' is not implemented yet.`,
+      );
     }
     return this._embedding;
   }
 
   getStorage(): StorageProvider {
     if (!this._storage) {
-      const storage = this.config.storage;
-      switch (storage.provider) {
-        case "local":
-          this._storage = new LocalStorageProvider(storage.basePath);
-          break;
-        case "s3":
-        case "minio":
-        case "gcs":
-          // TODO: Implement cloud storage providers
-          this._storage = new LocalStorageProvider("./data/uploads");
-          break;
-        default:
-          this._storage = new LocalStorageProvider("./data/uploads");
-      }
+      const factory = this.resolve(
+        "Storage",
+        this.storageFactories,
+        this.config.storage.provider,
+        "Use 'provider: local' for local development.",
+      );
+      this._storage = factory(this.config);
     }
     return this._storage;
   }
 
   getQueue(): QueueProvider {
     if (!this._queue) {
-      const queue = this.config.queue;
-      switch (queue.provider) {
-        case "bullmq":
-        case "rabbitmq":
-        case "sqs":
-          // TODO: Implement real queue providers
-          this._queue = new MemoryQueueProvider();
-          break;
-        case "memory":
-          this._queue = new MemoryQueueProvider();
-          break;
-        default:
-          this._queue = new MemoryQueueProvider();
-      }
+      const factory = this.resolve(
+        "Queue",
+        this.queueFactories,
+        this.config.queue.provider,
+        "Use 'provider: memory' for local development.",
+      );
+      this._queue = factory(this.config);
     }
     return this._queue;
   }

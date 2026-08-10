@@ -77,6 +77,8 @@ export type {
   ApigentConfig,
 } from "./types";
 
+export { ApigentConfigSchema } from "./schema";
+
 export {
   DEFAULT_CLAUDE_MODELS,
   DEFAULT_QWEN_MODELS,

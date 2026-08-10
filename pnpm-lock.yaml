@@ -125,6 +125,12 @@ importers:
       pg:
         specifier: ^8.23.0
         version: 8.23.0
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+      zod:
+        specifier: ^3.24.0
+        version: 3.24.0
     devDependencies:
       '@types/node':
         specifier: ^26.2.0

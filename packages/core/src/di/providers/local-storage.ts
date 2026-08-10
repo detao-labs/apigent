@@ -13,7 +13,8 @@ export class LocalStorageProvider implements StorageProvider {
 
   private resolve(filePath: string): string {
     const resolved = path.resolve(this.basePath, filePath);
-    if (!resolved.startsWith(this.basePath)) {
+    const relative = path.relative(this.basePath, resolved);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
       throw new Error(`Path traversal not allowed: ${filePath}`);
     }
     return resolved;
