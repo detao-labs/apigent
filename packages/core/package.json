@@ -24,6 +24,8 @@
   "dependencies": {
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.0"
   }
 }
