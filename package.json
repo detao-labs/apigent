@@ -1,0 +1,24 @@
+{
+  "name": "apigent",
+  "private": true,
+  "description": "API collaboration platform with native AI Agent support",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.7.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.43.0",
+    "vitest": "^4.0.0"
+  },
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

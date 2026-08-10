@@ -10,10 +10,10 @@ Maintain bilingual (English ↔ Chinese) documentation for this project by keepi
 
 ## Naming convention
 
-| Language | Pattern | Example |
-|----------|---------|---------|
-| English (primary) | `<name>.md` | `README.md`, `docs/blueprint.md` |
-| Chinese | `<name>.zh.md` | `README.zh.md`, `docs/blueprint.zh.md` |
+| Language          | Pattern        | Example                                |
+| ----------------- | -------------- | -------------------------------------- |
+| English (primary) | `<name>.md`    | `README.md`, `docs/blueprint.md`       |
+| Chinese           | `<name>.zh.md` | `README.zh.md`, `docs/blueprint.zh.md` |
 
 The `.zh.md` suffix is the industry-standard convention used by major open-source
 projects (React, Vue, Vite, etc.).
@@ -60,7 +60,7 @@ Automatically sync when you:
 ### What NOT to sync
 
 - Do NOT create `.zh.md` for files outside `README.md` and `docs/`
-- Do NOT translate content inside code blocks (``` ... ```)
+- Do NOT translate content inside code blocks (`...`)
 - Do NOT translate YAML/JSON frontmatter field values unless they are
   human-facing prose
 
@@ -74,6 +74,7 @@ Target:   docs/blueprint.zh.md       (Chinese, same structure, prose in ZH)
 ```
 
 Both files share identical:
+
 - Section hierarchy (`#`, `##`, `###`)
 - Code blocks and diagrams
 - Inline code spans
@@ -92,6 +93,7 @@ immediately after the title (and frontmatter, if any):
 ```
 
 Rules:
+
 - The switcher is the **first line after the top-level heading** (or
   frontmatter).
 - Link targets are relative paths to the sibling file in the other

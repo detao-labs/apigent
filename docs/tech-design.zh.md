@@ -78,63 +78,63 @@ Apigent 由三个应用层组成：
 
 代表一个注册用户账号。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `id` | UUID | 唯一标识 |
-| `email` | string | 登录邮箱（唯一） |
-| `password_hash` | string | 密码哈希 |
-| `sso_providers` | string[] | 绑定 SSO 账号（github、google） |
-| `name` | string | 显示名称 |
-| `avatar_url` | string | 头像 URL |
-| `created_at` | timestamp | 注册时间 |
-| `updated_at` | timestamp | 最后更新时间 |
+| 字段            | 类型      | 说明                            |
+| --------------- | --------- | ------------------------------- |
+| `id`            | UUID      | 唯一标识                        |
+| `email`         | string    | 登录邮箱（唯一）                |
+| `password_hash` | string    | 密码哈希                        |
+| `sso_providers` | string[]  | 绑定 SSO 账号（github、google） |
+| `name`          | string    | 显示名称                        |
+| `avatar_url`    | string    | 头像 URL                        |
+| `created_at`    | timestamp | 注册时间                        |
+| `updated_at`    | timestamp | 最后更新时间                    |
 
 ## 2.3 Organization（组织）
 
 顶层租户边界。用户先创建 Organization，再在 Organization 下创建 Repository。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `id` | UUID | 唯一标识 |
-| `name` | string | 组织显示名称 |
-| `slug` | string | URL 友好的唯一标识 |
-| `owner_id` | UUID | 创建者 |
-| `created_at` | timestamp | 创建时间 |
+| 字段         | 类型      | 说明               |
+| ------------ | --------- | ------------------ |
+| `id`         | UUID      | 唯一标识           |
+| `name`       | string    | 组织显示名称       |
+| `slug`       | string    | URL 友好的唯一标识 |
+| `owner_id`   | UUID      | 创建者             |
+| `created_at` | timestamp | 创建时间           |
 
 ## 2.4 OrganizationMember（组织成员）
 
 关联用户与组织及其角色。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `user_id` | UUID | 用户引用 |
-| `org_id` | UUID | 组织引用 |
-| `role` | string | 角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
+| 字段      | 类型   | 说明                                            |
+| --------- | ------ | ----------------------------------------------- |
+| `user_id` | UUID   | 用户引用                                        |
+| `org_id`  | UUID   | 组织引用                                        |
+| `role`    | string | 角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
 
 **组织级角色：**
 
-| 角色 | 范围 | 概述 |
-|------|------|------|
-| `org_owner` | Organization | 完全控制：删除组织、管理成员、管理所有仓库 |
-| `org_admin` | Organization | 管理成员、管理组织内所有仓库 |
-| `org_member` | Organization | 根据仓库级角色分配访问仓库 |
+| 角色         | 范围         | 概述                                       |
+| ------------ | ------------ | ------------------------------------------ |
+| `org_owner`  | Organization | 完全控制：删除组织、管理成员、管理所有仓库 |
+| `org_admin`  | Organization | 管理成员、管理组织内所有仓库               |
+| `org_member` | Organization | 根据仓库级角色分配访问仓库                 |
 
 ## 2.5 Repository（仓库）
 
 技术资产容器。**一个仓库对应一份 OpenAPI 文件及其版本历史。** Repository 承载技术层 + **能力上下文**（V0）——该后端项目提供了哪些能力。消费方的**使用上下文**属于 Project（见 [2.9](#29-project项目)）。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `id` | UUID | 唯一标识 |
-| `org_id` | UUID | 所属 Organization |
-| `name` | string | 仓库名称 |
-| `description` | string | 仓库描述（支持 LLM 辅助生成） |
-| `capability_context` | object | 能力上下文（V0）：能力意图、约束、副作用、示例——由 Business Context Agent 产出 |
-| `openapi_versions` | Version[] | OpenAPI 版本历史 |
-| `current_version` | string | 当前活跃版本标识 |
-| `mcp_enabled` | boolean | 是否开启 MCP 服务 |
-| `created_at` | timestamp | 创建时间 |
-| `updated_at` | timestamp | 最后更新时间 |
+| 字段                 | 类型      | 说明                                                                           |
+| -------------------- | --------- | ------------------------------------------------------------------------------ |
+| `id`                 | UUID      | 唯一标识                                                                       |
+| `org_id`             | UUID      | 所属 Organization                                                              |
+| `name`               | string    | 仓库名称                                                                       |
+| `description`        | string    | 仓库描述（支持 LLM 辅助生成）                                                  |
+| `capability_context` | object    | 能力上下文（V0）：能力意图、约束、副作用、示例——由 Business Context Agent 产出 |
+| `openapi_versions`   | Version[] | OpenAPI 版本历史                                                               |
+| `current_version`    | string    | 当前活跃版本标识                                                               |
+| `mcp_enabled`        | boolean   | 是否开启 MCP 服务                                                              |
+| `created_at`         | timestamp | 创建时间                                                                       |
+| `updated_at`         | timestamp | 最后更新时间                                                                   |
 
 **版本管理：**
 
@@ -147,35 +147,35 @@ Apigent 由三个应用层组成：
 
 针对特定仓库的用户角色。设置后**覆盖**从 Organization 级角色继承的默认权限。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `user_id` | UUID | 用户引用 |
-| `repo_id` | UUID | 仓库引用 |
-| `role` | string | 仓库级角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
+| 字段      | 类型   | 说明                                                  |
+| --------- | ------ | ----------------------------------------------------- |
+| `user_id` | UUID   | 用户引用                                              |
+| `repo_id` | UUID   | 仓库引用                                              |
+| `role`    | string | 仓库级角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
 
 **仓库级角色：**
 
-| 角色 | 能力 |
-|------|------|
-| `repo_admin` | 管理权限、配置 MCP、删除仓库、导入版本 |
-| `repo_editor` | 编辑 API 描述、导入新版本 |
-| `repo_viewer` | 查看 API、模型和描述 |
+| 角色          | 能力                                   |
+| ------------- | -------------------------------------- |
+| `repo_admin`  | 管理权限、配置 MCP、删除仓库、导入版本 |
+| `repo_editor` | 编辑 API 描述、导入新版本              |
+| `repo_viewer` | 查看 API、模型和描述                   |
 
 ## 2.7 SecretKey（密钥）
 
 用户级 API Key，用于 MCP 访问。外部 AI Agent 使用此密钥通过 MCP Gateway 鉴权。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `id` | UUID | 唯一标识 |
-| `user_id` | UUID | 所属用户 |
-| `name` | string | 密钥名称（可读） |
-| `key_hash` | string | 密钥哈希（原始密钥仅在创建时展示一次） |
-| `key_prefix` | string | 前 8 个字符用于识别（如 `apigent_sk_...`） |
-| `scopes` | string[] | 权限范围：`api:read`、`api:write`（外部 REST）、`mcp:search`、`mcp:detail`、`mcp:context`（MCP） |
-| `last_used_at` | timestamp | 最后使用时间 |
-| `expires_at` | timestamp | 过期时间（可选） |
-| `created_at` | timestamp | 创建时间 |
+| 字段           | 类型      | 说明                                                                                             |
+| -------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| `id`           | UUID      | 唯一标识                                                                                         |
+| `user_id`      | UUID      | 所属用户                                                                                         |
+| `name`         | string    | 密钥名称（可读）                                                                                 |
+| `key_hash`     | string    | 密钥哈希（原始密钥仅在创建时展示一次）                                                           |
+| `key_prefix`   | string    | 前 8 个字符用于识别（如 `apigent_sk_...`）                                                       |
+| `scopes`       | string[]  | 权限范围：`api:read`、`api:write`（外部 REST）、`mcp:search`、`mcp:detail`、`mcp:context`（MCP） |
+| `last_used_at` | timestamp | 最后使用时间                                                                                     |
+| `expires_at`   | timestamp | 过期时间（可选）                                                                                 |
+| `created_at`   | timestamp | 创建时间                                                                                         |
 
 ## 2.8 RBAC 模型
 
@@ -183,58 +183,58 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 
 ### 2.8.1 角色定义
 
-| 角色 ID | 级别 | 说明 |
-|---------|------|------|
-| `org_owner` | Organization | 完全控制 Organization 及其所有仓库 |
-| `org_admin` | Organization | 管理成员和组织内所有仓库 |
-| `org_member` | Organization | 基础组织成员；仓库访问取决于仓库级角色 |
-| `repo_admin` | Repository | 完全控制特定仓库 |
-| `repo_editor` | Repository | 编辑 API 描述、导入新版本 |
-| `repo_viewer` | Repository | 只读访问 API 和模型 |
-| `project_owner` | Project（V1+） | 完全控制 Project 及其 Repository 关联 |
-| `project_admin` | Project（V1+） | 管理 Project 成员与 Repository 关联 |
-| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文 |
-| `platform_admin` | Platform | 跨 Organization 管理员访问（Admin Webapp） |
+| 角色 ID          | 级别           | 说明                                       |
+| ---------------- | -------------- | ------------------------------------------ |
+| `org_owner`      | Organization   | 完全控制 Organization 及其所有仓库         |
+| `org_admin`      | Organization   | 管理成员和组织内所有仓库                   |
+| `org_member`     | Organization   | 基础组织成员；仓库访问取决于仓库级角色     |
+| `repo_admin`     | Repository     | 完全控制特定仓库                           |
+| `repo_editor`    | Repository     | 编辑 API 描述、导入新版本                  |
+| `repo_viewer`    | Repository     | 只读访问 API 和模型                        |
+| `project_owner`  | Project（V1+） | 完全控制 Project 及其 Repository 关联      |
+| `project_admin`  | Project（V1+） | 管理 Project 成员与 Repository 关联        |
+| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文          |
+| `platform_admin` | Platform       | 跨 Organization 管理员访问（Admin Webapp） |
 
 ### 2.8.2 权限枚举
 
-| 权限 | 级别 | 说明 |
-|------|------|------|
-| `org:manage_members` | Organization | 邀请、移除和修改成员角色 |
-| `org:delete` | Organization | 删除 Organization |
-| `org:manage_settings` | Organization | 编辑 Organization 名称、slug 和设置 |
-| `repo:read` | Repository | 查看 API、模型和描述 |
-| `repo:write` | Repository | 编辑 API 描述和能力上下文 |
-| `repo:import` | Repository | 导入新 OpenAPI 版本 |
-| `repo:delete` | Repository | 删除仓库 |
-| `repo:manage_permissions` | Repository | 分配和修改仓库用户角色 |
-| `repo:manage_mcp` | Repository | 开启/关闭 MCP、配置工具暴露范围 |
-| `project:read` | Project（V1+） | 查看 Project 及其聚合的使用上下文 |
-| `project:manage` | Project（V1+） | 管理 Project 设置与成员 |
-| `project:link_repo` | Project（V1+） | 将 Repository 关联/取消关联到 Project |
-| `api:read` | REST API | 访问外部 REST 端点（只读） |
-| `api:write` | REST API | 访问外部 REST 端点（写入） |
-| `mcp:search` | MCP | 访问 `search_apis` 工具 |
-| `mcp:detail` | MCP | 访问 `get_api_detail` 工具 |
-| `mcp:context` | MCP | 访问 `get_project_context` 工具 |
-| `admin:manage_users` | Platform | 查看、禁用、启用、删除用户账号 |
-| `admin:view_stats` | Platform | 查看平台统计数据 |
-| `admin:view_audit` | Platform | 查看审计日志和安全事件 |
+| 权限                      | 级别           | 说明                                  |
+| ------------------------- | -------------- | ------------------------------------- |
+| `org:manage_members`      | Organization   | 邀请、移除和修改成员角色              |
+| `org:delete`              | Organization   | 删除 Organization                     |
+| `org:manage_settings`     | Organization   | 编辑 Organization 名称、slug 和设置   |
+| `repo:read`               | Repository     | 查看 API、模型和描述                  |
+| `repo:write`              | Repository     | 编辑 API 描述和能力上下文             |
+| `repo:import`             | Repository     | 导入新 OpenAPI 版本                   |
+| `repo:delete`             | Repository     | 删除仓库                              |
+| `repo:manage_permissions` | Repository     | 分配和修改仓库用户角色                |
+| `repo:manage_mcp`         | Repository     | 开启/关闭 MCP、配置工具暴露范围       |
+| `project:read`            | Project（V1+） | 查看 Project 及其聚合的使用上下文     |
+| `project:manage`          | Project（V1+） | 管理 Project 设置与成员               |
+| `project:link_repo`       | Project（V1+） | 将 Repository 关联/取消关联到 Project |
+| `api:read`                | REST API       | 访问外部 REST 端点（只读）            |
+| `api:write`               | REST API       | 访问外部 REST 端点（写入）            |
+| `mcp:search`              | MCP            | 访问 `search_apis` 工具               |
+| `mcp:detail`              | MCP            | 访问 `get_api_detail` 工具            |
+| `mcp:context`             | MCP            | 访问 `get_project_context` 工具       |
+| `admin:manage_users`      | Platform       | 查看、禁用、启用、删除用户账号        |
+| `admin:view_stats`        | Platform       | 查看平台统计数据                      |
+| `admin:view_audit`        | Platform       | 查看审计日志和安全事件                |
 
 ### 2.8.3 角色 → 权限映射
 
-| 角色 | 权限 |
-|------|------|
-| `org_owner` | `org:*`、`repo:*`（该 Organization 所有仓库） |
-| `org_admin` | `org:manage_members`、`org:manage_settings`、`repo:*`（该 Organization 所有仓库） |
-| `org_member` | `repo:read`（仅在分配了仓库级角色的仓库） |
-| `repo_admin` | `repo:*`（特定仓库） |
-| `repo_editor` | `repo:read`、`repo:write`、`repo:import` |
-| `repo_viewer` | `repo:read` |
-| `project_owner` | `project:*`（V1+） |
-| `project_admin` | `project:read`、`project:manage`、`project:link_repo`（V1+） |
-| `project_viewer` | `project:read`（V1+） |
-| `platform_admin` | `admin:*`、跨 Organization 只读访问 |
+| 角色             | 权限                                                                              |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `org_owner`      | `org:*`、`repo:*`（该 Organization 所有仓库）                                     |
+| `org_admin`      | `org:manage_members`、`org:manage_settings`、`repo:*`（该 Organization 所有仓库） |
+| `org_member`     | `repo:read`（仅在分配了仓库级角色的仓库）                                         |
+| `repo_admin`     | `repo:*`（特定仓库）                                                              |
+| `repo_editor`    | `repo:read`、`repo:write`、`repo:import`                                          |
+| `repo_viewer`    | `repo:read`                                                                       |
+| `project_owner`  | `project:*`（V1+）                                                                |
+| `project_admin`  | `project:read`、`project:manage`、`project:link_repo`（V1+）                      |
+| `project_viewer` | `project:read`（V1+）                                                             |
+| `platform_admin` | `admin:*`、跨 Organization 只读访问                                               |
 
 ### 2.8.4 继承与覆盖规则
 
@@ -264,29 +264,29 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 独立的业务层实体，通过 `ProjectRepository` 跨 Organization 聚合多个 Repository（多对多）。Project **不挂靠在 Organization 下**，承载**使用上下文**（V1+）——该项目如何使用各关联 Repository 的能力。
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `id` | UUID | 唯一标识 |
-| `name` | string | 项目显示名称 |
-| `description` | string | 项目描述（业务用途） |
-| `usage_context` | object | 使用上下文（V1+，按 `(project, repo)`）：使用场景、使用政策、工作流；以及领域术语与项目约定 |
-| `created_at` | timestamp | 创建时间 |
-| `updated_at` | timestamp | 最后更新时间 |
+| 字段            | 类型      | 说明                                                                                        |
+| --------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `id`            | UUID      | 唯一标识                                                                                    |
+| `name`          | string    | 项目显示名称                                                                                |
+| `description`   | string    | 项目描述（业务用途）                                                                        |
+| `usage_context` | object    | 使用上下文（V1+，按 `(project, repo)`）：使用场景、使用政策、工作流；以及领域术语与项目约定 |
+| `created_at`    | timestamp | 创建时间                                                                                    |
+| `updated_at`    | timestamp | 最后更新时间                                                                                |
 
 **ProjectRepository（M:N 关联表）：**
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `project_id` | UUID | Project 引用 |
-| `repo_id` | UUID | Repository 引用（可属于不同 Organization） |
+| 字段         | 类型 | 说明                                       |
+| ------------ | ---- | ------------------------------------------ |
+| `project_id` | UUID | Project 引用                               |
+| `repo_id`    | UUID | Repository 引用（可属于不同 Organization） |
 
 **ProjectMember：**
 
-| 字段 | 类型 | 说明 |
-|-------|------|------|
-| `user_id` | UUID | 用户引用 |
-| `project_id` | UUID | Project 引用 |
-| `role` | string | `project_owner` / `project_admin` / `project_viewer` |
+| 字段         | 类型   | 说明                                                 |
+| ------------ | ------ | ---------------------------------------------------- |
+| `user_id`    | UUID   | 用户引用                                             |
+| `project_id` | UUID   | Project 引用                                         |
+| `role`       | string | `project_owner` / `project_admin` / `project_viewer` |
 
 **双层访问规则：** Project 成员身份只决定能否看到项目存在；项目内任何 Repository 的内容访问始终由 `repo:*` 权限控制——项目视图按用户可访问的 Repository 子集组装。
 
@@ -298,31 +298,31 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ## 3.1 认证系统
 
-| 功能 | 说明 |
-|------|------|
-| **邮箱注册** | 邮箱 + 密码注册，邮箱验证 |
-| **邮箱登录** | 邮箱 + 密码登录，Session 管理 |
-| **SSO 登录** | GitHub OAuth、Google OAuth |
-| **密码重置** | 通过邮箱重置密码 |
+| 功能             | 说明                                     |
+| ---------------- | ---------------------------------------- |
+| **邮箱注册**     | 邮箱 + 密码注册，邮箱验证                |
+| **邮箱登录**     | 邮箱 + 密码登录，Session 管理            |
+| **SSO 登录**     | GitHub OAuth、Google OAuth               |
+| **密码重置**     | 通过邮箱重置密码                         |
 | **Session 管理** | 基于 JWT 的会话管理，Refresh Token，登出 |
 
 ## 3.2 用户配置
 
-| 功能 | 说明 |
-|------|------|
-| **个人资料编辑** | 名称、头像、简介 |
-| **安全设置** | 修改密码、管理 SSO 绑定 |
-| **通知偏好** | 邮件通知设置 |
+| 功能             | 说明                    |
+| ---------------- | ----------------------- |
+| **个人资料编辑** | 名称、头像、简介        |
+| **安全设置**     | 修改密码、管理 SSO 绑定 |
+| **通知偏好**     | 邮件通知设置            |
 
 ## 3.3 Organization 管理
 
-| 功能 | 说明 |
-|------|------|
-| **创建 Organization** | 填写名称 + slug，创建者自动成为 Owner |
-| **邀请成员** | 通过邮箱邀请，指定角色 |
-| **成员列表** | 查看所有成员及其角色 |
-| **角色管理** | Owner/Admin 可修改成员角色 |
-| **退出/移除** | 成员可主动退出；Owner/Admin 可移除成员 |
+| 功能                  | 说明                                   |
+| --------------------- | -------------------------------------- |
+| **创建 Organization** | 填写名称 + slug，创建者自动成为 Owner  |
+| **邀请成员**          | 通过邮箱邀请，指定角色                 |
+| **成员列表**          | 查看所有成员及其角色                   |
+| **角色管理**          | Owner/Admin 可修改成员角色             |
+| **退出/移除**         | 成员可主动退出；Owner/Admin 可移除成员 |
 
 ## 3.4 首页 Dashboard
 
@@ -337,35 +337,37 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ### 3.5.1 创建与导入
 
-| 操作 | 说明 |
-|------|------|
-| **创建仓库** | 填写名称 + 可选描述 |
-| **导入 OpenAPI** | 上传 JSON/YAML 文件，或从 URL 获取 |
+| 操作             | 说明                                     |
+| ---------------- | ---------------------------------------- |
+| **创建仓库**     | 填写名称 + 可选描述                      |
+| **导入 OpenAPI** | 上传 JSON/YAML 文件，或从 URL 获取       |
 | **自动识别版本** | 从 OpenAPI `info.version` 字段提取版本号 |
-| **校验** | 导入前验证 Spec 合法性，展示错误信息 |
+| **校验**         | 导入前验证 Spec 合法性，展示错误信息     |
 
 ### 3.5.2 内容展示
 
 仓库内容支持两种浏览视图：
 
 **接口视图（Endpoints View）：**
+
 - 按 tag 分组列出所有 API 接口
 - 每个接口展示：HTTP 方法、路径、摘要、能力意图（来自 Business Context Agent）
 - 点击展开：请求/响应 Schema、业务规则、示例、关联 API
 
 **数据模型视图（Data Models View）：**
+
 - 列出 OpenAPI 中定义的所有 Schema/Component
 - Schema 树形可视化：字段类型、约束、描述
 - 交叉引用：哪些接口使用了该模型
 
 ### 3.5.3 版本管理
 
-| 功能 | 说明 |
-|------|------|
-| **版本列表** | 完整导入历史 + 时间戳 |
-| **版本 Diff** | 任意两个版本的并列对比 |
-| **版本回滚** | 回退到历史版本 |
-| **导出** | 下载任意版本的 OpenAPI JSON/YAML |
+| 功能          | 说明                             |
+| ------------- | -------------------------------- |
+| **版本列表**  | 完整导入历史 + 时间戳            |
+| **版本 Diff** | 任意两个版本的并列对比           |
+| **版本回滚**  | 回退到历史版本                   |
+| **导出**      | 下载任意版本的 OpenAPI JSON/YAML |
 
 ## 3.6 API 搜索与知识检索
 
@@ -373,15 +375,15 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ### 3.6.1 V0 — 语义搜索
 
-| 功能 | 说明 |
-|------|------|
-| **全局搜索栏** | Dashboard 和仓库页面均可使用，自然语言输入 |
-| **混合搜索** | Embedding（Dense）+ BM25（Sparse）+ Knowledge Graph——RRF 融合 + Cross-encoder 精排。详见 [Semantic Search Agent](./modules/semantic-search.agent.md) |
-| **权限感知** | 基于 RBAC effective permissions 检索前过滤——用户只能搜到有权限访问的 API |
-| **搜索范围** | 全局搜索（跨所有有权限的仓库）或限定单个仓库/Organization |
-| **筛选条件** | 按 HTTP 方法、tag、路径前缀过滤 |
-| **结果展示** | 方法 + 路径、能力意图摘要、匹配原因、相关度评分 |
-| **快捷跳转** | 点击结果 → API 详情页 |
+| 功能           | 说明                                                                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **全局搜索栏** | Dashboard 和仓库页面均可使用，自然语言输入                                                                                                           |
+| **混合搜索**   | Embedding（Dense）+ BM25（Sparse）+ Knowledge Graph——RRF 融合 + Cross-encoder 精排。详见 [Semantic Search Agent](./modules/semantic-search.agent.md) |
+| **权限感知**   | 基于 RBAC effective permissions 检索前过滤——用户只能搜到有权限访问的 API                                                                             |
+| **搜索范围**   | 全局搜索（跨所有有权限的仓库）或限定单个仓库/Organization                                                                                            |
+| **筛选条件**   | 按 HTTP 方法、tag、路径前缀过滤                                                                                                                      |
+| **结果展示**   | 方法 + 路径、能力意图摘要、匹配原因、相关度评分                                                                                                      |
+| **快捷跳转**   | 点击结果 → API 详情页                                                                                                                                |
 
 **实现方式：** [Semantic Search Agent](./modules/semantic-search.agent.md)——与 MCP `search_apis` 共用同一引擎。每次查询 LLM 调用 ≤1 次（query rewriting 可选；检索步骤为确定性操作）。
 
@@ -389,12 +391,12 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 基于 RAG 的对话式 API 知识问答。
 
-| 功能 | 说明 |
-|------|------|
-| **对话式问答** | 多轮对话，可自然追问 |
+| 功能           | 说明                                                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **对话式问答** | 多轮对话，可自然追问                                                                                                        |
 | **RAG 流水线** | Query Rewriting → 权限预过滤 → 混合检索（Embedding + BM25 + KG）→ RRF 粗排 → Cross-encoder 精排 → 上下文拼装 → LLM 回答生成 |
-| **来源引用** | 每个回答附带引用链接，指向具体的 API 和模型 |
-| **知识范围** | 单个仓库内，或跨 Organization 仓库 |
+| **来源引用**   | 每个回答附带引用链接，指向具体的 API 和模型                                                                                 |
+| **知识范围**   | 单个仓库内，或跨 Organization 仓库                                                                                          |
 
 **检索实现详见：** [Semantic Search Agent](./modules/semantic-search.agent.md) 涵盖 chunk 策略、BM25 + Embedding 混合检索、query rewriting、权限过滤、两阶段排序的完整设计。
 
@@ -402,13 +404,13 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ## 3.7 Agent 辅助编辑
 
-| 功能 | 说明 |
-|------|------|
+| 功能             | 说明                                           |
+| ---------------- | ---------------------------------------------- |
 | **增强接口描述** | LLM 根据路径、方法和 Schema 生成/改进 API 描述 |
-| **增强仓库描述** | LLM 根据 API 列表生成仓库概览 |
-| **Diff 展示** | AI 建议应用前，展示修改内容的并列对比 |
-| **接受/拒绝** | 用户逐条确认或拒绝修改建议 |
-| **手动修改** | 用户可在此基础上手动调整 |
+| **增强仓库描述** | LLM 根据 API 列表生成仓库概览                  |
+| **Diff 展示**    | AI 建议应用前，展示修改内容的并列对比          |
+| **接受/拒绝**    | 用户逐条确认或拒绝修改建议                     |
+| **手动修改**     | 用户可在此基础上手动调整                       |
 
 这是**用户主动触发**的 LLM 调用，独立于导入时的自动 Business Context 推断。
 
@@ -418,49 +420,49 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 
 ### 3.8.1 Organization 级角色管理
 
-| 功能 | 说明 |
-|------|------|
-| **角色分配** | 邀请成员或编辑已有成员时，分配 Organization 角色：`org_owner`、`org_admin`、`org_member` |
-| **角色继承** | Organization 角色自动授予该 Organization 下所有现有及未来仓库的对应仓库级权限 |
-| **角色变更** | Organization Owner/Admin 可随时修改成员角色 |
-| **转让所有权** | Organization Owner 可将所有权转让给其他成员 |
+| 功能           | 说明                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| **角色分配**   | 邀请成员或编辑已有成员时，分配 Organization 角色：`org_owner`、`org_admin`、`org_member` |
+| **角色继承**   | Organization 角色自动授予该 Organization 下所有现有及未来仓库的对应仓库级权限            |
+| **角色变更**   | Organization Owner/Admin 可随时修改成员角色                                              |
+| **转让所有权** | Organization Owner 可将所有权转让给其他成员                                              |
 
 ### 3.8.2 仓库级角色覆盖
 
-| 功能 | 说明 |
-|------|------|
+| 功能           | 说明                                                                                               |
+| -------------- | -------------------------------------------------------------------------------------------------- |
 | **按仓库覆盖** | 在任何仓库上，可将 `org_member` 提升为 `repo_admin` 或 `repo_editor`，无需改变其 Organization 角色 |
-| **覆盖展示** | 仓库成员列表同时显示继承角色和显式覆盖（带视觉标记） |
-| **有效权限** | 每个仓库取继承权限和覆盖权限中较高者 |
+| **覆盖展示**   | 仓库成员列表同时显示继承角色和显式覆盖（带视觉标记）                                               |
+| **有效权限**   | 每个仓库取继承权限和覆盖权限中较高者                                                               |
 
 ### 3.8.3 权限场景示例
 
-| 场景 | 设置 | 效果 |
-|------|------|------|
-| **新成员加入** | 邀请为 `org_member` | 可查看所有仓库（继承 `repo_viewer`），但不可编辑 |
-| **提升为编辑者** | `org_member` + 仓库 A 覆盖为 `repo_editor` | 可编辑仓库 A，其他仓库仍为 viewer |
-| **外部协作者** | 非 Organization 成员，仅分配仓库 B 的 `repo_viewer` | 只能查看仓库 B，无法访问其他仓库 |
-| **MCP 访问** | 仓库 C 的 `repo_admin` + Secret Key 具有 `mcp:*` 范围 | 可对仓库 C 使用 MCP 工具 |
+| 场景             | 设置                                                  | 效果                                             |
+| ---------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| **新成员加入**   | 邀请为 `org_member`                                   | 可查看所有仓库（继承 `repo_viewer`），但不可编辑 |
+| **提升为编辑者** | `org_member` + 仓库 A 覆盖为 `repo_editor`            | 可编辑仓库 A，其他仓库仍为 viewer                |
+| **外部协作者**   | 非 Organization 成员，仅分配仓库 B 的 `repo_viewer`   | 只能查看仓库 B，无法访问其他仓库                 |
+| **MCP 访问**     | 仓库 C 的 `repo_admin` + Secret Key 具有 `mcp:*` 范围 | 可对仓库 C 使用 MCP 工具                         |
 
 ## 3.9 MCP 设置
 
-| 功能 | 说明 |
-|------|------|
-| **按仓库开关** | 为每个仓库独立开启/关闭 MCP 访问 |
+| 功能             | 说明                                                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| **按仓库开关**   | 为每个仓库独立开启/关闭 MCP 访问                                                                     |
 | **访问范围控制** | 控制暴露哪些工具。V0：`search_apis` + `get_api_detail`；`get_project_context` 随 Project 在 V1+ 提供 |
-| **用量监控** | 按 Key 查看 MCP 调用次数和历史 |
-| **连接信息** | 展示 MCP 端点 URL，用户配置到 Cursor/Claude 中 |
+| **用量监控**     | 按 Key 查看 MCP 调用次数和历史                                                                       |
+| **连接信息**     | 展示 MCP 端点 URL，用户配置到 Cursor/Claude 中                                                       |
 
 ## 3.10 Secret Key 管理
 
-| 功能 | 说明 |
-|------|------|
-| **生成 Key** | 创建新 API Key，指定名称和权限范围 |
-| **查看 Key 列表** | 展示所有 Key 的前缀、范围、创建/过期时间 |
+| 功能              | 说明                                        |
+| ----------------- | ------------------------------------------- |
+| **生成 Key**      | 创建新 API Key，指定名称和权限范围          |
+| **查看 Key 列表** | 展示所有 Key 的前缀、范围、创建/过期时间    |
 | **原始 Key 展示** | 完整 Key 仅在创建时展示一次（安全最佳实践） |
-| **轮换 Key** | 生成新 Key、废弃旧 Key |
-| **删除 Key** | 立即吊销 Key |
-| **用量追踪** | 最后使用时间、调用次数 |
+| **轮换 Key**      | 生成新 Key、废弃旧 Key                      |
+| **删除 Key**      | 立即吊销 Key                                |
+| **用量追踪**      | 最后使用时间、调用次数                      |
 
 Key 格式：`apigent_sk_<random_hex>`
 
@@ -472,40 +474,40 @@ Key 格式：`apigent_sk_<random_hex>`
 
 ## 4.1 认证
 
-| 功能 | 说明 |
-|------|------|
-| **管理员登录** | 独立于 Platform Webapp 的认证流程 |
-| **管理员权限检查** | 仅具有 `admin` 标记的用户可访问 |
-| **Session 隔离** | 管理员 Session 与 Platform Session 独立 |
+| 功能               | 说明                                    |
+| ------------------ | --------------------------------------- |
+| **管理员登录**     | 独立于 Platform Webapp 的认证流程       |
+| **管理员权限检查** | 仅具有 `admin` 标记的用户可访问         |
+| **Session 隔离**   | 管理员 Session 与 Platform Session 独立 |
 
 ## 4.2 仪表盘与统计
 
-| 指标 | 说明 |
-|------|------|
-| **用户数** | 注册用户总数、新增用户（日/周） |
-| **组织数** | 组织总数、活跃组织数 |
-| **仓库数** | 仓库总数、已开启 MCP 的仓库数 |
-| **API 数量** | 全平台 API 端点总数 |
+| 指标         | 说明                                   |
+| ------------ | -------------------------------------- |
+| **用户数**   | 注册用户总数、新增用户（日/周）        |
+| **组织数**   | 组织总数、活跃组织数                   |
+| **仓库数**   | 仓库总数、已开启 MCP 的仓库数          |
+| **API 数量** | 全平台 API 端点总数                    |
 | **MCP 用量** | MCP 调用总量、按仓库、按 Key、时间序列 |
-| **活跃用户** | DAU/WAU/MAU 统计 |
+| **活跃用户** | DAU/WAU/MAU 统计                       |
 
 ## 4.3 用户管理
 
-| 功能 | 说明 |
-|------|------|
-| **用户列表** | 可搜索、可筛选的全量用户列表 |
-| **用户详情** | 完整个人信息、所属组织、仓库、活动日志 |
-| **禁用账号** | 临时暂停用户账号 |
-| **启用账号** | 重新激活已禁用的账号 |
+| 功能         | 说明                                    |
+| ------------ | --------------------------------------- |
+| **用户列表** | 可搜索、可筛选的全量用户列表            |
+| **用户详情** | 完整个人信息、所属组织、仓库、活动日志  |
+| **禁用账号** | 临时暂停用户账号                        |
+| **启用账号** | 重新激活已禁用的账号                    |
 | **删除账号** | 永久删除用户及其数据（需确认 + 冷却期） |
 
 ## 4.4 安全审计
 
-| 功能 | 说明 |
-|------|------|
-| **操作日志** | 审计追踪：谁在何时做了什么、来源 IP |
-| **登录历史** | 每个用户的登录记录（IP、User Agent） |
-| **异常检测** | 标记异常模式（新 IP、大量 API 调用、批量导出） |
+| 功能             | 说明                                           |
+| ---------------- | ---------------------------------------------- |
+| **操作日志**     | 审计追踪：谁在何时做了什么、来源 IP            |
+| **登录历史**     | 每个用户的登录记录（IP、User Agent）           |
+| **异常检测**     | 标记异常模式（新 IP、大量 API 调用、批量导出） |
 | **Key 泄露检查** | 检测 Secret Key 是否出现在公开仓库或暴露环境中 |
 
 ---
@@ -541,20 +543,20 @@ apps/
 
 将 Core API Server 与 Next.js 分离，基于三个理由：
 
-| 考量 | Next.js API Routes | 独立 Server（Hono） |
-|------|:--:|:--:|
-| **独立扩缩** | 耦合在 Webapp 进程生命周期中 | MCP 流量和页面流量可独立部署、扩缩、监控 |
-| **无超时焦虑** | Serverless 平台有 10–60s 硬限制；`search_apis` 涉及 LLM + 语义理解可能超限 | 常驻进程，无超时限制 |
-| **部署灵活** | 绑定 Vercel/Node.js serverless 模型 | 可部署到 VPS、K8s、Docker，甚至未来迁移到边缘运行时（Bun、Cloudflare Workers） |
+| 考量           |                             Next.js API Routes                             |                              独立 Server（Hono）                               |
+| -------------- | :------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
+| **独立扩缩**   |                        耦合在 Webapp 进程生命周期中                        |                    MCP 流量和页面流量可独立部署、扩缩、监控                    |
+| **无超时焦虑** | Serverless 平台有 10–60s 硬限制；`search_apis` 涉及 LLM + 语义理解可能超限 |                              常驻进程，无超时限制                              |
+| **部署灵活**   |                    绑定 Vercel/Node.js serverless 模型                     | 可部署到 VPS、K8s、Docker，甚至未来迁移到边缘运行时（Bun、Cloudflare Workers） |
 
 ### MCP 传输模式
 
 Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧的 SSE 传输：
 
-| MCP Tool | 传输模式 | 说明 |
-|----------|---------|------|
-| `search_apis` | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
-| `get_api_detail` | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
+| MCP Tool                     | 传输模式        | 说明                      |
+| ---------------------------- | --------------- | ------------------------- |
+| `search_apis`                | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
+| `get_api_detail`             | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
 | `get_project_context`（V1+） | 标准请求 → 响应 | 一次 HTTP POST，返回 JSON |
 
 所有 tool 都是**普通请求-响应**——不需要流式返回，不需要服务端推送，不需要持久连接。MCP 对 Apigent 的使用场景不需要 SSE 或长连接。分离成独立服务是**架构选择**（独立扩缩 + 部署灵活），而非协议要求。
@@ -563,22 +565,22 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 
 每个可替换组件由 **TypeScript 接口**定义，并附带**默认实现**。用户可通过实现接口并在配置中注册来替换任何组件。详见 [5.5 可扩展架构](#55-可扩展架构)。
 
-| 层 | 默认实现 | 抽象接口 | 选型理由 |
-|-----|---------|---------|---------|
-| **Webapp 前端** | Next.js App Router、React、TypeScript | — | SSR、Streaming、Server Components、丰富生态 |
-| **Webapp 样式** | Tailwind CSS | — | 原子化 CSS，快速 UI 开发 |
-| **API Server** | Hono（TypeScript） | — | 轻量（12KB）、多运行时、Web 标准 `Request`/`Response`、Express 风格 API |
-| **类型桥梁** | REST + Hono RPC（`hc`）+ OpenAPI（Zod） | — | 标准 REST 契约；Hono RPC 提供类型安全客户端；OpenAPI 文档由 Zod Schema 自动生成 |
-| **数据库** | PostgreSQL | `DatabaseAdapter` | 关系型数据；Drizzle ORM 已支持 MySQL、SQLite——仅需更换驱动和 Schema |
-| **向量存储** | pgvector | `VectorStore` | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate |
-| **ORM** | Drizzle | `DatabaseAdapter` | SQL 优先、类型安全；Drizzle 以统一 API 支持 PostgreSQL、MySQL、SQLite |
-| **异步任务** | BullMQ + Redis | `QueueProvider` | OpenAPI 导入、LLM 推理、批处理——可按需换 RabbitMQ/SQS |
-| **认证** | NextAuth.js（credentials + OAuth） | `AuthProvider` | Next.js 生态成熟、灵活的认证方案；可接自定义 OIDC/LDAP |
-| **LLM** | Qwen API（阿里云百炼） | `LLMProvider` | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型 |
-| **Embedding** | Qwen Embedding（text-embedding-v4） | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型 |
-| **MCP** | @modelcontextprotocol/sdk | — | 标准 MCP 实现，Streamable HTTP 传输 |
-| **存储** | 本地文件系统 | `StorageProvider` | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage |
-| **Diff** | diff（或自研渲染器） | — | 版本对比和 AI 编辑建议展示 |
+| 层              | 默认实现                                | 抽象接口            | 选型理由                                                                        |
+| --------------- | --------------------------------------- | ------------------- | ------------------------------------------------------------------------------- |
+| **Webapp 前端** | Next.js App Router、React、TypeScript   | —                   | SSR、Streaming、Server Components、丰富生态                                     |
+| **Webapp 样式** | Tailwind CSS                            | —                   | 原子化 CSS，快速 UI 开发                                                        |
+| **API Server**  | Hono（TypeScript）                      | —                   | 轻量（12KB）、多运行时、Web 标准 `Request`/`Response`、Express 风格 API         |
+| **类型桥梁**    | REST + Hono RPC（`hc`）+ OpenAPI（Zod） | —                   | 标准 REST 契约；Hono RPC 提供类型安全客户端；OpenAPI 文档由 Zod Schema 自动生成 |
+| **数据库**      | PostgreSQL                              | `DatabaseAdapter`   | 关系型数据；Drizzle ORM 已支持 MySQL、SQLite——仅需更换驱动和 Schema             |
+| **向量存储**    | pgvector                                | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                    |
+| **ORM**         | Drizzle                                 | `DatabaseAdapter`   | SQL 优先、类型安全；Drizzle 以统一 API 支持 PostgreSQL、MySQL、SQLite           |
+| **异步任务**    | BullMQ + Redis                          | `QueueProvider`     | OpenAPI 导入、LLM 推理、批处理——可按需换 RabbitMQ/SQS                           |
+| **认证**        | NextAuth.js（credentials + OAuth）      | `AuthProvider`      | Next.js 生态成熟、灵活的认证方案；可接自定义 OIDC/LDAP                          |
+| **LLM**         | Qwen API（阿里云百炼）                  | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型         |
+| **Embedding**   | Qwen Embedding（text-embedding-v4）     | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型                   |
+| **MCP**         | @modelcontextprotocol/sdk               | —                   | 标准 MCP 实现，Streamable HTTP 传输                                             |
+| **存储**        | 本地文件系统                            | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                            |
+| **Diff**        | diff（或自研渲染器）                    | —                   | 版本对比和 AI 编辑建议展示                                                      |
 
 ## 5.3 API 层设计
 
@@ -613,11 +615,11 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 
 **三种调用方式——一份 REST 契约、三条认证路径：**
 
-| 调用方式 | 通道 | 认证 | 类型安全 |
-|---------|------|------|---------|
-| 内部 Webapp | REST + Hono RPC（`hc`） | Session Cookie（NextAuth JWT） | 服务端路由类型（无 codegen） |
-| 外部 OpenAPI | REST（同一份契约） | Bearer SecretKey + `api:*` scopes | OpenAPI 生成 SDK |
-| 外部 AI Agent | MCP Gateway（Streamable HTTP） | Bearer SecretKey + `mcp:*` scopes | MCP SDK |
+| 调用方式      | 通道                           | 认证                              | 类型安全                     |
+| ------------- | ------------------------------ | --------------------------------- | ---------------------------- |
+| 内部 Webapp   | REST + Hono RPC（`hc`）        | Session Cookie（NextAuth JWT）    | 服务端路由类型（无 codegen） |
+| 外部 OpenAPI  | REST（同一份契约）             | Bearer SecretKey + `api:*` scopes | OpenAPI 生成 SDK             |
+| 外部 AI Agent | MCP Gateway（Streamable HTTP） | Bearer SecretKey + `mcp:*` scopes | MCP SDK                      |
 
 - **一份契约**：所有路由用 `@hono/zod-openapi` 定义（Zod 校验 + 自动生成 OpenAPI 文档）。Webapp 的类型化客户端（Hono RPC）与对外 OpenAPI 规范都从同一份路由定义派生，不会互相漂移。
 - **路由可见性**：路由标记为 `internal` / `public`；对外 OpenAPI 规范只暴露 `public` 路由——admin、健康检查、内部端点会被过滤掉。
@@ -664,12 +666,12 @@ NextAuth.js（Auth.js v5）配置为 **JWT 策略**——会话 token 是签名�
 **配置（`packages/auth/auth.ts`）：**
 
 ```ts
-import NextAuth from "next-auth"
-import GitHub from "next-auth/providers/github"
-import Google from "next-auth/providers/google"
-import Credentials from "next-auth/providers/credentials"
-import { DrizzleAdapter } from "@auth/drizzle-adapter"
-import { db } from "@/server/db"
+import NextAuth from "next-auth";
+import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
+import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { db } from "@/server/db";
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
@@ -679,8 +681,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       credentials: { email: {}, password: {} },
       authorize: async (credentials) => {
         // 验证邮箱 + 密码
-        const user = await verifyCredentials(credentials)
-        return user // { id, email, name }
+        const user = await verifyCredentials(credentials);
+        return user; // { id, email, name }
       },
     }),
     GitHub({ clientId: process.env.GITHUB_ID, clientSecret: process.env.GITHUB_SECRET }),
@@ -688,15 +690,15 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     jwt: async ({ token, user }) => {
-      if (user) token.userId = user.id
-      return token
+      if (user) token.userId = user.id;
+      return token;
     },
     session: async ({ session, token }) => {
-      session.user.id = token.userId as string
-      return session
+      session.user.id = token.userId as string;
+      return session;
     },
   },
-})
+});
 ```
 
 **JWT Payload 结构：**
@@ -740,30 +742,51 @@ checkPermission(userId, resourceType, resourceId, requiredPermission)
 **参考实现（`packages/auth/rbac.ts`）：**
 
 ```ts
-import { db } from "@/server/db"
-import { orgMembers, repoPermissions, users } from "@/server/db/schema"
-import { eq, and } from "drizzle-orm"
+import { db } from "@/server/db";
+import { orgMembers, repoPermissions, users } from "@/server/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  org_owner:  ["org:manage_members", "org:delete", "org:manage_settings",
-               "repo:read", "repo:write", "repo:import", "repo:delete",
-               "repo:manage_permissions", "repo:manage_mcp"],
-  org_admin:  ["org:manage_members", "org:manage_settings",
-               "repo:read", "repo:write", "repo:import", "repo:delete",
-               "repo:manage_permissions", "repo:manage_mcp"],
+  org_owner: [
+    "org:manage_members",
+    "org:delete",
+    "org:manage_settings",
+    "repo:read",
+    "repo:write",
+    "repo:import",
+    "repo:delete",
+    "repo:manage_permissions",
+    "repo:manage_mcp",
+  ],
+  org_admin: [
+    "org:manage_members",
+    "org:manage_settings",
+    "repo:read",
+    "repo:write",
+    "repo:import",
+    "repo:delete",
+    "repo:manage_permissions",
+    "repo:manage_mcp",
+  ],
   org_member: ["repo:read"],
-  repo_admin:  ["repo:read", "repo:write", "repo:import", "repo:delete",
-                "repo:manage_permissions", "repo:manage_mcp"],
+  repo_admin: [
+    "repo:read",
+    "repo:write",
+    "repo:import",
+    "repo:delete",
+    "repo:manage_permissions",
+    "repo:manage_mcp",
+  ],
   repo_editor: ["repo:read", "repo:write", "repo:import"],
   repo_viewer: ["repo:read"],
   platform_admin: ["admin:manage_users", "admin:view_stats", "admin:view_audit"],
-}
+};
 
 const ORG_ROLE_INHERITANCE: Record<string, string> = {
-  org_owner:  "repo_admin",
-  org_admin:  "repo_editor",
+  org_owner: "repo_admin",
+  org_admin: "repo_editor",
   org_member: "repo_viewer",
-}
+};
 
 async function checkPermission(
   userId: string,
@@ -775,37 +798,32 @@ async function checkPermission(
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
     columns: { role: true },
-  })
-  if (user?.role === "platform_admin") return true
+  });
+  if (user?.role === "platform_admin") return true;
 
   // 2. 仓库级权限检查
   if (resourceType === "repo" || resourceType === "mcp") {
     // 2a. 检查显式仓库级角色覆盖
     const explicitRole = await db.query.repoPermissions.findFirst({
-      where: and(
-        eq(repoPermissions.userId, userId),
-        eq(repoPermissions.repoId, resourceId),
-      ),
-    })
+      where: and(eq(repoPermissions.userId, userId), eq(repoPermissions.repoId, resourceId)),
+    });
     if (explicitRole) {
-      return ROLE_PERMISSIONS[explicitRole.role]?.includes(requiredPermission) ?? false
+      return ROLE_PERMISSIONS[explicitRole.role]?.includes(requiredPermission) ?? false;
     }
 
     // 2b. 回退到继承的 Organization 角色
-    const { orgId } = await db.query.repos.findFirst({
-      where: eq(repos.id, resourceId),
-      columns: { orgId: true },
-    }) ?? {}
+    const { orgId } =
+      (await db.query.repos.findFirst({
+        where: eq(repos.id, resourceId),
+        columns: { orgId: true },
+      })) ?? {};
     if (orgId) {
       const membership = await db.query.orgMembers.findFirst({
-        where: and(
-          eq(orgMembers.userId, userId),
-          eq(orgMembers.orgId, orgId),
-        ),
-      })
+        where: and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, orgId)),
+      });
       if (membership) {
-        const inheritedRole = ORG_ROLE_INHERITANCE[membership.role]
-        return ROLE_PERMISSIONS[inheritedRole]?.includes(requiredPermission) ?? false
+        const inheritedRole = ORG_ROLE_INHERITANCE[membership.role];
+        return ROLE_PERMISSIONS[inheritedRole]?.includes(requiredPermission) ?? false;
       }
     }
   }
@@ -813,17 +831,14 @@ async function checkPermission(
   // 3. Organization 级权限检查
   if (resourceType === "org") {
     const membership = await db.query.orgMembers.findFirst({
-      where: and(
-        eq(orgMembers.userId, userId),
-        eq(orgMembers.orgId, resourceId),
-      ),
-    })
+      where: and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, resourceId)),
+    });
     if (membership) {
-      return ROLE_PERMISSIONS[membership.role]?.includes(requiredPermission) ?? false
+      return ROLE_PERMISSIONS[membership.role]?.includes(requiredPermission) ?? false;
     }
   }
 
-  return false
+  return false;
 }
 ```
 
@@ -834,55 +849,55 @@ Next.js 中间件在每个请求前执行。它串联身份认证（NextAuth.js�
 **`middleware.ts`：**
 
 ```ts
-import { auth } from "@/packages/auth/auth"
-import { checkPermission } from "@/packages/auth/rbac"
+import { auth } from "@/packages/auth/auth";
+import { checkPermission } from "@/packages/auth/rbac";
 
 // 不需要认证的公开路由
-const PUBLIC_ROUTES = ["/login", "/register", "/api/auth/*"]
+const PUBLIC_ROUTES = ["/login", "/register", "/api/auth/*"];
 
 // 路由 → 所需权限映射
 const ROUTE_PERMISSIONS: Record<string, { type: string; permission: string }> = {
-  "/api/repos/:repoId/edit":       { type: "repo", permission: "repo:write" },
-  "/api/repos/:repoId/import":     { type: "repo", permission: "repo:import" },
-  "/api/repos/:repoId/settings":   { type: "repo", permission: "repo:manage_permissions" },
-  "/api/repos/:repoId/mcp":        { type: "repo", permission: "repo:manage_mcp" },
-  "/api/orgs/:orgId/members":      { type: "org", permission: "org:manage_members" },
-  "/api/orgs/:orgId/settings":     { type: "org", permission: "org:manage_settings" },
-  "/api/admin/*":                  { type: "admin", permission: "admin:view_stats" },
-}
+  "/api/repos/:repoId/edit": { type: "repo", permission: "repo:write" },
+  "/api/repos/:repoId/import": { type: "repo", permission: "repo:import" },
+  "/api/repos/:repoId/settings": { type: "repo", permission: "repo:manage_permissions" },
+  "/api/repos/:repoId/mcp": { type: "repo", permission: "repo:manage_mcp" },
+  "/api/orgs/:orgId/members": { type: "org", permission: "org:manage_members" },
+  "/api/orgs/:orgId/settings": { type: "org", permission: "org:manage_settings" },
+  "/api/admin/*": { type: "admin", permission: "admin:view_stats" },
+};
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl
+  const { pathname } = req.nextUrl;
 
   // 放行公开路由
-  if (PUBLIC_ROUTES.some(r => pathname.startsWith(r))) {
-    return  // 无需认证，直接通过
+  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+    return; // 无需认证，直接通过
   }
 
   // 要求已登录
   if (!req.auth?.user?.id) {
-    return Response.redirect(new URL("/login", req.url))
+    return Response.redirect(new URL("/login", req.url));
   }
 
   // 检查路由级权限
-  const routeConfig = matchRoute(pathname, ROUTE_PERMISSIONS)
+  const routeConfig = matchRoute(pathname, ROUTE_PERMISSIONS);
   if (routeConfig) {
     const allowed = checkPermission(
       req.auth.user.id,
       routeConfig.type,
-      extractResourceId(pathname),  // 例如从 "/api/repos/repo_123/edit" 中提取 "repo_123"
+      extractResourceId(pathname), // 例如从 "/api/repos/repo_123/edit" 中提取 "repo_123"
       routeConfig.permission,
-    )
+    );
     if (!allowed) {
-      return new Response("Forbidden", { status: 403 })
+      return new Response("Forbidden", { status: 403 });
     }
   }
-})
+});
 
 // 路由匹配器配置
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-}
+};
 ```
 
 ### 5.4.5 MCP Tool 授权
@@ -928,13 +943,13 @@ packages/auth/
 
 **关键设计决策：**
 
-| 决策 | 理由 |
-|------|------|
-| JWT 策略（而非数据库 Session） | 中间件每次请求无需查 DB；更快，水平扩展友好 |
-| httpOnly cookie（而非 localStorage） | 免疫 XSS 攻击；浏览器自动在每次请求中携带 cookie |
-| 中间件级 RBAC（而非每个 handler 各自检查） | 集中化、可审计；避免单个路由遗漏权限检查 |
-| MCP 使用 API Key（而非 Session） | 外部 Agent（Cursor/CLI）没有浏览器 Session；Bearer token 是标准的机器间认证模式 |
-| `packages/auth/` 跨 Webapp 共享 | Platform 和 Admin Webapp 使用相同的认证逻辑；共享包避免重复代码 |
+| 决策                                       | 理由                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------- |
+| JWT 策略（而非数据库 Session）             | 中间件每次请求无需查 DB；更快，水平扩展友好                                     |
+| httpOnly cookie（而非 localStorage）       | 免疫 XSS 攻击；浏览器自动在每次请求中携带 cookie                                |
+| 中间件级 RBAC（而非每个 handler 各自检查） | 集中化、可审计；避免单个路由遗漏权限检查                                        |
+| MCP 使用 API Key（而非 Session）           | 外部 Agent（Cursor/CLI）没有浏览器 Session；Bearer token 是标准的机器间认证模式 |
+| `packages/auth/` 跨 Webapp 共享            | Platform 和 Admin Webapp 使用相同的认证逻辑；共享包避免重复代码                 |
 
 ## 5.5 可扩展架构
 
@@ -973,14 +988,14 @@ Apigent 是一个**开源、自托管**的平台。不同团队有不同的基�
 
 ### 5.5.2 可替换组件
 
-| 组件 | 接口 | 默认实现 | 常见替代方案 |
-|------|------|---------|------------|
-| **向量存储** | `VectorStore` | pgvector | Milvus、Qdrant、Weaviate、Pinecone、Chroma |
-| **LLM 提供商** | `LLMProvider` | Qwen API（阿里云百炼） | Claude、OpenAI、Gemini、Ollama（本地）、vLLM |
+| 组件                 | 接口                | 默认实现                            | 常见替代方案                                            |
+| -------------------- | ------------------- | ----------------------------------- | ------------------------------------------------------- |
+| **向量存储**         | `VectorStore`       | pgvector                            | Milvus、Qdrant、Weaviate、Pinecone、Chroma              |
+| **LLM 提供商**       | `LLMProvider`       | Qwen API（阿里云百炼）              | Claude、OpenAI、Gemini、Ollama（本地）、vLLM            |
 | **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | Claude Embedding、OpenAI Embedding、Cohere、BGE（本地） |
-| **存储提供商** | `StorageProvider` | 本地文件系统 | AWS S3、MinIO、Google Cloud Storage、Azure Blob |
-| **队列提供商** | `QueueProvider` | BullMQ + Redis | RabbitMQ、AWS SQS、Google Pub/Sub |
-| **认证提供商** | `AuthProvider` | NextAuth.js | 自定义 OIDC、LDAP、SAML、Authentik |
+| **存储提供商**       | `StorageProvider`   | 本地文件系统                        | AWS S3、MinIO、Google Cloud Storage、Azure Blob         |
+| **队列提供商**       | `QueueProvider`     | BullMQ + Redis                      | RabbitMQ、AWS SQS、Google Pub/Sub                       |
+| **认证提供商**       | `AuthProvider`      | NextAuth.js                         | 自定义 OIDC、LDAP、SAML、Authentik                      |
 
 ### 5.5.3 Vector Store 接口
 
@@ -988,34 +1003,37 @@ Apigent 是一个**开源、自托管**的平台。不同团队有不同的基�
 // packages/core/src/interfaces/vector-store.ts
 
 export interface VectorDocument {
-  id: string
-  vector: number[]
-  metadata: Record<string, unknown>
+  id: string;
+  vector: number[];
+  metadata: Record<string, unknown>;
 }
 
 export interface VectorSearchResult {
-  document: VectorDocument
-  score: number
+  document: VectorDocument;
+  score: number;
 }
 
 export interface VectorStore {
   /** 插入或更新带 Embedding 的文档 */
-  upsert(documents: VectorDocument[]): Promise<void>
+  upsert(documents: VectorDocument[]): Promise<void>;
 
   /** 按向量搜索相似文档 */
-  search(vector: number[], options?: {
-    topK?: number
-    filter?: Record<string, unknown>
-  }): Promise<VectorSearchResult[]>
+  search(
+    vector: number[],
+    options?: {
+      topK?: number;
+      filter?: Record<string, unknown>;
+    },
+  ): Promise<VectorSearchResult[]>;
 
   /** 按 ID 删除文档 */
-  delete(ids: string[]): Promise<void>
+  delete(ids: string[]): Promise<void>;
 
   /** 按过滤条件删除文档 */
-  deleteByFilter(filter: Record<string, unknown>): Promise<void>
+  deleteByFilter(filter: Record<string, unknown>): Promise<void>;
 
   /** 检查连接健康状态 */
-  health(): Promise<boolean>
+  health(): Promise<boolean>;
 }
 ```
 
@@ -1023,38 +1041,44 @@ export interface VectorStore {
 
 ```ts
 // packages/vector-store-pgvector/src/pgvector-store.ts
-import { VectorStore, VectorDocument, VectorSearchResult } from "@/core/interfaces"
-import { sql } from "drizzle-orm"
+import { VectorStore, VectorDocument, VectorSearchResult } from "@/core/interfaces";
+import { sql } from "drizzle-orm";
 
 export class PgvectorStore implements VectorStore {
   async upsert(documents: VectorDocument[]): Promise<void> {
-    await this.db.insert(embeddings).values(
-      documents.map(d => ({
-        id: d.id,
-        vector: sql`${JSON.stringify(d.vector)}::vector`,
-        metadata: d.metadata,
-      }))
-    ).onConflictDoUpdate({
-      target: embeddings.id,
-      set: { vector: sql`excluded.vector`, metadata: sql`excluded.metadata` },
-    })
+    await this.db
+      .insert(embeddings)
+      .values(
+        documents.map((d) => ({
+          id: d.id,
+          vector: sql`${JSON.stringify(d.vector)}::vector`,
+          metadata: d.metadata,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: embeddings.id,
+        set: { vector: sql`excluded.vector`, metadata: sql`excluded.metadata` },
+      });
   }
 
-  async search(vector: number[], options?: {
-    topK?: number
-    filter?: Record<string, unknown>
-  }): Promise<VectorSearchResult[]> {
-    const topK = options?.topK ?? 10
+  async search(
+    vector: number[],
+    options?: {
+      topK?: number;
+      filter?: Record<string, unknown>;
+    },
+  ): Promise<VectorSearchResult[]> {
+    const topK = options?.topK ?? 10;
     const rows = await this.db.execute(sql`
       SELECT id, metadata, 1 - (vector <=> ${JSON.stringify(vector)}::vector) AS score
       FROM embeddings
       ORDER BY vector <=> ${JSON.stringify(vector)}::vector
       LIMIT ${topK}
-    `)
-    return rows.map(r => ({
+    `);
+    return rows.map((r) => ({
       document: { id: r.id, vector: [], metadata: r.metadata },
       score: r.score,
-    }))
+    }));
   }
 
   // ... delete, deleteByFilter, health
@@ -1065,44 +1089,47 @@ export class PgvectorStore implements VectorStore {
 
 ```ts
 // 用户项目：my-apigent/vector-store.ts
-import { VectorStore, VectorDocument, VectorSearchResult } from "apigent/core"
-import { MilvusClient } from "@zilliz/milvus2-sdk-node"
+import { VectorStore, VectorDocument, VectorSearchResult } from "apigent/core";
+import { MilvusClient } from "@zilliz/milvus2-sdk-node";
 
 export class MilvusStore implements VectorStore {
-  private client: MilvusClient
+  private client: MilvusClient;
 
   constructor(config: { host: string; port: number; collection: string }) {
-    this.client = new MilvusClient({ address: `${config.host}:${config.port}` })
+    this.client = new MilvusClient({ address: `${config.host}:${config.port}` });
   }
 
   async upsert(documents: VectorDocument[]): Promise<void> {
     await this.client.insert({
       collection_name: this.collection,
-      data: documents.map(d => ({
+      data: documents.map((d) => ({
         id: d.id,
         vector: d.vector,
         metadata: JSON.stringify(d.metadata),
       })),
-    })
+    });
   }
 
-  async search(vector: number[], options?: {
-    topK?: number
-    filter?: Record<string, unknown>
-  }): Promise<VectorSearchResult[]> {
+  async search(
+    vector: number[],
+    options?: {
+      topK?: number;
+      filter?: Record<string, unknown>;
+    },
+  ): Promise<VectorSearchResult[]> {
     const results = await this.client.search({
       collection_name: this.collection,
       vector,
       limit: options?.topK ?? 10,
-    })
-    return results.map(r => ({
+    });
+    return results.map((r) => ({
       document: { id: r.id, vector: [], metadata: JSON.parse(r.metadata) },
       score: r.score ?? 0,
-    }))
+    }));
   }
 
   async delete(ids: string[]): Promise<void> {
-    await this.client.delete({ collection_name: this.collection, ids })
+    await this.client.delete({ collection_name: this.collection, ids });
   }
 
   // ... deleteByFilter, health
@@ -1115,31 +1142,31 @@ export class MilvusStore implements VectorStore {
 // packages/core/src/interfaces/llm-provider.ts
 
 export interface ChatMessage {
-  role: "system" | "user" | "assistant"
-  content: string
+  role: "system" | "user" | "assistant";
+  content: string;
 }
 
 export interface ChatOptions {
-  model?: string
-  temperature?: number
-  maxTokens?: number
-  responseFormat?: "text" | "json_object"
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  responseFormat?: "text" | "json_object";
 }
 
 export interface ChatResponse {
-  content: string
-  usage: { inputTokens: number; outputTokens: number }
+  content: string;
+  usage: { inputTokens: number; outputTokens: number };
 }
 
 export interface LLMProvider {
   /** 单轮对话补全 */
-  chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse>
+  chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse>;
 
   /** 流式对话补全 */
-  chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string>
+  chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string>;
 
   /** 列出可用模型 */
-  listModels(): Promise<string[]>
+  listModels(): Promise<string[]>;
 }
 ```
 
@@ -1153,17 +1180,18 @@ export interface LLMProvider {
 
 export interface EmbeddingProvider {
   /** 为单段文本生成 Embedding */
-  embed(text: string): Promise<number[]>
+  embed(text: string): Promise<number[]>;
 
   /** 为多段文本批量生成 Embedding */
-  embedBatch(texts: string[]): Promise<number[][]>
+  embedBatch(texts: string[]): Promise<number[][]>;
 
   /** Embedding 向量的维度 */
-  readonly dimension: number
+  readonly dimension: number;
 }
 ```
 
 此接口独立于 `LLMProvider`，原因：
+
 - 部分部署中 chat 和 embedding 使用不同服务（如 Qwen 聊天 + Cohere 向量化）
 - 本地 Embedding 模型（BGE、GTE）没有对话能力
 - 解耦接口允许独立替换
@@ -1178,19 +1206,19 @@ export interface EmbeddingProvider {
 
 export interface StorageProvider {
   /** 上传文件，返回存储路径 */
-  upload(key: string, body: Buffer | ReadableStream, contentType: string): Promise<string>
+  upload(key: string, body: Buffer | ReadableStream, contentType: string): Promise<string>;
 
   /** 下载文件为 Buffer */
-  download(key: string): Promise<Buffer>
+  download(key: string): Promise<Buffer>;
 
   /** 获取签名 URL 用于直接访问（可选） */
-  getSignedUrl?(key: string, expiresInSeconds: number): Promise<string>
+  getSignedUrl?(key: string, expiresInSeconds: number): Promise<string>;
 
   /** 删除文件 */
-  delete(key: string): Promise<void>
+  delete(key: string): Promise<void>;
 
   /** 检查文件是否存在 */
-  exists(key: string): Promise<boolean>
+  exists(key: string): Promise<boolean>;
 }
 ```
 
@@ -1204,19 +1232,23 @@ export interface StorageProvider {
 
 export interface QueueProvider {
   /** 入队一个任务 */
-  enqueue<T>(queueName: string, payload: T, options?: {
-    delay?: number
-    priority?: number
-  }): Promise<string>
+  enqueue<T>(
+    queueName: string,
+    payload: T,
+    options?: {
+      delay?: number;
+      priority?: number;
+    },
+  ): Promise<string>;
 
   /** 注册队列处理器 */
-  register<T, R>(queueName: string, handler: (payload: T) => Promise<R>): void
+  register<T, R>(queueName: string, handler: (payload: T) => Promise<R>): void;
 
   /** 查询任务状态 */
-  getStatus(jobId: string): Promise<"waiting" | "active" | "completed" | "failed">
+  getStatus(jobId: string): Promise<"waiting" | "active" | "completed" | "failed">;
 
   /** 优雅关闭 */
-  shutdown(): Promise<void>
+  shutdown(): Promise<void>;
 }
 ```
 
@@ -1227,15 +1259,16 @@ export interface QueueProvider {
 
 Apigent 使用**双层配置系统**，方便开发环境和部署环境之间无缝切换：
 
-| 层 | 文件 | 放什么 | 示例 |
-|-------|------|---------------|----------|
-| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释） | `llm.provider: qwen`、`rag.retrievalMode: hybrid` |
-| **密钥** | `.env` | API key、密码、连接字符串（`APIGENT_` 前缀） | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
-| **编程配置** | `apigent.config.ts` | 自定义 provider 工厂、高级配置（可选 — 大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册 |
+| 层           | 文件                  | 放什么                                                                   | 示例                                                               |
+| ------------ | --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释）                 | `llm.provider: qwen`、`rag.retrievalMode: hybrid`                  |
+| **密钥**     | `.env`                | API key、密码、连接字符串（`APIGENT_` 前缀）                             | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
+| **编程配置** | `apigent.config.ts`   | 自定义 provider 工厂、高级配置（可选 — 大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册                                |
 
 **默认工作流 — apigent.config.yaml + .env（95% 用户）：**
 
 `apigent.config.yaml`（方案选择）：
+
 ```yaml
 llm:
   provider: qwen
@@ -1256,6 +1289,7 @@ rag:
 ```
 
 `.env`（仅密钥）：
+
 ```bash
 DASHSCOPE_API_KEY=sk-your-dashscope-key-here
 APIGENT_DATABASE_URL=postgresql://localhost:5432/apigent_dev
@@ -1286,7 +1320,7 @@ const base = loadConfig();
 
 const config: ApigentConfig = {
   ...base,
-  vectorStore: () => new MyCustomVectorStore({ /* ... */ }),
+  vectorStore: () => new MyCustomVectorStore({/* ... */}),
 };
 
 export default config;
@@ -1332,36 +1366,44 @@ Apigent 核心框架在启动时读取配置，通过 **服务容器（Service C
 
 ```ts
 // packages/core/src/container.ts
-import type { ApigentConfig } from "./config"
+import type { ApigentConfig } from "./config";
 
 export class Container {
-  private instances = new Map<string, unknown>()
+  private instances = new Map<string, unknown>();
 
   constructor(private config: ApigentConfig) {}
 
   getVectorStore(): VectorStore {
     if (!this.instances.has("vectorStore")) {
-      this.instances.set("vectorStore", this.config.vectorStore())
+      this.instances.set("vectorStore", this.config.vectorStore());
     }
-    return this.instances.get("vectorStore") as VectorStore
+    return this.instances.get("vectorStore") as VectorStore;
   }
 
-  getLLM(): LLMProvider { /* ... */ }
-  getEmbedding(): EmbeddingProvider { /* ... */ }
-  getStorage(): StorageProvider { /* ... */ }
-  getQueue(): QueueProvider { /* ... */ }
+  getLLM(): LLMProvider {
+    /* ... */
+  }
+  getEmbedding(): EmbeddingProvider {
+    /* ... */
+  }
+  getStorage(): StorageProvider {
+    /* ... */
+  }
+  getQueue(): QueueProvider {
+    /* ... */
+  }
 }
 
 // 单例——应用启动时初始化一次
-let container: Container
+let container: Container;
 
 export function initContainer(config: ApigentConfig) {
-  container = new Container(config)
+  container = new Container(config);
 }
 
 export function getContainer(): Container {
-  if (!container) throw new Error("Container 未初始化")
-  return container
+  if (!container) throw new Error("Container 未初始化");
+  return container;
 }
 ```
 
@@ -1369,17 +1411,17 @@ export function getContainer(): Container {
 
 ```ts
 // ✅ 正确——依赖接口，与具体实现无关
-import { getContainer } from "@/core/container"
+import { getContainer } from "@/core/container";
 
 async function searchApis(query: string) {
-  const vectorStore = getContainer().getVectorStore()
-  const embeddingProvider = getContainer().getEmbedding()
-  const queryVector = await embeddingProvider.embed(query)
-  return vectorStore.search(queryVector, { topK: 10 })
+  const vectorStore = getContainer().getVectorStore();
+  const embeddingProvider = getContainer().getEmbedding();
+  const queryVector = await embeddingProvider.embed(query);
+  return vectorStore.search(queryVector, { topK: 10 });
 }
 
 // ❌ 错误——硬编码依赖，无法替换
-import { PgvectorStore } from "@apigent/vector-store-pgvector"
+import { PgvectorStore } from "@apigent/vector-store-pgvector";
 ```
 
 ### 5.5.9 插件系统（V1+）
@@ -1403,19 +1445,19 @@ plugins/
 
 ```ts
 export interface ApigentPlugin {
-  name: string
-  version: string
+  name: string;
+  version: string;
   /** 插件注册时调用 */
-  register(ctx: PluginContext): void | Promise<void>
+  register(ctx: PluginContext): void | Promise<void>;
   /** 插件卸载时调用 */
-  unregister?(): void | Promise<void>
+  unregister?(): void | Promise<void>;
 }
 
 export interface PluginContext {
-  container: Container
-  logger: Logger
+  container: Container;
+  logger: Logger;
   /** 在平台生命周期中注册钩子 */
-  onHook(hook: string, handler: (...args: any[]) => Promise<void>): void
+  onHook(hook: string, handler: (...args: any[]) => Promise<void>): void;
 }
 ```
 
@@ -1424,11 +1466,8 @@ export interface PluginContext {
 ```ts
 const config: ApigentConfig = {
   // ... 核心配置
-  plugins: [
-    "./plugins/custom-notification",
-    "./plugins/custom-ai-rule",
-  ],
-}
+  plugins: ["./plugins/custom-notification", "./plugins/custom-ai-rule"],
+};
 ```
 
 ---
@@ -1437,15 +1476,15 @@ const config: ApigentConfig = {
 
 综合 blueprint 路线图，V0 覆盖最小可用产品：
 
-| 领域 | V0 功能 |
-|------|--------|
-| **认证** | 邮箱登录/注册、Session 管理 |
-| **Organization** | 创建组织、邀请成员、基础角色 |
-| **仓库** | 创建仓库、导入 OpenAPI（文件/URL）、版本列表 |
-| **浏览** | 接口列表（按 tag 分组）、数据模型列表、语义搜索（自然语言） |
-| **Core Engine** | OpenAPI Parser → Business Context Agent（能力上下文；Knowledge Graph 为 V1+ 可选增强，默认关闭） |
-| **MCP** | 基础 MCP Gateway，提供 `search_apis` + `get_api_detail`（`get_project_context` 随 Project 在 V1+ 提供） |
-| **Secret Key** | 生成、查看、删除密钥 |
-| **Dashboard** | 简单仓库列表 + 最近活动 |
-| **Admin** | 基础用户列表、平台统计 |
-| **Project** | 仅领域模型定义，V0 不实现功能 |
+| 领域             | V0 功能                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| **认证**         | 邮箱登录/注册、Session 管理                                                                             |
+| **Organization** | 创建组织、邀请成员、基础角色                                                                            |
+| **仓库**         | 创建仓库、导入 OpenAPI（文件/URL）、版本列表                                                            |
+| **浏览**         | 接口列表（按 tag 分组）、数据模型列表、语义搜索（自然语言）                                             |
+| **Core Engine**  | OpenAPI Parser → Business Context Agent（能力上下文；Knowledge Graph 为 V1+ 可选增强，默认关闭）        |
+| **MCP**          | 基础 MCP Gateway，提供 `search_apis` + `get_api_detail`（`get_project_context` 随 Project 在 V1+ 提供） |
+| **Secret Key**   | 生成、查看、删除密钥                                                                                    |
+| **Dashboard**    | 简单仓库列表 + 最近活动                                                                                 |
+| **Admin**        | 基础用户列表、平台统计                                                                                  |
+| **Project**      | 仅领域模型定义，V0 不实现功能                                                                           |

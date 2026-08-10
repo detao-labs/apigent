@@ -46,26 +46,26 @@ User Query: "退款接口在哪里？"
 
 ## 输入
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `query` | `string` | 自然语言查询："查找与退款相关的 API" |
-| `repo_id?` | `string` | 限定搜索范围（Repo） |
-| `org_id?` | `string` | 限定搜索范围（Organization 下所有 Repo） |
-| `project_id?` | `string` | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
-| `top_k?` | `number` | 返回数量，默认 10 |
-| `filter?` | `SearchFilter` | HTTP 方法、tag、路径前缀等筛选条件 |
-| `user_id` | `string` | 当前用户 ID（用于权限过滤） |
-| `search_mode?` | `"fast" \| "deep"` | `fast`: 跳过 Query Rewriting（默认）；`deep`: 完整流程 |
+| 字段           | 类型               | 说明                                                                 |
+| -------------- | ------------------ | -------------------------------------------------------------------- |
+| `query`        | `string`           | 自然语言查询："查找与退款相关的 API"                                 |
+| `repo_id?`     | `string`           | 限定搜索范围（Repo）                                                 |
+| `org_id?`      | `string`           | 限定搜索范围（Organization 下所有 Repo）                             |
+| `project_id?`  | `string`           | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
+| `top_k?`       | `number`           | 返回数量，默认 10                                                    |
+| `filter?`      | `SearchFilter`     | HTTP 方法、tag、路径前缀等筛选条件                                   |
+| `user_id`      | `string`           | 当前用户 ID（用于权限过滤）                                          |
+| `search_mode?` | `"fast" \| "deep"` | `fast`: 跳过 Query Rewriting（默认）；`deep`: 完整流程               |
 
 ## 输出
 
 ```typescript
 interface SearchResult {
   query: string;
-  rewritten_query?: string;       // 改写后的查询（如有）
+  rewritten_query?: string; // 改写后的查询（如有）
   results: ScoredAPI[];
   total_hits: number;
-  search_strategy: "hybrid" | "semantic" | "keyword" | "graph";  // "graph" 仅在 KG 启用后出现
+  search_strategy: "hybrid" | "semantic" | "keyword" | "graph"; // "graph" 仅在 KG 启用后出现
   latency_ms: number;
   llm_calls: number;
 }
@@ -76,12 +76,13 @@ interface ScoredAPI {
   path: string;
   method: string;
   summary: string;
-  score: number;                  // 最终排序分数 0-1
-  coarse_score: number;           // RRF 粗排分数
-  fine_score: number;             // Cross-encoder 精排分数
-  match_reason: string;           // 为什么匹配："业务意图匹配'退款'场景"
-  highlights: {                   // 匹配的关键片段
-    field: string;                // "capability.intent" | "usage.when_to_use" | "description" | "path"
+  score: number; // 最终排序分数 0-1
+  coarse_score: number; // RRF 粗排分数
+  fine_score: number; // Cross-encoder 精排分数
+  match_reason: string; // 为什么匹配："业务意图匹配'退款'场景"
+  highlights: {
+    // 匹配的关键片段
+    field: string; // "capability.intent" | "usage.when_to_use" | "description" | "path"
     snippet: string;
   }[];
 }
@@ -167,9 +168,9 @@ Output: → 规则判断 → 不改写（已包含精确 method + path）
 ```ts
 // 缓存 key: md5(normalize(query))
 // normalize: lowercase + trim + 去标点
-const CACHE_TTL = 3600_000 // 1 小时
-const cachedRewrite = await cache.get(`rewrite:${queryHash}`)
-if (cachedRewrite) return cachedRewrite
+const CACHE_TTL = 3600_000; // 1 小时
+const cachedRewrite = await cache.get(`rewrite:${queryHash}`);
+if (cachedRewrite) return cachedRewrite;
 ```
 
 ---
@@ -200,12 +201,12 @@ pgvector 查询：
 
 **为什么是 BM25 而非简单关键词匹配：**
 
-| | 简单关键词 | BM25 |
-|------|----------|------|
-| TF 处理 | 词频线性累加，"order" 出现 100 次 = 100 分 | TF 饱和（`tf / (k1 + tf)`），重复 >3 次几乎不加分 |
-| 文档长度 | 长文档天然优势 | 长度归一化，公平比较 |
-| IDF | 无 | 全库词频统计，稀有词权重高 |
-| API 场景 | `GET /health` 中 "GET" 高权重（错误） | "GET" IDF 低 → 权重自动降低（正确） |
+|          | 简单关键词                                 | BM25                                              |
+| -------- | ------------------------------------------ | ------------------------------------------------- |
+| TF 处理  | 词频线性累加，"order" 出现 100 次 = 100 分 | TF 饱和（`tf / (k1 + tf)`），重复 >3 次几乎不加分 |
+| 文档长度 | 长文档天然优势                             | 长度归一化，公平比较                              |
+| IDF      | 无                                         | 全库词频统计，稀有词权重高                        |
+| API 场景 | `GET /health` 中 "GET" 高权重（错误）      | "GET" IDF 低 → 权重自动降低（正确）               |
 
 **PostgreSQL 原生实现（无需额外组件）：**
 
@@ -232,12 +233,12 @@ LIMIT 50;
 
 **权重设计（`setweight`）：**
 
-| 字段 | 权重 | 说明 |
-|------|------|------|
-| `method` | A (1.0) | HTTP 方法，最高精度 |
-| `path` | A (1.0) | URL 路径，最高精度 |
-| `summary` | B (0.4) | 接口概述，次高 |
-| `content` | C (0.2) | 完整内容和业务描述 |
+| 字段      | 权重    | 说明                |
+| --------- | ------- | ------------------- |
+| `method`  | A (1.0) | HTTP 方法，最高精度 |
+| `path`    | A (1.0) | URL 路径，最高精度  |
+| `summary` | B (0.4) | 接口概述，次高      |
+| `content` | C (0.2) | 完整内容和业务描述  |
 
 ## 2.3 Knowledge Graph Traversal（结构召回）
 
@@ -326,16 +327,16 @@ Repository (repo-level)
 
 ```ts
 interface ChunkMetadata {
-  level: "project" | "tag" | "workflow" | "endpoint" | "schema" | "rules"
-  repo_id: string              // 用于权限过滤
-  org_id: string               // 冗余，加速 org 级查询
-  method?: string
-  path?: string
-  tag?: string
-  parent_chunk_id?: string     // L3 → L2 的关联
-  workflow_id?: string
-  version: string              // OpenAPI version
-  language: "zh" | "en"        // 中英双 chunk，分别 embedding
+  level: "project" | "tag" | "workflow" | "endpoint" | "schema" | "rules";
+  repo_id: string; // 用于权限过滤
+  org_id: string; // 冗余，加速 org 级查询
+  method?: string;
+  path?: string;
+  tag?: string;
+  parent_chunk_id?: string; // L3 → L2 的关联
+  workflow_id?: string;
+  version: string; // OpenAPI version
+  language: "zh" | "en"; // 中英双 chunk，分别 embedding
 }
 ```
 
@@ -380,43 +381,43 @@ async function retrieveWithPermission(
   topK: number,
 ): Promise<ChunkResult[]> {
   // 1. 查用户有权访问的仓库列表
-  const accessibleRepos = await getAccessibleRepoIds(userId)
+  const accessibleRepos = await getAccessibleRepoIds(userId);
   // → SELECT org_id, role FROM org_members WHERE user_id = $1
   // → SELECT repo_id, role FROM repo_permissions WHERE user_id = $1
   // → 合并 Organization 继承权限 + Repo 覆盖权限
   // → 返回 repo_id 集合
 
-  if (accessibleRepos.length === 0) return []
+  if (accessibleRepos.length === 0) return [];
 
   // 2. 带权限过滤的向量检索
   const results = await vectorStore.search(queryVector, {
-    topK: topK * 3,  // 多召回，给 RRF + 精排留余量
+    topK: topK * 3, // 多召回，给 RRF + 精排留余量
     filter: {
-      repo_id: { $in: accessibleRepos },   // ← 权限在此过滤
+      repo_id: { $in: accessibleRepos }, // ← 权限在此过滤
     },
-  })
+  });
 
-  return results
+  return results;
 }
 ```
 
 ## 4.3 权限过滤的 Granularity
 
-| 搜索入口 | 过滤维度 | 说明 |
-|---------|---------|------|
-| **平台全局搜索** | `WHERE repo_id IN (user_accessible_repos)` | 用户有权限的所有 repo |
-| **Organization 内搜索** | `WHERE org_id = :org_id AND repo_id IN (...)` | 限定 organization + 权限双重过滤 |
-| **单 Repo 搜索** | `WHERE repo_id = :repo_id` + RBAC check | 先检查用户对该 repo 的权限，无权限直接拒绝 |
-| **Project 内搜索（V1+）** | `WHERE repo_id IN (project_repos ∩ user_accessible_repos)` | 双层规则：项目过滤 + 仓库权限 |
-| **MCP search_apis** | `WHERE repo_id IN (key_scoped_repos)` + RBAC | Secret Key scopes 限定 + 用户权限 |
+| 搜索入口                  | 过滤维度                                                   | 说明                                       |
+| ------------------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| **平台全局搜索**          | `WHERE repo_id IN (user_accessible_repos)`                 | 用户有权限的所有 repo                      |
+| **Organization 内搜索**   | `WHERE org_id = :org_id AND repo_id IN (...)`              | 限定 organization + 权限双重过滤           |
+| **单 Repo 搜索**          | `WHERE repo_id = :repo_id` + RBAC check                    | 先检查用户对该 repo 的权限，无权限直接拒绝 |
+| **Project 内搜索（V1+）** | `WHERE repo_id IN (project_repos ∩ user_accessible_repos)` | 双层规则：项目过滤 + 仓库权限              |
+| **MCP search_apis**       | `WHERE repo_id IN (key_scoped_repos)` + RBAC               | Secret Key scopes 限定 + 用户权限          |
 
 ## 4.4 额外安全措施
 
-| 措施 | 说明 |
-|------|------|
-| **审计日志** | 记录每次搜索：`(user_id, query, repo_filter, timestamp, latency_ms)` |
-| **Rate Limiting** | 每用户每分钟最多 30 次搜索；MCP 调用按 Key 限流 |
-| **敏感字段 Mask** | LLM 回答 Prompt 中不注入完整 Schema 值，只注入名称 + 类型 + 描述 |
+| 措施                     | 说明                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| **审计日志**             | 记录每次搜索：`(user_id, query, repo_filter, timestamp, latency_ms)`             |
+| **Rate Limiting**        | 每用户每分钟最多 30 次搜索；MCP 调用按 Key 限流                                  |
+| **敏感字段 Mask**        | LLM 回答 Prompt 中不注入完整 Schema 值，只注入名称 + 类型 + 描述                 |
 | **Chunk 级 org_id 冗余** | repo 迁移 organization 后，chunk 的 org_id 保持不变（snapshot 语义避免数据泄露） |
 
 ---
@@ -468,15 +469,15 @@ function coarseRank(
   topN = 30,
 ): ScoredChunk[] {
   // 分别按各自分数排名
-  const embRank  = rankBy(embeddingResults, r => r.score)
-  const bm25Rank = rankBy(bm25Results, r => r.score)
-  const kgRank   = rankBy(kgResults, r => r.score)
+  const embRank = rankBy(embeddingResults, (r) => r.score);
+  const bm25Rank = rankBy(bm25Results, (r) => r.score);
+  const kgRank = rankBy(kgResults, (r) => r.score);
 
   // RRF 融合
-  const fused = new Map<string, number>()
-  for (const [id, rank] of embRank)  fused.set(id, (fused.get(id) ?? 0) + 1 / (k + rank))
-  for (const [id, rank] of bm25Rank) fused.set(id, (fused.get(id) ?? 0) + 1 / (k + rank))
-  for (const [id, rank] of kgRank)   fused.set(id, (fused.get(id) ?? 0) + 1 / (k + rank))
+  const fused = new Map<string, number>();
+  for (const [id, rank] of embRank) fused.set(id, (fused.get(id) ?? 0) + 1 / (k + rank));
+  for (const [id, rank] of bm25Rank) fused.set(id, (fused.get(id) ?? 0) + 1 / (k + rank));
+  for (const [id, rank] of kgRank) fused.set(id, (fused.get(id) ?? 0) + 1 / (k + rank));
 
   return [...fused.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -484,17 +485,17 @@ function coarseRank(
     .map(([id, score]) => ({
       ...findChunk(id),
       coarseScore: score,
-    }))
+    }));
 }
 ```
 
 **为什么 RRF 优于加权求和：**
 
-| | 加权求和 | RRF |
-|------|---------|-----|
-| 需要调参 | 需要调 3 个权重（embedding/bm25/kg） | 只需 k（通常 60，不敏感） |
-| 量纲问题 | embedding [0,1], bm25 [0,∞), kg bonus [0,1] — 必须归一化 | 只关心排名，无关量纲 |
-| 某路极端值 | 一路极高可压制其他路 | 排名融合，不会被单一高分绑架 |
+|            | 加权求和                                                 | RRF                          |
+| ---------- | -------------------------------------------------------- | ---------------------------- |
+| 需要调参   | 需要调 3 个权重（embedding/bm25/kg）                     | 只需 k（通常 60，不敏感）    |
+| 量纲问题   | embedding [0,1], bm25 [0,∞), kg bonus [0,1] — 必须归一化 | 只关心排名，无关量纲         |
+| 某路极端值 | 一路极高可压制其他路                                     | 排名融合，不会被单一高分绑架 |
 
 ## 5.3 Cross-encoder 精排
 
@@ -512,12 +513,12 @@ Cross-encoder（Reranker）:
 
 **推荐方案 V1：qwen3-rerank（阿里云百炼 API）**
 
-| 特性 | 说明 |
-|------|------|
-| 多语言 | 支持 100+ 语言，中英 query-doc pair 均可 |
-| 免运维 | 百炼托管 API，无需自部署 GPU |
-| 容量 | 单次最多 500 个候选文档；query/文档各最长 4000 tokens |
-| 替代方案 | 本地 BGE-Reranker-v2-m3（自部署）、Cohere Rerank API |
+| 特性     | 说明                                                  |
+| -------- | ----------------------------------------------------- |
+| 多语言   | 支持 100+ 语言，中英 query-doc pair 均可              |
+| 免运维   | 百炼托管 API，无需自部署 GPU                          |
+| 容量     | 单次最多 500 个候选文档；query/文档各最长 4000 tokens |
+| 替代方案 | 本地 BGE-Reranker-v2-m3（自部署）、Cohere Rerank API  |
 
 ```ts
 async function fineRank(
@@ -526,19 +527,19 @@ async function fineRank(
   topN = 10,
 ): Promise<ChunkResult[]> {
   // 构建 (query, chunk.content) pairs
-  const pairs = candidates.map(c => ({
+  const pairs = candidates.map((c) => ({
     query,
-    document: c.content.slice(0, 512),  // cross-encoder 最大输入通常 512 tokens
-  }))
+    document: c.content.slice(0, 512), // cross-encoder 最大输入通常 512 tokens
+  }));
 
   // 批量打分
-  const scores = await reranker.score(pairs)
+  const scores = await reranker.score(pairs);
 
   // 排序 + 截断
   return scores
     .map((s, i) => ({ ...candidates[i], fineScore: s.score }))
     .sort((a, b) => b.fineScore - a.fineScore)
-    .slice(0, topN)
+    .slice(0, topN);
 }
 ```
 
@@ -552,11 +553,11 @@ Input:  Query + API chunk content
 Output: { relevant: true/false, reason: "..." }
 ```
 
-| 排序阶段 | 候选量 | 延迟 | 成本/查询 |
-|---------|--------|------|----------|
-| RRF 粗排 | 100+ → 30 | ~50ms | 0 |
-| Cross-encoder 精排 | 30 → 10 | ~200ms | 0（本地）或极低（API） |
-| LLM Judge（V2 可选） | 10 → 5 | ~500ms | ~$0.01 |
+| 排序阶段             | 候选量    | 延迟   | 成本/查询              |
+| -------------------- | --------- | ------ | ---------------------- |
+| RRF 粗排             | 100+ → 30 | ~50ms  | 0                      |
+| Cross-encoder 精排   | 30 → 10   | ~200ms | 0（本地）或极低（API） |
+| LLM Judge（V2 可选） | 10 → 5    | ~500ms | ~$0.01                 |
 
 ---
 
@@ -580,14 +581,14 @@ Output: { relevant: true/false, reason: "..." }
 
 # 7. 搜索策略选择（自动）
 
-| 用户输入特征 | 策略选择 | 说明 |
-|------------|---------|------|
-| 精确 method + path | `keyword` 优先，embedding 辅助 | BM25 权重提升至 0.5 |
-| 短查询 (≤5 词，英文) | `hybrid`（embedding + BM25） | 默认策略 |
-| 长查询 (>5 词) | `semantic` 优先 | LLM 改写 → embedding 主导 |
-| 中文查询 | 触发 query rewriting → `hybrid` | 改写为英文检索词 |
-| 含 workflow/流程关键词 | `hybrid` + KG bonus 翻倍（V1+，KG 启用后） | "退款流程"、"调用顺序" |
-| 模糊问题 | `deep` mode → 完整 pipeline | LLM 改写 + 子查询多路召回 |
+| 用户输入特征           | 策略选择                                   | 说明                      |
+| ---------------------- | ------------------------------------------ | ------------------------- |
+| 精确 method + path     | `keyword` 优先，embedding 辅助             | BM25 权重提升至 0.5       |
+| 短查询 (≤5 词，英文)   | `hybrid`（embedding + BM25）               | 默认策略                  |
+| 长查询 (>5 词)         | `semantic` 优先                            | LLM 改写 → embedding 主导 |
+| 中文查询               | 触发 query rewriting → `hybrid`            | 改写为英文检索词          |
+| 含 workflow/流程关键词 | `hybrid` + KG bonus 翻倍（V1+，KG 启用后） | "退款流程"、"调用顺序"    |
+| 模糊问题               | `deep` mode → 完整 pipeline                | LLM 改写 + 子查询多路召回 |
 
 ---
 
@@ -619,12 +620,12 @@ Output: { relevant: true/false, reason: "..." }
 
 ## 边界情况
 
-| 场景 | 行为 |
-|------|------|
-| 查询无结果 | 降级 BM25 → 仍无结果返回空列表 + 搜索建议 + "尝试用英文搜索" |
-| 用户无任何仓库权限 | 返回空列表，不暴露 repo 存在信息 |
-| 跨 Organization 搜索 | 返回用户有权限的所有 repo 结果，按 repo 分组 |
-| 中英混合查询 | LLM 改写统一翻译为英文检索词，中英双 chunk 同时召回 |
-| 查询包含拼写错误 | LLM 改写阶段自动纠正，保留原始查询记录 |
-| 目标 repo 无 embedding 数据 | 降级为纯 BM25 关键词搜索 |
-| BM25 索引尚未构建 | PostgreSQL `tsvector` Generated Column 自动同步，不存在窗口期 |
+| 场景                        | 行为                                                          |
+| --------------------------- | ------------------------------------------------------------- |
+| 查询无结果                  | 降级 BM25 → 仍无结果返回空列表 + 搜索建议 + "尝试用英文搜索"  |
+| 用户无任何仓库权限          | 返回空列表，不暴露 repo 存在信息                              |
+| 跨 Organization 搜索        | 返回用户有权限的所有 repo 结果，按 repo 分组                  |
+| 中英混合查询                | LLM 改写统一翻译为英文检索词，中英双 chunk 同时召回           |
+| 查询包含拼写错误            | LLM 改写阶段自动纠正，保留原始查询记录                        |
+| 目标 repo 无 embedding 数据 | 降级为纯 BM25 关键词搜索                                      |
+| BM25 索引尚未构建           | PostgreSQL `tsvector` Generated Column 自动同步，不存在窗口期 |

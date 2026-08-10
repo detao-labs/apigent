@@ -13,13 +13,13 @@
 
 ## 输入
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `api` | `APIEntry` | 来自 OpenAPI Parser Service 的 API 技术模型（repo 级） |
-| `repo_id` | `string` | 所属 Repository（能力上下文粒度） |
-| `project_id?` | `string` | 所属 Project（使用上下文粒度，V1+） |
-| `project_context?` | `ProjectContext` | 项目全局上下文（认证方式、领域术语等，V1+ 使用上下文推断时输入） |
-| `human_annotations?` | `string` | 人工添加的业务描述 |
+| 字段                 | 类型             | 说明                                                             |
+| -------------------- | ---------------- | ---------------------------------------------------------------- |
+| `api`                | `APIEntry`       | 来自 OpenAPI Parser Service 的 API 技术模型（repo 级）           |
+| `repo_id`            | `string`         | 所属 Repository（能力上下文粒度）                                |
+| `project_id?`        | `string`         | 所属 Project（使用上下文粒度，V1+）                              |
+| `project_context?`   | `ProjectContext` | 项目全局上下文（认证方式、领域术语等，V1+ 使用上下文推断时输入） |
+| `human_annotations?` | `string`         | 人工添加的业务描述                                               |
 
 ## 输出
 
@@ -30,19 +30,19 @@ interface CapabilityContext {
   repo_id: string;
 
   capability: {
-    intent: string;              // 能力意图："处理订单退款"
+    intent: string; // 能力意图："处理订单退款"
     constraints: BusinessRule[];
-    side_effects: string[];      // 副作用："扣除库存"、"发送通知"
+    side_effects: string[]; // 副作用："扣除库存"、"发送通知"
   };
 
   examples: {
     request: ExampleValue[];
     response: ExampleValue[];
-    error: ExampleValue[];      // 常见错误
+    error: ExampleValue[]; // 常见错误
   };
 
-  confidence: number;           // 自动推断置信度 (0-1)
-  needs_review: boolean;        // 是否需要人工确认
+  confidence: number; // 自动推断置信度 (0-1)
+  needs_review: boolean; // 是否需要人工确认
 }
 
 // 使用上下文（Project 级，V1+）—— 消费方视角，按 (project_id, repo_id) 存储
@@ -52,13 +52,13 @@ interface UsageContext {
   project_id: string;
 
   usage: {
-    when_to_use: string[];       // 本项目在什么场景下使用该 API
-    when_not_to_use: string[];   // 本项目什么场景下不要使用
-    usage_policy: string[];      // 项目使用政策："仅前台发起退款，不开放给客服"
+    when_to_use: string[]; // 本项目在什么场景下使用该 API
+    when_not_to_use: string[]; // 本项目什么场景下不要使用
+    usage_policy: string[]; // 项目使用政策："仅前台发起退款，不开放给客服"
   };
 
-  confidence: number;            // 自动推断置信度 (0-1)
-  needs_review: boolean;         // 是否需要人工确认
+  confidence: number; // 自动推断置信度 (0-1)
+  needs_review: boolean; // 是否需要人工确认
 }
 ```
 
@@ -70,20 +70,20 @@ interface UsageContext {
 
 **第一遍（V0）— 能力上下文：** 基于 Schema 结构 + 命名模式推断后端能力：
 
-| 输入信号 | 推断结果 |
-|---------|---------|
-| `POST /orders/{id}/refund` | 意图: "订单退款"，副作用: "创建退款单" |
-| 参数包含 `amount` / `currency` | 约束: "金额需 > 0" |
-| response 包含 `error_code` | 示例层填充常见错误码 |
-| tag 包含 `[admin]` | 约束: "需要管理员权限" |
+| 输入信号                       | 推断结果                               |
+| ------------------------------ | -------------------------------------- |
+| `POST /orders/{id}/refund`     | 意图: "订单退款"，副作用: "创建退款单" |
+| 参数包含 `amount` / `currency` | 约束: "金额需 > 0"                     |
+| response 包含 `error_code`     | 示例层填充常见错误码                   |
+| tag 包含 `[admin]`             | 约束: "需要管理员权限"                 |
 
 **第二遍（V1+）— 使用上下文：** 结合项目业务目标（Project Context）推断该项目如何使用各接口：
 
-| 输入信号 | 推断结果 |
-|---------|---------|
-| 项目业务目标："电商订单系统" | `when_to_use`: "前台用户发起退款时" |
+| 输入信号                       | 推断结果                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| 项目业务目标："电商订单系统"   | `when_to_use`: "前台用户发起退款时"                                             |
 | 项目内部约定："客服走线下流程" | `when_not_to_use`: "客服工单场景不使用本接口"、`usage_policy`: "仅前台渠道开放" |
-| 项目选用的 API 集合 | 使用场景与调用流程（工作流） |
+| 项目选用的 API 集合            | 使用场景与调用流程（工作流）                                                    |
 
 > LLM 成本：能力上下文每 Repository 推断一次；使用上下文按 `(project, repo)` 各推断一次（同一 repo 进入 N 个项目则 ×N）。
 
@@ -124,8 +124,8 @@ interface UsageContext {
 
 ## 边界情况
 
-| 场景 | 行为 |
-|------|------|
-| API 无 description 字段 | 仅基于 path/method/schema 推断，confidence 较低 |
-| 非英文描述 | 检测语言并保留原文，部分规则用 LLM 翻译后提取 |
+| 场景                                 | 行为                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------- |
+| API 无 description 字段              | 仅基于 path/method/schema 推断，confidence 较低                                 |
+| 非英文描述                           | 检测语言并保留原文，部分规则用 LLM 翻译后提取                                   |
 | 同一 API 在不同 Project 中有不同用法 | 能力上下文按 repo 共享一份；使用上下文按 `(project, repo)` 各存一份，允许差异化 |

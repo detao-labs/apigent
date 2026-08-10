@@ -10,11 +10,11 @@
 
 ## 输入
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `source` | `file` \| `url` \| `text` | 输入来源类型 |
-| `content` | `string` | OpenAPI JSON/YAML 内容或 URL |
-| `repo_id` | `string` | 所属 Repository ID |
+| 字段      | 类型                      | 说明                         |
+| --------- | ------------------------- | ---------------------------- |
+| `source`  | `file` \| `url` \| `text` | 输入来源类型                 |
+| `content` | `string`                  | OpenAPI JSON/YAML 内容或 URL |
+| `repo_id` | `string`                  | 所属 Repository ID           |
 
 ## 输出
 
@@ -23,7 +23,7 @@ interface ParsedAPIModel {
   repo_id: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
-  parse_issues: ParseIssue[];   // 校验问题：warning 不阻塞，error 跳过该 API
+  parse_issues: ParseIssue[]; // 校验问题：warning 不阻塞，error 跳过该 API
   meta: {
     openapi_version: string;
     parsed_at: number;
@@ -32,14 +32,14 @@ interface ParsedAPIModel {
 }
 
 interface ParseIssue {
-  api_id?: string;              // 关联的 API（error 级时该 API 被跳过）
+  api_id?: string; // 关联的 API（error 级时该 API 被跳过）
   severity: "warning" | "error";
   message: string;
 }
 
 interface APIEntry {
-  id: string;                    // 自动生成：{method}:{path}
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  id: string; // 自动生成：{method}:{path}
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   path: string;
   summary: string;
   description: string;
@@ -54,21 +54,25 @@ interface APIEntry {
 ## 核心能力
 
 ### 1. 多版本兼容
+
 - 支持 OpenAPI 2.0 (Swagger)、3.0.x、3.1.x
 - 自动检测并归一化为内部 Model
 - 非标准扩展字段保留在 `x-*` 字段中
 
 ### 2. Schema 展开
+
 - 自动展开 `$ref` 引用为内联结构（展开深度可配置，默认 3 层）
 - 循环引用检测：记录引用路径，标记为 `circular_ref`
 - 保留原始 `$ref` 路径，便于后续追溯
 
 ### 3. 增量更新
+
 - 与已有 API Model 比对，生成 Diff
 - 发出 `api.created` / `api.updated` / `api.deleted` 事件
 - 仅变更的 API 进入下游处理管道
 
 ### 4. 校验
+
 - Schema 完整性检查（必填字段、类型一致性）
 - 不合规项生成 `ParseIssue`，不阻塞解析
 - 错误分级：`warning`（可继续，计入 `parse_issues`）/ `error`（该 API 被跳过并计入 `parse_issues`）
@@ -92,9 +96,9 @@ interface APIEntry {
 
 ## 边界情况
 
-| 场景 | 行为 |
-|------|------|
-| 超大文件（>10MB, >500 paths） | 分批解析，每批 100 个 path |
-| 空文件 / 无效 JSON | 返回 error 级 `ParseIssue`，不崩溃 |
+| 场景                               | 行为                               |
+| ---------------------------------- | ---------------------------------- |
+| 超大文件（>10MB, >500 paths）      | 分批解析，每批 100 个 path         |
+| 空文件 / 无效 JSON                 | 返回 error 级 `ParseIssue`，不崩溃 |
 | 已在其他 Repository 导入过同一文件 | 提示确认，支持跨仓库复用 API Model |
-| 中文/特殊字符的 path/summary | 完整保留，不做转义 |
+| 中文/特殊字符的 path/summary       | 完整保留，不做转义                 |

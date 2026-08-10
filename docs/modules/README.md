@@ -6,10 +6,10 @@
 
 **不是所有模块都是 Agent。** Apigent 的组件分为两类：
 
-| 类别 | 定义 | 实现方式 | 示例 |
-|------|------|---------|------|
-| **Platform Service** | 确定性逻辑，不需要 LLM | 普通代码（TypeScript 模块） | 解析 OpenAPI、存储图谱、聚合查询 |
-| **AI Agent** | 需要推理/理解/生成，由 LLM 驱动 | LLM + prompt + 工具调用 | 推断业务含义、理解搜索意图 |
+| 类别                 | 定义                            | 实现方式                    | 示例                             |
+| -------------------- | ------------------------------- | --------------------------- | -------------------------------- |
+| **Platform Service** | 确定性逻辑，不需要 LLM          | 普通代码（TypeScript 模块） | 解析 OpenAPI、存储图谱、聚合查询 |
+| **AI Agent**         | 需要推理/理解/生成，由 LLM 驱动 | LLM + prompt + 工具调用     | 推断业务含义、理解搜索意图       |
 
 只有当模块的核心任务**无法用确定性规则完成**时，才引入 Agent。解析器、存储层、数据聚合——这些用正常代码就能做好，加 LLM 只会变慢、变贵、变不可靠。
 
@@ -68,35 +68,35 @@
 
 ### Platform Service（确定性模块，普通代码）
 
-| Service | 职责 | 为什么不需要 LLM |
-|--------|------|-----------------|
-| [OpenAPI Parser Service](./openapi-parser.md) | 解析 OpenAPI JSON/YAML，生成结构化 API Model | 规范有明确的 JSON Schema，纯解析+验证逻辑 |
-| [Knowledge Graph Service](./knowledge-graph.md) | 构建 API 关联图谱（depends_on / follow_up 等）——**V1+ 可选增强，默认关闭**（`rag.knowledgeGraph.enabled`） | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
-| [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片 | SQL JOIN + 数据拼装，不涉及理解或推理 |
-| [Project Context Service](./project-context.md) | 提取项目级约定（base_url、分页、认证） | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理 |
-| [MCP Gateway](./mcp-gateway.md) | MCP 协议服务器：路由、鉴权、限流 | 协议适配和请求路由，纯工程逻辑 |
+| Service                                                 | 职责                                                                                                       | 为什么不需要 LLM                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| [OpenAPI Parser Service](./openapi-parser.md)           | 解析 OpenAPI JSON/YAML，生成结构化 API Model                                                               | 规范有明确的 JSON Schema，纯解析+验证逻辑              |
+| [Knowledge Graph Service](./knowledge-graph.md)         | 构建 API 关联图谱（depends_on / follow_up 等）——**V1+ 可选增强，默认关闭**（`rag.knowledgeGraph.enabled`） | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
+| [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片                                                                  | SQL JOIN + 数据拼装，不涉及理解或推理                  |
+| [Project Context Service](./project-context.md)         | 提取项目级约定（base_url、分页、认证）                                                                     | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理        |
+| [MCP Gateway](./mcp-gateway.md)                         | MCP 协议服务器：路由、鉴权、限流                                                                           | 协议适配和请求路由，纯工程逻辑                         |
 
 ### AI Agent（LLM 驱动，真正需要推理）
 
-| Agent | 版本 | 职责 | 为什么需要 LLM |
-|-------|------|------|---------------|
-| [Business Context Agent](./business-context.agent.md) | V0 | 推断**能力上下文**（repo 级，V0）与**使用上下文**（project 级，V1+） | 自然语言描述 → 结构化业务知识，需要语义理解 |
-| [Semantic Search Agent](./semantic-search.agent.md) | V0 | 理解自然语言查询意图，匹配最相关的 API | "查找退款相关的 API" → 需要理解"退款"对应哪些 API，语义而非关键词匹配 |
-| Knowledge Assistant Agent | V1 | 对话式 API 知识问答 | 多轮对话、模糊问题、需要推理 |
-| API Generation Agent | V1 | 从需求描述生成 API 设计 | 自然语言 → OpenAPI Schema |
-| Documentation Agent | V1 | 生成/改进 API 文档 | 需要理解 API 并生成人类可读的描述 |
-| Change Analysis Agent | V1 | 分析 API 变更影响 | 需要推理变更的破坏性、影响范围 |
+| Agent                                                 | 版本 | 职责                                                                 | 为什么需要 LLM                                                        |
+| ----------------------------------------------------- | ---- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [Business Context Agent](./business-context.agent.md) | V0   | 推断**能力上下文**（repo 级，V0）与**使用上下文**（project 级，V1+） | 自然语言描述 → 结构化业务知识，需要语义理解                           |
+| [Semantic Search Agent](./semantic-search.agent.md)   | V0   | 理解自然语言查询意图，匹配最相关的 API                               | "查找退款相关的 API" → 需要理解"退款"对应哪些 API，语义而非关键词匹配 |
+| Knowledge Assistant Agent                             | V1   | 对话式 API 知识问答                                                  | 多轮对话、模糊问题、需要推理                                          |
+| API Generation Agent                                  | V1   | 从需求描述生成 API 设计                                              | 自然语言 → OpenAPI Schema                                             |
+| Documentation Agent                                   | V1   | 生成/改进 API 文档                                                   | 需要理解 API 并生成人类可读的描述                                     |
+| Change Analysis Agent                                 | V1   | 分析 API 变更影响                                                    | 需要推理变更的破坏性、影响范围                                        |
 
 ---
 
 ## 3. 组件数量对比
 
-| | 之前（错误） | 之后（正确） |
-|------|------------|------------|
-| "Agent" 数量 | 7 | 2 (V0) + 4 (V1) |
-| Platform Service | 0 | 5（其中 Knowledge Graph 为 V1+ 可选） |
-| MCP Gateway | 归为 Agent | 协议服务器 |
-| 需要 LLM 调用的组件 | 7（夸大） | 2（精确） |
+|                     | 之前（错误） | 之后（正确）                          |
+| ------------------- | ------------ | ------------------------------------- |
+| "Agent" 数量        | 7            | 2 (V0) + 4 (V1)                       |
+| Platform Service    | 0            | 5（其中 Knowledge Graph 为 V1+ 可选） |
+| MCP Gateway         | 归为 Agent   | 协议服务器                            |
+| 需要 LLM 调用的组件 | 7（夸大）    | 2（精确）                             |
 
 > V0 实际落地的 Platform Service 为 4 个（不含 Knowledge Graph）；KG 启用后作为第 5 个。
 
@@ -171,20 +171,20 @@ Cursor Agent → 生成带业务规则校验的代码
 
 ### 需要新增的 AI Agent
 
-| Agent | 触发场景 | LLM 能力 |
-|-------|---------|---------|
-| **Knowledge Assistant** | 开发者问 "这个项目有哪些支付相关 API？退款流程怎么走？" | 多轮对话、知识库 RAG |
-| **API Generation** | "帮我设计一个优惠券系统的 API" | 自然语言 → Schema 生成 |
-| **Documentation** | API 变更后自动更新文档 | Schema + 业务规则 → 人类可读描述 |
-| **Change Analysis** | API 版本升级时分析影响 | Diff + 依赖图 → 影响范围推理 |
+| Agent                   | 触发场景                                                | LLM 能力                         |
+| ----------------------- | ------------------------------------------------------- | -------------------------------- |
+| **Knowledge Assistant** | 开发者问 "这个项目有哪些支付相关 API？退款流程怎么走？" | 多轮对话、知识库 RAG             |
+| **API Generation**      | "帮我设计一个优惠券系统的 API"                          | 自然语言 → Schema 生成           |
+| **Documentation**       | API 变更后自动更新文档                                  | Schema + 业务规则 → 人类可读描述 |
+| **Change Analysis**     | API 版本升级时分析影响                                  | Diff + 依赖图 → 影响范围推理     |
 
 ### 不需要 Agent 的 V1 功能
 
-| 功能 | 实现方式 |
-|------|---------|
-| OpenAPI 导入/导出 | OpenAPI Parser Service 扩展 |
-| Smart Mock 生成 | 规则引擎（Schema → 合理假数据），不需要 LLM |
-| API 治理 | 规则校验（lint 规则匹配），不需要 LLM |
+| 功能              | 实现方式                                    |
+| ----------------- | ------------------------------------------- |
+| OpenAPI 导入/导出 | OpenAPI Parser Service 扩展                 |
+| Smart Mock 生成   | 规则引擎（Schema → 合理假数据），不需要 LLM |
+| API 治理          | 规则校验（lint 规则匹配），不需要 LLM       |
 
 ---
 
