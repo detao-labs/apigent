@@ -32,7 +32,6 @@ export const endpoints = pgTable(
     summary: text("summary"),
     description: text("description"),
     requestSchema: jsonb("request_schema"),
-    responseSchema: jsonb("response_schema"),
     parameters: jsonb("parameters").default([]),
     deprecated: boolean("deprecated").default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -57,6 +56,39 @@ export const endpointModules = pgTable(
       .references(() => modules.id),
   },
   (table) => [primaryKey({ columns: [table.endpointId, table.moduleId] })],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// Endpoint Responses — OpenAPI paths.{path}.{method}.responses.{status}
+//
+// A single endpoint can have many responses (200/400/401/409/500...),
+// each with its own description, headers and content. Modeled as a
+// separate table so AI agents and tooling can annotate/manage each
+// status code independently instead of rewriting one big jsonb blob.
+// ═══════════════════════════════════════════════════════════════════
+
+export const endpointResponses = pgTable(
+  "endpoint_responses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    endpointId: uuid("endpoint_id")
+      .notNull()
+      .references(() => endpoints.id, { onDelete: "cascade" }),
+    statusCode: varchar("status_code", { length: 3 }).notNull(),
+    description: text("description"),
+    headers: jsonb("headers").default([]),
+    /** Media type → OpenAPI media object, e.g. { "application/json": { schema: {...} } } */
+    content: jsonb("content"),
+    /** Denormalized from statusCode for cheap filtering of error responses */
+    isError: boolean("is_error").default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("endpoint_responses_endpoint_status_idx").on(
+      table.endpointId,
+      table.statusCode,
+    ),
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════

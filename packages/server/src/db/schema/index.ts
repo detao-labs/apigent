@@ -7,6 +7,7 @@ export { repositories, repoPermissions, repoVersions, modules } from "./repo";
 export {
   endpoints,
   endpointModules,
+  endpointResponses,
   dataModels,
   businessContexts,
   endpointRelationships,
