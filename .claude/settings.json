@@ -8,7 +8,34 @@
       "Bash(rtk read *)",
       "Bash(rtk git *)",
       "Bash(pnpm --version)",
-      "Bash(rtk pnpm *)"
+      "Bash(rtk pnpm *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm add *)",
+      "Bash(mkdir -p /Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/orgs/new /Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/repos/new /Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/repos/\\\\[id\\\\] /Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/api/orgs /Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/api/repos /Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/keys)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm install *)",
+      "Bash(echo \"---EXIT: $?\")",
+      "Bash(rtk docker *)",
+      "Bash(docker stop *)",
+      "Bash(docker rm *)",
+      "Bash(docker volume *)",
+      "Bash(mkdir -p /Users/jiahui.wu/MyApp/docker/pgvector/data)",
+      "Bash(docker exec *)",
+      "Bash(sed -i '' 's|/apigent_dev|/apigent|g' /Users/jiahui.wu/VSCode/apigent/.env)",
+      "Bash(rtk npx *)",
+      "Bash(APIGENT_DATABASE_URL=postgresql://apigent:apigent@localhost:5433/apigent rtk npx drizzle-kit push --config drizzle.config.ts)",
+      "Bash(npx shadcn@latest add sidebar card table input dialog dropdown-menu separator sheet tooltip avatar badge breadcrumb button -y)",
+      "Bash(npx shadcn@latest add textarea -y)",
+      "Bash(rtk tsc *)",
+      "Bash(pnpm --filter @apigent/open test)",
+      "Bash(pnpm --filter @apigent/core test)",
+      "Bash(python3 -m json.tool)",
+      "Bash(rm -f apps/platform/src/app/page.tsx apps/platform/src/app/orgs/page.tsx apps/platform/src/app/orgs/new/page.tsx apps/platform/src/app/repos/page.tsx apps/platform/src/app/repos/new/page.tsx \"apps/platform/src/app/repos/[id]/page.tsx\" apps/platform/src/app/keys/page.tsx)",
+      "Bash(rmdir \"apps/platform/src/app/repos/[id]\" \"apps/platform/src/app/repos/new\" apps/platform/src/app/repos apps/platform/src/app/keys)"
+    ],
+    "additionalDirectories": [
+      "/Users/jiahui.wu/VSCode/apigent/apps/platform/src/app/repos",
+      "/Users/jiahui.wu/MyApp/docker/pgvector/data"
     ]
   }
 }

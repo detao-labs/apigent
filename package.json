@@ -3,6 +3,10 @@
   "private": true,
   "description": "API collaboration platform with native AI Agent support",
   "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "dev:platform": "pnpm --filter @apigent/platform dev",
+    "dev:admin": "pnpm --filter @apigent/admin dev",
+    "dev:open": "pnpm --filter @apigent/open dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "format": "prettier --write .",

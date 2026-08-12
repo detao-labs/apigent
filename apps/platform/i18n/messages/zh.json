@@ -1,0 +1,137 @@
+{
+  "nav": {
+    "dashboard": "仪表盘",
+    "organizations": "组织",
+    "repositories": "仓库",
+    "apiKeys": "API 密钥",
+    "brandSubtitle": "平台"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "description": "API 知识平台概览",
+    "stats": {
+      "organizations": "组织",
+      "repositories": "仓库",
+      "endpoints": "接口"
+    },
+    "quickActions": "快捷操作",
+    "createOrg": {
+      "title": "创建组织",
+      "description": "创建新的团队工作空间"
+    },
+    "newRepo": {
+      "title": "新建仓库",
+      "description": "创建仓库并导入 OpenAPI 规范"
+    }
+  },
+  "orgs": {
+    "title": "组织",
+    "description": "管理团队工作空间",
+    "empty": {
+      "title": "暂无组织",
+      "description": "创建第一个组织以开始使用"
+    },
+    "new": {
+      "title": "新建组织",
+      "description": "创建一个新的组织来与团队协作",
+      "details": "组织信息",
+      "detailsDesc": "填写组织的基本信息",
+      "name": "名称",
+      "namePlaceholder": "例如：电商平台团队",
+      "slug": "标识符",
+      "slugPlaceholder": "例如：ecommerce-team",
+      "slugHint": "URL 友好标识：仅小写字母、数字和连字符。",
+      "description": "描述",
+      "descriptionPlaceholder": "简要描述这个组织",
+      "submit": "创建组织",
+      "cancel": "取消"
+    },
+    "table": {
+      "name": "名称",
+      "slug": "标识符",
+      "members": "成员",
+      "repos": "仓库",
+      "actions": "操作"
+    }
+  },
+  "repos": {
+    "title": "仓库",
+    "description": "管理和浏览 API 仓库",
+    "empty": {
+      "title": "暂无仓库",
+      "description": "创建第一个仓库并导入 OpenAPI 规范"
+    },
+    "new": {
+      "title": "新建仓库",
+      "description": "创建仓库并可选导入 OpenAPI 规范",
+      "details": "仓库信息",
+      "detailsDesc": "选择组织并为仓库命名",
+      "org": "组织",
+      "orgPlaceholder": "选择组织...",
+      "orgHint": "如果还没有组织，请先创建组织",
+      "createOrg": "创建组织",
+      "name": "名称",
+      "namePlaceholder": "例如：支付服务 API",
+      "description": "描述",
+      "descriptionPlaceholder": "简要描述这个 API 仓库",
+      "spec": "OpenAPI 规范",
+      "specOptional": "（可选）",
+      "specPlaceholder": "在此粘贴 OpenAPI JSON 或 YAML...",
+      "specHint": "支持 OpenAPI 3.0.x 和 3.1.x，JSON 或 YAML 格式",
+      "submit": "创建仓库",
+      "cancel": "取消"
+    },
+    "detail": {
+      "title": "仓库详情",
+      "tabs": {
+        "overview": "概览",
+        "endpoints": "接口",
+        "schemas": "数据模型",
+        "settings": "设置"
+      },
+      "emptyTitle": "暂无接口",
+      "emptyDescription": "导入 OpenAPI 规范后，接口将在此展示。"
+    },
+    "table": {
+      "name": "名称",
+      "org": "组织",
+      "endpoints": "接口",
+      "updated": "更新时间",
+      "mcp": "MCP",
+      "actions": "操作",
+      "details": "详情",
+      "enabled": "已启用",
+      "disabled": "已禁用"
+    }
+  },
+  "keys": {
+    "title": "API 密钥",
+    "description": "管理 API 和 MCP 访问密钥",
+    "generate": "生成新密钥",
+    "revoke": "吊销",
+    "never": "从未使用",
+    "table": {
+      "name": "名称",
+      "prefix": "密钥前缀",
+      "scopes": "权限范围",
+      "lastUsed": "最近使用",
+      "actions": "操作"
+    },
+    "empty": {
+      "title": "暂无密钥",
+      "description": "创建第一个 API 密钥"
+    }
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "create": "创建",
+    "delete": "删除",
+    "edit": "编辑",
+    "search": "搜索",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "comingSoon": "即将开放",
+    "backendPending": "后端 API 尚未实现，当前为界面占位"
+  }
+}

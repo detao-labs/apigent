@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "auditLog": "Audit Log",
+    "settings": "Settings",
+    "brandSubtitle": "Admin",
+    "adminGroup": "Administration",
+    "adminFooter": "Platform Admin"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Admin console overview",
+    "recentActivity": "Recent Activity",
+    "recentActivityEmpty": "No recent activity to display. Activity will appear here once the platform is in use.",
+    "stats": {
+      "users": "Users",
+      "usersDesc": "Total registered",
+      "orgs": "Organizations",
+      "orgsDesc": "Active orgs",
+      "repos": "Repositories",
+      "reposDesc": "Total repos",
+      "mcpCalls": "MCP Calls",
+      "mcpCallsDesc": "Last 30 days"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "description": "Manage platform users and permissions",
+    "emptyTitle": "No users registered yet",
+    "emptyDescription": "User accounts will appear here once registration is enabled."
+  },
+  "audit": {
+    "title": "Audit Log",
+    "description": "View platform operation history",
+    "emptyTitle": "No audit entries",
+    "emptyDescription": "Operation logs will appear here once the platform is in use."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage global platform configuration",
+    "configTitle": "Configuration",
+    "configFileHint": "Platform settings are managed through <yaml>apigent.config.yaml</yaml> and environment variables. See <example>apigent.config.example.yaml</example> for available options."
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data"
+  }
+}

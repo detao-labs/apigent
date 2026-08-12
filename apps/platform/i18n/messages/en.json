@@ -1,0 +1,137 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "organizations": "Organizations",
+    "repositories": "Repositories",
+    "apiKeys": "API Keys",
+    "brandSubtitle": "Platform"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of your API knowledge platform",
+    "stats": {
+      "organizations": "Organizations",
+      "repositories": "Repositories",
+      "endpoints": "Endpoints"
+    },
+    "quickActions": "Quick Actions",
+    "createOrg": {
+      "title": "Create Organization",
+      "description": "Set up a new team workspace"
+    },
+    "newRepo": {
+      "title": "New Repository",
+      "description": "Create a repository and import an OpenAPI spec"
+    }
+  },
+  "orgs": {
+    "title": "Organizations",
+    "description": "Manage your team workspaces",
+    "empty": {
+      "title": "No organizations",
+      "description": "Create your first organization to get started"
+    },
+    "new": {
+      "title": "New Organization",
+      "description": "Create a new organization to collaborate with your team",
+      "details": "Organization Details",
+      "detailsDesc": "Fill in the basic information for your organization",
+      "name": "Name",
+      "namePlaceholder": "e.g. E-commerce Team",
+      "slug": "Slug",
+      "slugPlaceholder": "e.g. ecommerce-team",
+      "slugHint": "URL-friendly identifier. Lowercase letters, numbers, and hyphens only.",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of this organization",
+      "submit": "Create Organization",
+      "cancel": "Cancel"
+    },
+    "table": {
+      "name": "Name",
+      "slug": "Slug",
+      "members": "Members",
+      "repos": "Repos",
+      "actions": "Actions"
+    }
+  },
+  "repos": {
+    "title": "Repositories",
+    "description": "Manage and browse your API repositories",
+    "empty": {
+      "title": "No repositories",
+      "description": "Create your first repository and import an OpenAPI spec"
+    },
+    "new": {
+      "title": "New Repository",
+      "description": "Create a repository and optionally import an OpenAPI specification",
+      "details": "Repository Details",
+      "detailsDesc": "Choose an organization and name for your repository",
+      "org": "Organization",
+      "orgPlaceholder": "Select an organization...",
+      "orgHint": "Create an organization first if you haven't yet.",
+      "createOrg": "Create an organization",
+      "name": "Name",
+      "namePlaceholder": "e.g. Payment Service API",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of this API repository",
+      "spec": "OpenAPI Specification",
+      "specOptional": "(optional)",
+      "specPlaceholder": "Paste your OpenAPI JSON or YAML here...",
+      "specHint": "Supports OpenAPI 3.0.x and 3.1.x in JSON or YAML format",
+      "submit": "Create Repository",
+      "cancel": "Cancel"
+    },
+    "detail": {
+      "title": "Repository Detail",
+      "tabs": {
+        "overview": "Overview",
+        "endpoints": "Endpoints",
+        "schemas": "Data Models",
+        "settings": "Settings"
+      },
+      "emptyTitle": "No endpoints yet",
+      "emptyDescription": "Import an OpenAPI specification and endpoints will be listed here."
+    },
+    "table": {
+      "name": "Name",
+      "org": "Organization",
+      "endpoints": "Endpoints",
+      "updated": "Updated",
+      "mcp": "MCP",
+      "actions": "Actions",
+      "details": "Details",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    }
+  },
+  "keys": {
+    "title": "API Keys",
+    "description": "Manage secret keys for API and MCP access",
+    "generate": "Generate New Key",
+    "revoke": "Revoke",
+    "never": "Never",
+    "table": {
+      "name": "Name",
+      "prefix": "Key Prefix",
+      "scopes": "Scopes",
+      "lastUsed": "Last Used",
+      "actions": "Actions"
+    },
+    "empty": {
+      "title": "No keys",
+      "description": "Create your first API key"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "comingSoon": "Coming soon",
+    "backendPending": "Backend API is not implemented yet — placeholder UI"
+  }
+}

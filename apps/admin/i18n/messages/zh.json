@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "dashboard": "仪表盘",
+    "users": "用户",
+    "auditLog": "审计日志",
+    "settings": "设置",
+    "brandSubtitle": "管理后台",
+    "adminGroup": "管理",
+    "adminFooter": "平台管理员"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "description": "管理后台概览",
+    "recentActivity": "最近活动",
+    "recentActivityEmpty": "暂无活动记录。平台投入使用后，活动将在此展示。",
+    "stats": {
+      "users": "用户",
+      "usersDesc": "注册用户总数",
+      "orgs": "组织",
+      "orgsDesc": "活跃组织",
+      "repos": "仓库",
+      "reposDesc": "仓库总数",
+      "mcpCalls": "MCP 调用",
+      "mcpCallsDesc": "近 30 天"
+    }
+  },
+  "users": {
+    "title": "用户管理",
+    "description": "管理平台用户和权限",
+    "emptyTitle": "暂无注册用户",
+    "emptyDescription": "开放注册后，用户账号将在此展示。"
+  },
+  "audit": {
+    "title": "审计日志",
+    "description": "查看平台操作记录",
+    "emptyTitle": "暂无审计记录",
+    "emptyDescription": "平台投入使用后，操作日志将在此展示。"
+  },
+  "settings": {
+    "title": "系统设置",
+    "description": "管理平台全局配置",
+    "configTitle": "配置",
+    "configFileHint": "平台设置通过 <yaml>apigent.config.yaml</yaml> 和环境变量管理。可用选项参见 <example>apigent.config.example.yaml</example>。"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "create": "创建",
+    "delete": "删除",
+    "edit": "编辑",
+    "search": "搜索",
+    "loading": "加载中...",
+    "noData": "暂无数据"
+  }
+}

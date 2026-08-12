@@ -30,17 +30,28 @@ const CONFIG_FILE_NAMES = ["apigent.config.yaml", "apigent.config.yml"] as const
 
 /**
  * Find the first existing config file from the default list.
- * Searches from `rootDir` (default: cwd).
+ * Searches upward from `rootDir` (default: cwd) so that any app or script
+ * inside the monorepo can resolve the repo-root config file.
  */
 export function findConfigFile(rootDir?: string): string | null {
   const root = rootDir ?? process.cwd();
   for (const name of CONFIG_FILE_NAMES) {
-    const filePath = path.join(root, name);
-    if (fs.existsSync(filePath)) {
-      return filePath;
-    }
+    const filePath = findUp(root, name);
+    if (filePath) return filePath;
   }
   return null;
+}
+
+/** Walk up from `startDir` until `fileName` is found or the filesystem root is reached. */
+function findUp(startDir: string, fileName: string): string | null {
+  let dir = startDir;
+  while (true) {
+    const candidate = path.join(dir, fileName);
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -220,8 +231,8 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
  */
 function loadDotEnv(rootDir?: string): void {
   const root = rootDir ?? process.cwd();
-  const envPath = path.join(root, ".env");
-  if (!fs.existsSync(envPath)) return;
+  const envPath = findUp(root, ".env");
+  if (!envPath) return;
 
   if (typeof process.loadEnvFile === "function") {
     process.loadEnvFile(envPath);
