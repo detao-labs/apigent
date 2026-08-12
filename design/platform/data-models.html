@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 数据模型 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/schemas</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">支付服务 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v2.1</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <a class="nav-item" href="repo-endpoints.html"><span class="ico">⇄</span>接口 <span class="cnt">42</span></a>
+    <a class="nav-item active" href="data-models.html"><span class="ico">◫</span>数据模型 <span class="cnt">18</span></a>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">6</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">支付服务 API</a><span class="sep">/</span><span>数据模型</span></div>
+    <div class="page-header" style="margin-bottom:8px">
+      <div><h1>支付服务 API</h1><p class="sub">数据模型共 18 个</p></div>
+    </div>
+
+    <div class="model-grid">
+      <button class="model-card" data-name="RefundResult" data-desc="退款申请结果" data-fields="refund_id:string|amount:number|channel:string|status:string">
+        <div class="mc-name">RefundResult</div>
+        <div class="mc-desc">退款申请结果</div>
+        <div class="mc-fields">refund_id · amount · channel · status</div>
+      </button>
+      <button class="model-card" data-name="Order" data-desc="订单主数据" data-fields="order_id:string|user_id:string|amount:number|status:string|created_at:string">
+        <div class="mc-name">Order</div>
+        <div class="mc-desc">订单主数据</div>
+        <div class="mc-fields">order_id · user_id · amount · status · created_at</div>
+      </button>
+      <button class="model-card" data-name="Payment" data-desc="支付单" data-fields="payment_id:string|order_id:string|channel:string|amount:number|paid_at:string">
+        <div class="mc-name">Payment</div>
+        <div class="mc-desc">支付单</div>
+        <div class="mc-fields">payment_id · order_id · channel · amount · paid_at</div>
+      </button>
+      <button class="model-card" data-name="User" data-desc="用户信息" data-fields="user_id:string|name:string|email:string|phone:string">
+        <div class="mc-name">User</div>
+        <div class="mc-desc">用户信息</div>
+        <div class="mc-fields">user_id · name · email · phone</div>
+      </button>
+      <button class="model-card" data-name="Coupon" data-desc="优惠券" data-fields="coupon_id:string|code:string|discount:number|expires_at:string">
+        <div class="mc-name">Coupon</div>
+        <div class="mc-desc">优惠券</div>
+        <div class="mc-fields">coupon_id · code · discount · expires_at</div>
+      </button>
+      <button class="model-card" data-name="ReconciliationRecord" data-desc="对账流水" data-fields="date:string|total_amount:number|refund_amount:number|diff:number">
+        <div class="mc-name">ReconciliationRecord</div>
+        <div class="mc-desc">对账流水</div>
+        <div class="mc-fields">date · total_amount · refund_amount · diff</div>
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- 模型详情对话框 -->
+<div class="overlay center" id="modelDialog">
+  <div class="dialog">
+    <div class="dialog-head">
+      <h2><span class="mono" id="modelTitle">RefundResult</span></h2>
+      <div class="sub" style="font-size:13px;color:var(--muted);margin-top:4px" id="modelDesc"></div>
+    </div>
+    <div class="dialog-body">
+      <div id="modelFields"></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="#modelDialog">关闭</button>
+    </div>
+  </div>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+document.querySelectorAll(".model-card").forEach(function (c) {
+  c.addEventListener("click", function () {
+    document.getElementById("modelTitle").textContent = c.getAttribute("data-name");
+    document.getElementById("modelDesc").textContent = c.getAttribute("data-desc");
+    var fields = c.getAttribute("data-fields").split("|").map(function (f) {
+      var p = f.split(":");
+      return '<div class="kv"><span class="k">' + p[0] + '</span><span class="v mono">' + p[1] + '</span></div>';
+    }).join("");
+    document.getElementById("modelFields").innerHTML = fields;
+    openOverlay("#modelDialog");
+  });
+});
+</script>
+</body>
+</html>

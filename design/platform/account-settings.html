@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>设置 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/settings</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar settings-rail">
+    <a class="brand" href="dashboard.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="section-label">用户信息</div>
+    <button class="nav-item active" data-tab-group="settings" data-tab="account"><span class="ico">👤</span>账号</button>
+    <button class="nav-item" data-tab-group="settings" data-tab="keys"><span class="ico">⚿</span>API 密钥</button>
+    <div class="section-label">偏好设置</div>
+    <button class="nav-item" data-tab-group="settings" data-tab="prefs"><span class="ico">🌐</span>偏好</button>
+    <button class="nav-item" data-tab-group="settings" data-tab="more"><span class="ico">＋</span>更多 <span class="cnt">V1</span></button>
+    <div class="sidebar-footer">
+      <a class="back-item" href="dashboard.html"><span class="ico">←</span>返回仪表盘</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>设置</h1>
+        <p class="sub">账号、API 密钥与偏好</p>
+      </div>
+    </div>
+
+    <!-- 账号 -->
+    <div class="panel show" data-panel-group="settings" data-panel="account">
+      <div class="stack">
+        <div class="card card-pad">
+          <div class="card-title" style="font-size:15px">个人资料</div>
+          <div class="card-desc">用于登录与团队协作展示</div>
+          <div class="field">
+            <label>头像</label>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="avatar" style="width:44px;height:44px;font-size:18px">张</span>
+              <button class="btn btn-secondary btn-sm" id="changeAvatar">更换头像</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>姓名</label>
+            <input id="profileName" type="text" value="张伟" />
+          </div>
+          <div class="field">
+            <label>邮箱</label>
+            <input id="profileEmail" type="email" value="zhangwei@acme.dev" />
+            <div class="hint">用于登录与接收通知</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" id="saveProfile">保存</button></div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="card-title" style="font-size:15px">修改密码</div>
+          <div class="card-desc">定期更换密码可提高账号安全性</div>
+          <div class="field">
+            <label>当前密码</label>
+            <input id="pwdCur" type="password" placeholder="输入当前密码" />
+          </div>
+          <div class="field">
+            <label>新密码</label>
+            <input id="pwdNew" type="password" placeholder="至少 8 位" />
+            <div class="hint">建议混合字母、数字与符号</div>
+          </div>
+          <div class="field">
+            <label>确认新密码</label>
+            <input id="pwdConfirm" type="password" placeholder="再次输入新密码" />
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" id="updatePwd">更新密码</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API 密钥 -->
+    <div class="panel" data-panel-group="settings" data-panel="keys">
+      <div class="stack">
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">API 密钥</div><div class="sub">管理 API 与 MCP 访问密钥</div></div>
+            <button class="btn btn-primary btn-sm" id="genBtn" data-open="#genDialog">＋ 生成新密钥</button>
+          </div>
+          <table class="tbl" id="keyTable">
+            <thead>
+              <tr><th>名称</th><th>密钥前缀</th><th>权限范围</th><th>最近使用</th><th>过期时间</th><th class="right">操作</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-title">生产环境</td>
+                <td><code class="mono" style="background:#f3f4f6;padding:2px 8px;border-radius:5px">apig_live_8f2c…</code></td>
+                <td>
+                  <span class="badge badge-blue">api:read</span>
+                  <span class="badge badge-blue">api:write</span>
+                  <span class="badge badge-purple">mcp:search</span>
+                  <span class="badge badge-purple">mcp:detail</span>
+                  <span class="badge badge-purple">mcp:context</span>
+                </td>
+                <td class="num-cell">2 小时前</td>
+                <td class="num-cell">—</td>
+                <td class="actions"><button class="btn btn-ghost btn-sm js-revoke" style="color:var(--danger)">吊销</button></td>
+              </tr>
+              <tr>
+                <td class="row-title">本地开发</td>
+                <td><code class="mono" style="background:#f3f4f6;padding:2px 8px;border-radius:5px">apig_dev_4ab1…</code></td>
+                <td><span class="badge badge-blue">api:read</span><span class="badge badge-purple">mcp:search</span></td>
+                <td class="num-cell">昨天</td>
+                <td class="num-cell">30 天后</td>
+                <td class="actions"><button class="btn btn-ghost btn-sm js-revoke" style="color:var(--danger)">吊销</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card card-pad">
+          <div class="card-head" style="padding:0 0 12px;border-bottom:0">
+            <div><div class="card-title">接入示例</div><div class="sub">将密钥用于 MCP 或 REST 调用</div></div>
+            <span class="badge badge-gray">可折叠</span>
+          </div>
+          <div style="margin-top:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:13px;font-weight:600">MCP 配置（claude_desktop_config.json）</div>
+              <button class="btn btn-ghost btn-sm" data-copy-from="#mcpSnippet">⧉ 复制</button>
+            </div>
+            <pre class="snippet" id="mcpSnippet">{
+  "mcpServers": {
+    "apigent": {
+      "url": "https://apigent.acme.dev/mcp",
+      "headers": { "Authorization": "Bearer <span class="dim">&lt;你的密钥&gt;</span>" }
+    }
+  }
+}</pre>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px">
+              <div style="font-size:13px;font-weight:600">REST 调用</div>
+              <button class="btn btn-ghost btn-sm" data-copy-from="#curlSnippet">⧉ 复制</button>
+            </div>
+            <pre class="snippet" id="curlSnippet">curl https://apigent.acme.dev/v1/apis/search \
+  -H "Authorization: Bearer <span class="dim">&lt;你的密钥&gt;</span>" \
+  -H "Content-Type: application/json"</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 偏好 -->
+    <div class="panel" data-panel-group="settings" data-panel="prefs">
+      <div class="stack">
+        <div class="card card-pad">
+          <div class="card-title" style="font-size:15px">界面语言</div>
+          <div class="card-desc">与顶栏快捷切换同步</div>
+          <div class="field" style="margin-bottom:0">
+            <label>语言</label>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" id="langZh">中文</button>
+              <button class="btn btn-secondary btn-sm" id="langEn">English</button>
+            </div>
+            <div class="hint">任何页面均可通过全局顶栏快速切换</div>
+          </div>
+        </div>
+        <div class="card card-pad">
+          <div class="card-title" style="font-size:15px">主题</div>
+          <div class="card-desc">与顶栏 ⚙ 快捷设置同步</div>
+          <div class="field" style="margin-bottom:0">
+            <label>外观</label>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" data-theme="light">◐ 浅色</button>
+              <button class="btn btn-secondary btn-sm" data-theme="dark">◑ 深色</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 更多（V1 规划） -->
+    <div class="panel" data-panel-group="settings" data-panel="more">
+      <div class="stack">
+        <div class="card card-pad">
+          <div class="card-title" style="font-size:15px">更多设置 <span class="badge badge-gray">V1 规划</span></div>
+          <div class="card-desc">设置类信息统一放在本页，后续按需扩展为新分区</div>
+          <div class="kv"><span class="k">通知偏好</span><span class="v" style="color:var(--muted)">即将开放</span></div>
+          <div class="kv"><span class="k">会话管理</span><span class="v" style="color:var(--muted)">即将开放</span></div>
+          <div class="kv"><span class="k">API 偏好</span><span class="v" style="color:var(--muted)">即将开放</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 生成密钥对话框 -->
+<div class="overlay center" id="genDialog">
+  <div class="dialog">
+    <div class="dialog-head"><h2>生成新密钥</h2></div>
+    <div class="dialog-body">
+      <div class="field">
+        <label>密钥名称</label>
+        <input type="text" id="keyName" placeholder="例如：生产环境" value="生产环境" />
+      </div>
+      <div class="field">
+        <label>权限范围</label>
+        <div class="check-grid">
+          <div class="check-row"><input type="checkbox" name="scope" value="api:read" checked /><span class="scope">api:read</span></div>
+          <div class="check-row"><input type="checkbox" name="scope" value="api:write" checked /><span class="scope">api:write</span></div>
+          <div class="check-row"><input type="checkbox" name="scope" value="mcp:search" checked /><span class="scope">mcp:search</span></div>
+          <div class="check-row"><input type="checkbox" name="scope" value="mcp:detail" checked /><span class="scope">mcp:detail</span></div>
+          <div class="check-row"><input type="checkbox" name="scope" value="mcp:context" checked /><span class="scope">mcp:context</span></div>
+        </div>
+        <div class="hint">按场景最小授权：REST 调用选 api:*，Agent 接入选 mcp:*</div>
+      </div>
+      <div class="field">
+        <label>有效期（可选）</label>
+        <select id="keyExpiry" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:14px">
+          <option value="0">永不过期</option>
+          <option value="30">30 天</option>
+          <option value="90">90 天</option>
+        </select>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="#genDialog">取消</button>
+      <button class="btn btn-primary" id="genSubmit">生成密钥</button>
+    </div>
+  </div>
+</div>
+
+<!-- 一次性展示弹窗（生成密钥后） -->
+<div class="overlay center" id="revealDialog">
+  <div class="dialog">
+    <div class="dialog-head"><h2>密钥已生成</h2></div>
+    <div class="dialog-body">
+      <div class="notice notice-warn" style="margin-bottom:14px">
+        <span>⚠️</span>
+        <span>此密钥仅显示一次，关闭后无法再次查看，请立即复制并保存在密码管理器中。</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <code class="mono" id="newKeyValue" style="flex:1;background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:8px;font-size:12.5px;overflow-x:auto">apig_live_9f3kD8sL2mQwXzPv</code>
+        <button class="btn btn-primary" data-copy-from="#newKeyValue">⧉ 复制</button>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="#revealDialog">稍后生成</button>
+      <button class="btn btn-primary" id="savedBtn">我已保存密钥</button>
+    </div>
+  </div>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+document.getElementById("saveProfile").addEventListener("click", function () {
+  showToast("个人资料已保存");
+});
+document.getElementById("changeAvatar").addEventListener("click", function () {
+  showToast("（演示）选择新头像");
+});
+document.getElementById("updatePwd").addEventListener("click", function () {
+  var cur = document.getElementById("pwdCur").value;
+  var n = document.getElementById("pwdNew").value;
+  var c = document.getElementById("pwdConfirm").value;
+  if (!cur) { showToast("请输入当前密码", "warn"); return; }
+  if (n.length < 8) { showToast("新密码至少 8 位", "warn"); return; }
+  if (n !== c) { showToast("两次输入的密码不一致", "warn"); return; }
+  showToast("密码已更新");
+});
+function setLang(zh) {
+  document.getElementById("langZh").className = "btn btn-sm " + (zh ? "btn-primary" : "btn-secondary");
+  document.getElementById("langEn").className = "btn btn-sm " + (zh ? "btn-secondary" : "btn-primary");
+  showToast(zh ? "界面语言：中文" : "界面语言：English");
+}
+document.getElementById("langZh").addEventListener("click", function () { setLang(true); });
+document.getElementById("langEn").addEventListener("click", function () { setLang(false); });
+
+function bindRevoke(btn) {
+  btn.addEventListener("click", function () {
+    confirmMock("吊销后，使用该密钥的调用将立即失效且无法恢复。确定吊销吗？", function () {
+      btn.closest("tr").remove();
+      showToast("密钥已吊销", "warn");
+    });
+  });
+}
+document.querySelectorAll(".js-revoke").forEach(bindRevoke);
+
+document.getElementById("genSubmit").addEventListener("click", function () {
+  var name = document.getElementById("keyName").value.trim();
+  if (!name) { showToast("请填写密钥名称", "warn"); return; }
+  closeOverlay("#genDialog");
+  document.getElementById("newKeyValue").textContent = "apig_live_" + Math.random().toString(36).slice(2, 14);
+  openOverlay("#revealDialog");
+});
+
+document.getElementById("savedBtn").addEventListener("click", function () {
+  closeOverlay("#revealDialog");
+  var name = document.getElementById("keyName").value.trim();
+  var full = document.getElementById("newKeyValue").textContent;
+  var scopes = Array.prototype.slice.call(document.querySelectorAll("#genDialog input[name=scope]:checked")).map(function (c) { return c.value; });
+  var tbody = document.querySelector("#keyTable tbody");
+  var tr = document.createElement("tr");
+  tr.innerHTML =
+    '<td class="row-title">' + name + '</td>' +
+    '<td><code class="mono" style="background:#f3f4f6;padding:2px 8px;border-radius:5px">' + full.slice(0, 12) + '…</code></td>' +
+    '<td>' + scopes.map(function (s) {
+      return '<span class="badge ' + (s.indexOf("mcp") === 0 ? "badge-purple" : "badge-blue") + '">' + s + '</span>';
+    }).join(" ") + '</td>' +
+    '<td class="num-cell">刚刚</td>' +
+    '<td class="num-cell">' + (document.getElementById("keyExpiry").value === "0" ? "—" : document.getElementById("keyExpiry").value + " 天") + '</td>' +
+    '<td class="actions"><button class="btn btn-ghost btn-sm js-revoke" style="color:var(--danger)">吊销</button></td>';
+  tbody.insertBefore(tr, tbody.firstChild);
+  bindRevoke(tr.querySelector(".js-revoke"));
+  showToast("密钥已生成（仅展示一次）");
+});
+</script>
+</body>
+</html>

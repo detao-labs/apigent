@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>登录 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/login</span>
+</div>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </div>
+    <h1>登录</h1>
+    <p class="auth-sub">欢迎回到 Apigent</p>
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label>邮箱</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" value="zhangwei@acme.dev" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="loginPwd" type="password" placeholder="••••••••" value="password" />
+        <div class="hint" id="loginErr" style="color:#b91c1c;display:none">邮箱或密码不正确，请重试（内联错误示例）</div>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">登录</button>
+    </form>
+    <p class="auth-foot">还没有账号？<a href="register.html">立即注册</a></p>
+  </div>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+document.getElementById("loginForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var email = document.getElementById("loginEmail").value.trim();
+  var pwd = document.getElementById("loginPwd").value;
+  var err = document.getElementById("loginErr");
+  if (!email || !pwd) {
+    err.style.display = "block";
+    showToast("请填写邮箱和密码", "warn");
+    return;
+  }
+  err.style.display = "none";
+  showToast("登录成功，正在进入平台…");
+  setTimeout(function () { window.location.href = "dashboard.html"; }, 700);
+});
+</script>
+</body>
+</html>

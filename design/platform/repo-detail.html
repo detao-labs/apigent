@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 概览 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]（概览）</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">支付服务 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v2.1</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item active" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <a class="nav-item" href="repo-endpoints.html"><span class="ico">⇄</span>接口 <span class="cnt">42</span></a>
+    <a class="nav-item" href="data-models.html"><span class="ico">◫</span>数据模型 <span class="cnt">18</span></a>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">6</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><span>支付服务 API</span></div>
+    <div class="page-header" style="margin-bottom:8px">
+      <div>
+        <h1>
+          支付服务 API
+          <span class="badge badge-indigo" style="margin-left:8px;vertical-align:middle">ecommerce-team</span>
+          <span class="badge badge-gray mono" style="vertical-align:middle">v2.1</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;margin-left:8px">MCP <label class="switch"><input type="checkbox" id="mcpSwitch" checked data-msg="MCP 已启用" /><span class="slider"></span></label></span>
+        </h1>
+        <p class="sub">订单支付、退款与对账能力</p>
+      </div>
+      <div class="head-actions">
+        <div class="menu-wrap">
+          <button class="btn btn-secondary" data-dropdown>⋯ 更多</button>
+          <div class="dropdown-menu">
+            <button data-toast="编辑信息（演示）">✎ 编辑信息</button>
+            <button data-toast="（演示）已复制仓库链接">⧉ 复制链接</button>
+            <button class="danger" id="delRepoBtn">删除仓库</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" data-toast="已进入导入新版本流程">⤒ 导入新版本</button>
+        <span class="anno">主操作</span>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">能力上下文 <span class="badge badge-green" style="margin-left:6px">已生成</span></div>
+            <div class="sub">AI 生成的仓库级业务知识 · Qwen · 3 天前</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="regenBtn">⟳ 重新生成</button>
+        </div>
+        <div class="card-pad">
+          <div class="kv"><span class="k">意图</span><span class="v">提供订单支付、退款与对账能力，覆盖线上交易全流程。</span></div>
+          <div class="kv"><span class="k">约束</span><span class="v">退款仅限支付后 7 天内；退款金额不得超过原支付金额。</span></div>
+          <div class="kv"><span class="k">副作用</span><span class="v">退款将原路退回支付渠道，可能触发外部支付回调。</span></div>
+          <div class="kv"><span class="k">使用场景</span><span class="v">用户在订单详情页发起退款；对账系统每日拉取交易流水。</span></div>
+        </div>
+      </div>
+
+      <div class="grid cols-4">
+        <a class="stat" href="repo-endpoints.html"><div class="label">接口 <span>→</span></div><div class="num">42</div></a>
+        <a class="stat" href="data-models.html"><div class="label">数据模型 <span>→</span></div><div class="num">18</div></a>
+        <a class="stat" href="repo-versions.html"><div class="label">版本 <span>→</span></div><div class="num">6</div></a>
+        <div class="card card-pad" style="border-color:#c7d2fe;background:#fafbff">
+          <div class="card-title">MCP 接入</div>
+          <div class="mono" id="mcpUrl" style="font-size:12.5px;margin:8px 0">https://apigent.acme.dev/mcp</div>
+          <button class="btn btn-sm btn-secondary" data-copy-from="#mcpUrl">⧉ 复制配置</button>
+          <a class="btn btn-sm btn-ghost" href="account-settings.html">生成密钥</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">最近版本</div><div class="sub">该仓库的版本历史</div></div>
+          <a class="btn btn-ghost btn-sm" href="repo-versions.html">全部版本 →</a>
+        </div>
+        <table class="tbl">
+          <thead>
+            <tr><th>版本</th><th>导入时间</th><th>来源</th><th>接口数</th><th class="right">操作</th></tr>
+          </thead>
+          <tbody>
+            <tr class="clickable">
+              <td><span class="mono">v2.1</span> <span class="badge badge-green" style="margin-left:6px">当前</span></td>
+              <td class="num-cell">3 天前</td><td>导入</td><td class="num-cell">42</td>
+              <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-versions.html">对比</a></td>
+            </tr>
+            <tr class="clickable">
+              <td><span class="mono">v2.0</span></td>
+              <td class="num-cell">2 周前</td><td>导入</td><td class="num-cell">39</td>
+              <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-versions.html">对比</a></td>
+            </tr>
+            <tr class="clickable">
+              <td><span class="mono">v1.9</span></td>
+              <td class="num-cell">1 个月前</td><td>导入</td><td class="num-cell">35</td>
+              <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-versions.html">对比</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+document.getElementById("mcpSwitch").addEventListener("change", function () {
+  var sw = this;
+  if (sw.checked) { showToast("MCP 已启用"); return; }
+  confirmMock("关闭后，外部 Agent 将立即无法访问该仓库的接口。确定关闭 MCP 吗？", function () {
+    showToast("MCP 已关闭", "warn");
+  }, function () {
+    sw.checked = true;
+  });
+});
+document.getElementById("delRepoBtn").addEventListener("click", function () {
+  confirmMock("删除仓库将同时移除全部版本、接口与业务上下文，且不可恢复。确定删除吗？", function () {
+    showToast("（演示）仓库已删除", "warn");
+  });
+});
+var rb = document.getElementById("regenBtn");
+rb.addEventListener("click", function () {
+  rb.disabled = true;
+  rb.innerHTML = '<span class="spinner"></span>生成中…';
+  setTimeout(function () {
+    rb.disabled = false;
+    rb.textContent = "⟳ 重新生成";
+    showToast("能力上下文已重新生成");
+  }, 1300);
+});
+</script>
+</body>
+</html>

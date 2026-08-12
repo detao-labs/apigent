@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apigent Platform · UX 线框稿</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">目录</span>
+</div>
+<div class="main" style="max-width:1120px;margin:0 auto">
+  <div class="page-header">
+    <div>
+      <h1>Apigent Platform — 页面设计线框稿</h1>
+      <p class="sub">静态 HTML 线框，用于评审页面结构与核心交互；独立存放于 design/platform/，与生产代码分离。</p>
+    </div>
+  </div>
+
+  <div class="notice notice-info">
+    <span>💡</span>
+    <span>本组文件为纯静态线框（无构建依赖，双击即可打开）。侧边栏与按钮可点击，用于模拟「登录 → 仪表盘 → 仓库 → 接口 → 密钥」的页面流。详细设计说明见 <a href="../../docs/design/platform-ux.zh.md" style="text-decoration:underline">docs/design/platform-ux.zh.md</a>。</span>
+  </div>
+
+  <div class="gallery">
+    <a class="g-card" href="login.html">
+      <div class="thumb">🔐</div>
+      <div class="body"><h3>登录 / 注册</h3><p>认证页：居中卡片、内联错误、注册后自动进入引导。</p></div>
+    </a>
+    <a class="g-card" href="dashboard.html">
+      <div class="thumb">📊</div>
+      <div class="body"><h3>仪表盘</h3><p>新用户引导清单 + 统计 + 最近更新 + 接入 Agent 卡片。</p></div>
+    </a>
+    <a class="g-card" href="repos.html">
+      <div class="thumb">🗂️</div>
+      <div class="body"><h3>仓库列表</h3><p>搜索/筛选工具栏、MCP 状态、整行点击进详情。</p></div>
+    </a>
+    <a class="g-card" href="repo-new.html">
+      <div class="thumb">🧭</div>
+      <div class="body"><h3>新建仓库向导</h3><p>三步向导：基本信息 → 导入 OpenAPI → 确认结果。</p></div>
+    </a>
+    <a class="g-card" href="repo-detail.html">
+      <div class="thumb">🏠</div>
+      <div class="body"><h3>仓库详情 · 概览</h3><p>独立左侧导航：仓库分区菜单；概览含能力上下文、统计、MCP 接入面板。</p></div>
+    </a>
+    <a class="g-card" href="repo-endpoints.html">
+      <div class="thumb">🔌</div>
+      <div class="body"><h3>接口列表 + 详情抽屉</h3><p>方法色标、筛选、抽屉展示 Schema 与业务上下文。</p></div>
+    </a>
+    <a class="g-card" href="data-models.html">
+      <div class="thumb">🧩</div>
+      <div class="body"><h3>数据模型</h3><p>模型卡片网格，点击查看字段与类型。</p></div>
+    </a>
+    <a class="g-card" href="repo-context.html">
+      <div class="thumb">🧠</div>
+      <div class="body"><h3>业务上下文</h3><p>仓库级能力上下文：意图/约束/副作用/使用场景，可重新生成。</p></div>
+    </a>
+    <a class="g-card" href="repo-versions.html">
+      <div class="thumb">🕘</div>
+      <div class="body"><h3>版本历史</h3><p>版本表 + 变更对比（新增/修改/删除/破坏性变更）。</p></div>
+    </a>
+    <a class="g-card" href="repo-settings.html">
+      <div class="thumb">⚙️</div>
+      <div class="body"><h3>仓库设置</h3><p>基本信息、MCP 开关、危险区（输入名称确认删除）。</p></div>
+    </a>
+    <a class="g-card" href="account-settings.html">
+      <div class="thumb">🔑</div>
+      <div class="body"><h3>设置 · API 密钥</h3><p>设置页独立一级菜单；密钥列表、一次性展示弹窗与接入示例已并入「API 密钥」分区。</p></div>
+    </a>
+    <a class="g-card" href="orgs.html">
+      <div class="thumb">🏢</div>
+      <div class="body"><h3>组织列表</h3><p>组织与仓库关联入口，空状态引导创建。</p></div>
+    </a>
+    <a class="g-card" href="org-detail.html">
+      <div class="thumb">👥</div>
+      <div class="body"><h3>组织详情</h3><p>统计、仓库与成员概览；成员管理按 RBAC 显隐。</p></div>
+    </a>
+    <a class="g-card" href="account-settings.html">
+      <div class="thumb">🧑‍💼</div>
+      <div class="body"><h3>账号设置</h3><p>个人资料、修改密码与偏好；语言和退出登录保留在侧栏常驻。</p></div>
+    </a>
+  </div>
+
+  <div class="divider"></div>
+  <div class="panel-head"><h2>评审要点</h2></div>
+  <div class="grid cols-2">
+    <div class="card card-pad">
+      <div class="card-title">信息架构</div>
+      <div class="card-desc">侧栏：仪表盘置顶不设分组名；工作台（组织、仓库）；API 密钥并入设置页；仓库详情使用独立左侧导航。</div>
+      <div class="card-title">一致性</div>
+      <div class="card-desc" style="margin-bottom:0">页面头部固定「左标题右主操作」；列表行整行可点；危险操作统一二次确认。</div>
+    </div>
+    <div class="card card-pad">
+      <div class="card-title">待确认</div>
+      <div class="card-desc">1. 仓库详情用 Tab 页还是独立子路由？<br />2. 接口详情用抽屉还是独立页？<br />3. 组织之上是否需要 Workspace？</div>
+      <div class="card-title">实现顺序建议</div>
+      <div class="card-desc" style="margin-bottom:0">先仓库列表/详情数据闭环 → 再新建向导与密钥流程 → 最后仪表盘引导与组织详情。</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库列表 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar">
+    <a class="brand" href="dashboard.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+        <a class="nav-item" href="dashboard.html"><span class="ico">▦</span>仪表盘</a>
+    <div class="section-label">工作台</div>
+    <a class="nav-item" href="orgs.html"><span class="ico">▣</span>组织</a>
+    <a class="nav-item active" href="repos.html"><span class="ico">▤</span>仓库</a>
+    <div class="sidebar-footer">
+      <a class="nav-item" href="account-settings.html">
+        <span class="ico">⚙</span>设置
+      </a>
+    </div>
+      </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>仓库</h1>
+        <p class="sub">管理和浏览 API 仓库</p>
+      </div>
+      <div class="head-actions">
+        <a class="btn btn-primary" href="repo-new.html">＋ 新建仓库</a>
+        <span class="anno">主操作</span>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="input search" id="searchInput" placeholder="搜索仓库名称或描述…" />
+      <select class="select" id="orgFilter"><option value="all">全部组织</option><option value="ecommerce">电商平台团队</option><option value="logistics">物流团队</option><option value="data">数据平台组</option></select>
+      <select class="select" id="mcpFilter"><option value="all">全部 MCP 状态</option><option value="on">已启用</option><option value="off">未启用</option></select>
+      <span class="badge badge-indigo hidden" id="filterBadge" style="margin-left:auto">已筛选 <a href="#" id="clearFilter" style="margin-left:6px;color:inherit">清除</a></span>
+    </div>
+
+    <div class="card">
+      <table class="tbl" id="repoTable">
+        <thead>
+          <tr>
+            <th>仓库</th>
+            <th>组织</th>
+            <th>接口</th>
+            <th>当前版本</th>
+            <th>MCP</th>
+            <th>更新时间</th>
+            <th class="right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="clickable" data-name="支付服务 API 订单支付退款与对账能力" data-org="ecommerce" data-mcp="on" data-href="repo-detail.html">
+            <td>
+              <div class="row-title">支付服务 API</div>
+              <div class="row-sub">订单支付、退款与对账能力</div>
+            </td>
+            <td>电商平台团队</td>
+            <td class="num-cell">42</td>
+            <td><span class="mono">v2.1</span></td>
+            <td><span class="badge badge-green">● 已启用</span></td>
+            <td class="num-cell">3 天前</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-detail.html">详情</a></td>
+          </tr>
+          <tr class="clickable" data-name="用户中心 API 账号登录与用户资料" data-org="ecommerce" data-mcp="off" data-href="repo-detail.html">
+            <td>
+              <div class="row-title">用户中心 API</div>
+              <div class="row-sub">账号、登录与用户资料</div>
+            </td>
+            <td>电商平台团队</td>
+            <td class="num-cell">28</td>
+            <td><span class="mono">v1.3</span></td>
+            <td><span class="badge badge-gray">未启用</span></td>
+            <td class="num-cell">5 天前</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-detail.html">详情</a></td>
+          </tr>
+          <tr class="clickable" data-name="订单服务 API 订单生命周期与履约" data-org="logistics" data-mcp="off" data-href="repo-detail.html">
+            <td>
+              <div class="row-title">订单服务 API</div>
+              <div class="row-sub">订单生命周期与履约</div>
+            </td>
+            <td>物流团队</td>
+            <td class="num-cell">31</td>
+            <td><span class="mono">v0.9</span></td>
+            <td><span class="badge badge-gray">未启用</span></td>
+            <td class="num-cell">1 周前</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-detail.html">详情</a></td>
+          </tr>
+          <tr class="clickable" data-name="商品目录 API 商品SPU/SKU与库存" data-org="ecommerce" data-mcp="on" data-href="repo-detail.html">
+            <td>
+              <div class="row-title">商品目录 API</div>
+              <div class="row-sub">商品、SPU/SKU 与库存</div>
+            </td>
+            <td>电商平台团队</td>
+            <td class="num-cell">27</td>
+            <td><span class="mono">v3.0</span></td>
+            <td><span class="badge badge-green">● 已启用</span></td>
+            <td class="num-cell">2 周前</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="repo-detail.html">详情</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice notice-info" style="margin-top:18px">
+      <span>💡</span>
+      <span><b>交互说明：</b>整行可点击进入仓库详情；无数据时显示空状态（图标 + 文案 + 「新建仓库」引导按钮）。支持 <span class="mono">?org=slug</span> 预筛选（从组织页跳入时生效）。</span>
+    </div>
+  </main>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+var rows = Array.prototype.slice.call(document.querySelectorAll("#repoTable tbody tr"));
+function applyFilters() {
+  var q = document.getElementById("searchInput").value.toLowerCase();
+  var org = document.getElementById("orgFilter").value;
+  var mcp = document.getElementById("mcpFilter").value;
+  var count = 0;
+  rows.forEach(function (r) {
+    var show = (!q || r.getAttribute("data-name").toLowerCase().indexOf(q) !== -1) &&
+               (org === "all" || r.getAttribute("data-org") === org) &&
+               (mcp === "all" || r.getAttribute("data-mcp") === mcp);
+    r.style.display = show ? "" : "none";
+    if (show) count++;
+  });
+  document.getElementById("filterBadge").classList.toggle("hidden", !q && org === "all" && mcp === "all");
+  if (count === 0) showToast("没有匹配的仓库", "warn");
+}
+document.getElementById("searchInput").addEventListener("input", applyFilters);
+document.getElementById("orgFilter").addEventListener("change", applyFilters);
+document.getElementById("mcpFilter").addEventListener("change", applyFilters);
+document.getElementById("clearFilter").addEventListener("click", function (e) {
+  e.preventDefault();
+  document.getElementById("searchInput").value = "";
+  document.getElementById("orgFilter").value = "all";
+  document.getElementById("mcpFilter").value = "all";
+  applyFilters();
+  showToast("已清除筛选");
+});
+</script>
+</body>
+</html>

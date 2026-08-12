@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 业务上下文 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/context</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">支付服务 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v2.1</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <a class="nav-item" href="repo-endpoints.html"><span class="ico">⇄</span>接口 <span class="cnt">42</span></a>
+    <a class="nav-item" href="data-models.html"><span class="ico">◫</span>数据模型 <span class="cnt">18</span></a>
+    <a class="nav-item active" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">6</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main narrow">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">支付服务 API</a><span class="sep">/</span><span>业务上下文</span></div>
+    <div class="page-header" style="margin-bottom:8px">
+      <div><h1>支付服务 API</h1><p class="sub">仓库级能力上下文</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">能力上下文 <span class="badge badge-green" style="margin-left:6px">已生成</span></div>
+          <div class="sub">AI 生成 · Qwen · 3 天前 · 基于 v2.1</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost btn-sm">预览</button>
+          <button class="btn btn-secondary btn-sm" id="regenCtx">⟳ 重新生成</button>
+          <button class="btn btn-primary btn-sm" id="saveCtx">保存</button>
+        </div>
+      </div>
+      <div class="card-pad">
+        <div class="field">
+          <label>意图 <span class="badge badge-gray" style="font-weight:400">该仓库提供哪些能力</span></label>
+          <textarea rows="2">提供订单支付、退款与对账能力，覆盖线上交易全流程。</textarea>
+        </div>
+        <div class="field">
+          <label>约束</label>
+          <div class="stack" id="constraintList">
+            <div class="check-row"><input type="checkbox" checked />退款仅限支付后 7 天内</div>
+            <div class="check-row"><input type="checkbox" checked />退款金额不得超过原支付金额</div>
+            <div class="check-row"><input type="checkbox" />单日退款次数上限 3 次</div>
+            <a href="#" id="addConstraint" style="font-size:13px;color:var(--primary-text)">＋ 添加约束</a>
+          </div>
+        </div>
+        <div class="field">
+          <label>副作用</label>
+          <textarea rows="2">退款将原路退回支付渠道，可能触发外部支付回调。</textarea>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>使用场景</label>
+          <div class="stack" id="scenarioList">
+            <div class="check-row"><input type="checkbox" checked />用户在订单详情页发起退款</div>
+            <div class="check-row"><input type="checkbox" checked />对账系统每日拉取交易流水</div>
+            <a href="#" id="addScenario" style="font-size:13px;color:var(--primary-text)">＋ 添加场景</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice notice-warn" style="margin-top:18px">
+      <span>⚠️</span>
+      <span><b>生成失败示例：</b>「生成失败：OpenAPI 中存在 3 个无法解析的 $ref，已跳过。— <a href="#" style="color:inherit;font-weight:600">重试</a>」失败原因与重试入口始终可见，不做静默失败。</span>
+    </div>
+  </main>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+document.getElementById("saveCtx").addEventListener("click", function () {
+  showToast("业务上下文已保存");
+});
+var rc = document.getElementById("regenCtx");
+rc.addEventListener("click", function () {
+  rc.disabled = true;
+  rc.innerHTML = '<span class="spinner"></span>生成中…';
+  setTimeout(function () {
+    rc.disabled = false;
+    rc.textContent = "⟳ 重新生成";
+    showToast("能力上下文已重新生成");
+  }, 1300);
+});
+function addEntry(listId, placeholder) {
+  var list = document.getElementById(listId);
+  var div = document.createElement("div");
+  div.className = "check-row";
+  div.innerHTML = '<input type="checkbox" />' +
+    '<input class="input js-entry" style="flex:1;min-width:0;padding:6px 10px" placeholder="' + placeholder + '" />' +
+    '<button class="btn btn-ghost btn-sm js-remove">✕</button>';
+  list.appendChild(div);
+}
+document.getElementById("addConstraint").addEventListener("click", function (e) {
+  e.preventDefault();
+  addEntry("constraintList", "新约束…");
+});
+document.getElementById("addScenario").addEventListener("click", function (e) {
+  e.preventDefault();
+  addEntry("scenarioList", "新场景…");
+});
+document.addEventListener("click", function (e) {
+  var b = e.target.closest(".js-remove");
+  if (b) b.closest(".check-row").remove();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>新建仓库 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/new（步骤 1）</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar">
+    <a class="brand" href="dashboard.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+        <a class="nav-item" href="dashboard.html"><span class="ico">▦</span>仪表盘</a>
+    <div class="section-label">工作台</div>
+    <a class="nav-item" href="orgs.html"><span class="ico">▣</span>组织</a>
+    <a class="nav-item active" href="repos.html"><span class="ico">▤</span>仓库</a>
+    <div class="sidebar-footer">
+      <a class="nav-item" href="account-settings.html">
+        <span class="ico">⚙</span>设置
+      </a>
+    </div>
+      </aside>
+
+  <main class="main narrow">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><span>新建仓库</span></div>
+    <div class="page-header" style="margin-bottom:8px">
+      <div><h1>新建仓库</h1><p class="sub">创建仓库并导入 OpenAPI 规范</p></div>
+    </div>
+
+    <div class="stepper">
+      <div class="step active"><span class="dot">1</span>基本信息</div>
+      <span class="step-line"></span>
+      <div class="step"><span class="dot">2</span>导入 OpenAPI</div>
+      <span class="step-line"></span>
+      <div class="step"><span class="dot">3</span>确认与结果</div>
+    </div>
+
+    <div class="card card-pad" data-step="1">
+      <div class="card-title" style="font-size:15px">仓库信息</div>
+      <div class="card-desc">选择组织并为仓库命名</div>
+
+      <div class="field">
+        <label>组织 <span class="anno" style="margin-left:6px">无组织时内联创建</span></label>
+        <select id="orgSelect" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff">
+          <option value="ecommerce">电商平台团队（ecommerce-team）</option>
+          <option value="logistics">物流团队（logistics-team）</option>
+        </select>
+        <div class="hint">还没有组织？<a href="orgs.html" style="color:var(--primary-text);font-weight:600">创建组织 →</a></div>
+      </div>
+
+      <div class="field">
+        <label>名称</label>
+        <input id="repoName" type="text" placeholder="例如：支付服务 API" value="支付服务 API" />
+      </div>
+
+      <div class="field">
+        <label>描述</label>
+        <textarea id="repoDesc" rows="3" placeholder="简要描述这个 API 仓库…">订单支付、退款与对账能力</textarea>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px">
+        <a class="btn btn-secondary" href="repos.html">取消</a>
+        <button class="btn btn-primary" id="next1">下一步：导入 OpenAPI →</button>
+      </div>
+    </div>
+
+    <div class="card card-pad hidden" data-step="2">
+      <div class="card-title" style="font-size:15px">导入 OpenAPI</div>
+      <div class="card-desc">上传文件 / 粘贴 JSON·YAML / URL 三种方式任选其一</div>
+      <div class="field">
+        <label>上传文件</label>
+        <div class="dropzone" id="dropzone">
+          <div class="big">⇪</div>
+          <b id="dropText">拖拽文件到此处，或点击选择</b>
+          <small>支持 OpenAPI 3.0.x / 3.1.x · JSON / YAML</small>
+        </div>
+        <input type="file" id="fileInput" class="hidden" accept=".json,.yaml,.yml" />
+      </div>
+      <div class="field">
+        <label>或粘贴规范内容</label>
+        <textarea id="pasteArea" rows="4" placeholder='{"openapi":"3.1.0","paths":{…}}'></textarea>
+      </div>
+      <div class="field">
+        <label>或填写规范 URL</label>
+        <input id="urlInput" type="url" placeholder="https://example.com/openapi.json" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn btn-secondary" id="prev2">上一步</button>
+        <button class="btn btn-primary" id="next2">解析并预览 →</button>
+      </div>
+    </div>
+
+    <div class="card card-pad hidden" data-step="3">
+      <div class="card-title" style="font-size:15px">确认与结果</div>
+      <div class="card-desc">解析完成，即将创建仓库</div>
+      <div class="grid cols-3">
+        <div class="stat"><div class="label">接口</div><div class="num">42</div></div>
+        <div class="stat"><div class="label">数据模型</div><div class="num">18</div></div>
+        <div class="stat"><div class="label">模块</div><div class="num">6</div></div>
+      </div>
+      <div class="notice notice-success" style="margin:16px 0 0">
+        <span>✓</span>
+        <span>解析通过：无 $ref 错误，3 个接口缺少 summary（已标记，可在详情页补充）。</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+        <button class="btn btn-secondary" id="prev3">上一步</button>
+        <button class="btn btn-primary" id="finishBtn">完成创建</button>
+      </div>
+    </div>
+
+    <div class="notice notice-info" style="margin-top:18px">
+      <span>💡</span>
+      <span><b>交互：</b>本页为三步向导演示——填写基本信息 → 导入（文件/粘贴/URL）→ 预览并创建。校验失败就地提示，成功页给出「查看接口 / 启用 MCP / 生成密钥」出口。</span>
+    </div>
+  </main>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+var stepEls = Array.prototype.slice.call(document.querySelectorAll(".step"));
+function render(n) {
+  document.querySelectorAll("[data-step]").forEach(function (p) {
+    p.classList.toggle("hidden", Number(p.getAttribute("data-step")) !== n);
+  });
+  stepEls.forEach(function (s, i) {
+    s.classList.remove("active", "done");
+    if (i < n - 1) s.classList.add("done");
+    if (i === n - 1) s.classList.add("active");
+    s.querySelector(".dot").textContent = i < n - 1 ? "✓" : String(i + 1);
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+var step = 1;
+document.getElementById("next1").addEventListener("click", function () {
+  if (!document.getElementById("repoName").value.trim()) {
+    showToast("请填写仓库名称", "warn");
+    return;
+  }
+  step = 2; render(step);
+});
+document.getElementById("prev2").addEventListener("click", function () { step = 1; render(step); });
+document.getElementById("next2").addEventListener("click", function () {
+  var ok = document.getElementById("fileInput").files.length > 0 ||
+           document.getElementById("pasteArea").value.trim() !== "" ||
+           document.getElementById("urlInput").value.trim() !== "";
+  if (!ok) { showToast("请选择一种导入方式", "warn"); return; }
+  showToast("解析中…");
+  setTimeout(function () { step = 3; render(step); showToast("解析完成"); }, 800);
+});
+document.getElementById("prev3").addEventListener("click", function () { step = 2; render(step); });
+document.getElementById("finishBtn").addEventListener("click", function () {
+  showToast("仓库创建成功，开始导入 OpenAPI…");
+  setTimeout(function () { window.location.href = "repo-detail.html"; }, 900);
+});
+document.getElementById("dropzone").addEventListener("click", function () {
+  document.getElementById("fileInput").click();
+});
+document.getElementById("fileInput").addEventListener("change", function () {
+  if (this.files.length) document.getElementById("dropText").textContent = "已选择：" + this.files[0].name;
+});
+</script>
+</body>
+</html>

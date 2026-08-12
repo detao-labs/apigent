@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 接口 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/endpoints</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">支付服务 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v2.1</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <a class="nav-item active" href="repo-endpoints.html"><span class="ico">⇄</span>接口 <span class="cnt">42</span></a>
+    <a class="nav-item" href="data-models.html"><span class="ico">◫</span>数据模型 <span class="cnt">18</span></a>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">6</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">支付服务 API</a><span class="sep">/</span><span>接口</span></div>
+    <div class="page-header" style="margin-bottom:8px">
+      <div><h1>支付服务 API</h1><p class="sub">接口共 42 个</p></div>
+    </div>
+
+    <div class="toolbar">
+      <input class="input search" id="epSearch" placeholder="搜索路径 / 摘要 / operationId…" />
+      <select class="select" id="methodFilter"><option value="all">全部方法</option><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="DELETE">DELETE</option></select>
+      <select class="select" id="moduleFilter"><option value="all">全部模块</option><option>支付</option><option>退款</option><option>对账</option><option>订单</option><option>购物车</option></select>
+      <select class="select" id="ctxFilter"><option value="all">全部上下文状态</option><option value="generated">已生成</option><option value="pending">待生成</option></select>
+    </div>
+
+    <div class="card">
+      <table class="tbl" id="epTable">
+        <thead>
+          <tr>
+            <th>方法</th><th>路径</th><th>摘要</th><th>模块</th><th>业务上下文</th><th class="right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="clickable" data-method="POST" data-path="/v1/orders/{id}/refund" data-summary="申请订单退款" data-module="退款" data-context="generated">
+            <td><span class="method m-post">POST</span></td>
+            <td class="mono">/v1/orders/{id}/refund</td>
+            <td>申请订单退款</td>
+            <td><span class="badge badge-blue">退款</span></td>
+            <td><span class="badge badge-green">已生成</span></td>
+            <td class="actions"><button class="btn btn-ghost btn-sm">详情</button></td>
+          </tr>
+          <tr class="clickable" data-method="GET" data-path="/v1/orders/{id}" data-summary="查询订单详情" data-module="订单" data-context="generated">
+            <td><span class="method m-get">GET</span></td>
+            <td class="mono">/v1/orders/{id}</td>
+            <td>查询订单详情</td>
+            <td><span class="badge badge-blue">订单</span></td>
+            <td><span class="badge badge-green">已生成</span></td>
+            <td class="actions"><button class="btn btn-ghost btn-sm">详情</button></td>
+          </tr>
+          <tr class="clickable" data-method="POST" data-path="/v1/payments/refund" data-summary="支付渠道退款" data-module="退款" data-context="pending">
+            <td><span class="method m-post">POST</span></td>
+            <td class="mono">/v1/payments/refund</td>
+            <td>支付渠道退款</td>
+            <td><span class="badge badge-blue">退款</span></td>
+            <td><span class="badge badge-gray">待生成</span></td>
+            <td class="actions"><button class="btn btn-ghost btn-sm">详情</button></td>
+          </tr>
+          <tr class="clickable" data-method="GET" data-path="/v1/reconciliation/daily" data-summary="每日对账流水" data-module="对账" data-context="generated">
+            <td><span class="method m-get">GET</span></td>
+            <td class="mono">/v1/reconciliation/daily</td>
+            <td>每日对账流水</td>
+            <td><span class="badge badge-purple">对账</span></td>
+            <td><span class="badge badge-green">已生成</span></td>
+            <td class="actions"><button class="btn btn-ghost btn-sm">详情</button></td>
+          </tr>
+          <tr class="clickable" data-method="PUT" data-path="/v1/orders/{id}/status" data-summary="更新订单状态" data-module="订单" data-context="pending">
+            <td><span class="method m-put">PUT</span></td>
+            <td class="mono">/v1/orders/{id}/status</td>
+            <td>更新订单状态</td>
+            <td><span class="badge badge-blue">订单</span></td>
+            <td><span class="badge badge-gray">待生成</span></td>
+            <td class="actions"><button class="btn btn-ghost btn-sm">详情</button></td>
+          </tr>
+          <tr class="clickable" data-method="DELETE" data-path="/v1/carts/{id}/items/{itemId}" data-summary="移除购物车商品" data-module="购物车" data-context="generated">
+            <td><span class="method m-delete">DELETE</span></td>
+            <td class="mono">/v1/carts/{id}/items/{itemId}</td>
+            <td>移除购物车商品</td>
+            <td><span class="badge badge-amber">购物车</span></td>
+            <td><span class="badge badge-green">已生成</span></td>
+            <td class="actions"><button class="btn btn-ghost btn-sm">详情</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice notice-info" style="margin-top:18px">
+      <span>💡</span>
+      <span><b>交互说明：</b>点击列表行打开右侧详情抽屉（保留列表上下文）；未生成业务上下文的接口显示「待生成」标记，作为 AI 流程的进度可见性。</span>
+    </div>
+  </main>
+</div>
+
+<!-- 接口详情抽屉（默认收起，点击列表行打开） -->
+<div class="overlay" id="endpointDrawer">
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="method m-post" id="drawerMethod">POST</span>
+          <span class="mono" style="font-weight:600" id="drawerPath">/v1/orders/{id}/refund</span>
+        </div>
+        <div class="sub" style="font-size:13px;color:var(--muted);margin-top:6px" id="drawerSummary">申请订单退款 · 模块：退款</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-close="#endpointDrawer">✕ 关闭</button>
+    </div>
+    <div class="drawer-body">
+      <div class="grid cols-2">
+        <div class="stack">
+          <div class="card card-pad">
+            <div class="card-title">请求 Schema</div>
+            <div style="margin-top:10px">
+              <div class="kv"><span class="k">order_id</span><span class="v mono">string · 必填</span></div>
+              <div class="kv"><span class="k">amount</span><span class="v mono">number · 必填</span></div>
+              <div class="kv"><span class="k">reason</span><span class="v mono">string · 选填</span></div>
+            </div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title">响应 Schema</div>
+            <div style="margin-top:10px">
+              <div class="kv"><span class="k">200</span><span class="v mono">RefundResult</span></div>
+              <div class="kv"><span class="k">400</span><span class="v mono">参数错误</span></div>
+              <div class="kv"><span class="k">404</span><span class="v mono">订单不存在</span></div>
+              <div class="kv"><span class="k">409</span><span class="v mono">退款冲突</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card card-pad">
+            <div class="card-title">业务上下文 <span class="badge badge-green" style="margin-left:6px">已生成</span></div>
+            <div style="margin-top:10px">
+              <div class="kv"><span class="k">意图</span><span class="v">对已支付订单发起退款</span></div>
+              <div class="kv"><span class="k">约束</span><span class="v">仅支付后 7 天内可申请</span></div>
+              <div class="kv"><span class="k">副作用</span><span class="v">原路退回资金</span></div>
+              <div class="kv"><span class="k">场景</span><span class="v">订单详情页「申请退款」</span></div>
+            </div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title">关联接口</div>
+            <div style="margin-top:8px" class="stack">
+              <a class="mono" style="font-size:13px;color:var(--primary-text)">POST /v1/payments/refund</a>
+              <a class="mono" style="font-size:13px;color:var(--primary-text)">GET /v1/orders/{id}</a>
+              <a class="mono" style="font-size:13px;color:var(--primary-text)">PUT /v1/orders/{id}/status</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding:14px 16px;background:var(--primary-soft);border-radius:10px">
+        <div style="font-size:13px">MCP 工具名：<span class="mono" style="font-weight:600">order_refund</span></div>
+        <button class="btn btn-primary btn-sm">⧉ 复制调用示例</button>
+        <span class="anno">Agent 接入入口</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+var epRows = Array.prototype.slice.call(document.querySelectorAll("#epTable tbody tr"));
+function applyEpFilters() {
+  var q = document.getElementById("epSearch").value.toLowerCase();
+  var m = document.getElementById("methodFilter").value;
+  var mod = document.getElementById("moduleFilter").value;
+  var ctx = document.getElementById("ctxFilter").value;
+  epRows.forEach(function (r) {
+    var show = (!q || r.textContent.toLowerCase().indexOf(q) !== -1) &&
+               (m === "all" || r.getAttribute("data-method") === m) &&
+               (mod === "all" || r.getAttribute("data-module") === mod) &&
+               (ctx === "all" || r.getAttribute("data-context") === ctx);
+    r.style.display = show ? "" : "none";
+  });
+}
+document.getElementById("epSearch").addEventListener("input", applyEpFilters);
+document.getElementById("methodFilter").addEventListener("change", applyEpFilters);
+document.getElementById("moduleFilter").addEventListener("change", applyEpFilters);
+document.getElementById("ctxFilter").addEventListener("change", applyEpFilters);
+
+epRows.forEach(function (r) {
+  r.addEventListener("click", function () {
+    var m = r.getAttribute("data-method");
+    var ms = document.getElementById("drawerMethod");
+    ms.textContent = m;
+    ms.className = "method m-" + m.toLowerCase();
+    document.getElementById("drawerPath").textContent = r.getAttribute("data-path");
+    document.getElementById("drawerSummary").textContent =
+      r.getAttribute("data-summary") + " · 模块：" + r.getAttribute("data-module");
+    document.getElementById("endpointDrawer").classList.add("show");
+  });
+});
+</script>
+</body>
+</html>

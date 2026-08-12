@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 设置 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/settings</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">支付服务 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v2.1</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <a class="nav-item" href="repo-endpoints.html"><span class="ico">⇄</span>接口 <span class="cnt">42</span></a>
+    <a class="nav-item" href="data-models.html"><span class="ico">◫</span>数据模型 <span class="cnt">18</span></a>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">6</span></a>
+    <a class="nav-item active" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main narrow">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">支付服务 API</a><span class="sep">/</span><span>设置</span></div>
+    <div class="page-header" style="margin-bottom:8px">
+      <div><h1>支付服务 API</h1><p class="sub">仓库设置</p></div>
+    </div>
+
+    <div class="stack">
+      <div class="card card-pad">
+        <div class="card-title" style="font-size:15px">基本信息</div>
+        <div class="card-desc">仓库名称与描述，变更后需保存</div>
+        <div class="field">
+          <label>名称</label>
+          <input type="text" value="支付服务 API" />
+        </div>
+        <div class="field">
+          <label>描述</label>
+          <textarea rows="2">订单支付、退款与对账能力</textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" id="saveInfo">保存</button></div>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-title" style="font-size:15px">MCP 接入</div>
+        <div class="card-desc">关闭后，外部 Agent 将立即无法搜索和读取该仓库的接口</div>
+        <div class="kv"><span class="k">状态</span><span class="v"><label class="switch"><input type="checkbox" id="mcpSwitch" checked data-confirm-switch /><span class="slider"></span></label> <span class="badge badge-green" style="margin-left:8px">已启用</span></span></div>
+        <div class="kv"><span class="k">服务地址</span><span class="v mono">https://apigent.acme.dev/mcp</span></div>
+        <div class="notice notice-warn" style="margin:14px 0 0">
+          <span>⚠️</span>
+          <span>关闭 MCP 前需确认：已接入的 Cursor / Claude 会话将无法再调用本仓库接口。</span>
+        </div>
+      </div>
+
+      <div class="card card-pad" style="border-color:#fecaca;background:#fffbfb">
+        <div class="card-title" style="font-size:15px;color:var(--danger)">危险区</div>
+        <div class="card-desc">删除仓库会同时移除全部版本、接口与业务上下文，且不可恢复</div>
+        <div class="field">
+          <label>输入仓库名以确认删除</label>
+          <input type="text" id="deleteName" placeholder="支付服务 API" />
+        </div>
+        <button class="btn btn-danger" id="deleteBtn" disabled>删除仓库</button>
+        <span class="anno">二次确认：需输入完整名称</span>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+document.getElementById("saveInfo").addEventListener("click", function () {
+  showToast("基本信息已保存");
+});
+document.getElementById("mcpSwitch").addEventListener("change", function () {
+  var sw = this;
+  if (sw.checked) { showToast("MCP 已启用"); return; }
+  confirmMock("关闭后，外部 Agent 将立即无法访问该仓库的接口。确定关闭 MCP 吗？", function () {
+    showToast("MCP 已关闭", "warn");
+  }, function () {
+    sw.checked = true;
+  });
+});
+var delName = document.getElementById("deleteName");
+var delBtn = document.getElementById("deleteBtn");
+delName.addEventListener("input", function () {
+  delBtn.disabled = delName.value.trim() !== "支付服务 API";
+});
+delBtn.addEventListener("click", function () {
+  confirmMock("删除仓库将同时移除全部版本、接口与业务上下文，且不可恢复。确定删除吗？", function () {
+    showToast("（演示）仓库已删除，正在返回列表…", "warn");
+    setTimeout(function () { window.location.href = "repos.html"; }, 900);
+  });
+});
+</script>
+</body>
+</html>

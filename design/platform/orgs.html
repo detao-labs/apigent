@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>组织列表 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/orgs</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar">
+    <a class="brand" href="dashboard.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+        <a class="nav-item" href="dashboard.html"><span class="ico">▦</span>仪表盘</a>
+    <div class="section-label">工作台</div>
+    <a class="nav-item active" href="orgs.html"><span class="ico">▣</span>组织</a>
+    <a class="nav-item" href="repos.html"><span class="ico">▤</span>仓库</a>
+    <div class="sidebar-footer">
+      <a class="nav-item" href="account-settings.html">
+        <span class="ico">⚙</span>设置
+      </a>
+    </div>
+      </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>组织</h1>
+        <p class="sub">管理团队工作空间</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-primary" data-open="#orgDialog">＋ 新建组织</button>
+        <span class="anno">主操作</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <table class="tbl" id="orgTable">
+        <thead>
+          <tr><th>名称</th><th>标识符</th><th>成员</th><th>仓库</th><th class="right">操作</th></tr>
+        </thead>
+        <tbody>
+          <tr class="clickable" data-href="org-detail.html">
+            <td class="row-title">电商平台团队</td>
+            <td class="mono">ecommerce-team</td>
+            <td class="num-cell">6</td>
+            <td class="num-cell">4</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="org-detail.html">查看仓库</a></td>
+          </tr>
+          <tr class="clickable" data-href="org-detail.html">
+            <td class="row-title">物流团队</td>
+            <td class="mono">logistics-team</td>
+            <td class="num-cell">3</td>
+            <td class="num-cell">2</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="org-detail.html">查看仓库</a></td>
+          </tr>
+          <tr class="clickable" data-href="org-detail.html">
+            <td class="row-title">数据平台组</td>
+            <td class="mono">data-team</td>
+            <td class="num-cell">8</td>
+            <td class="num-cell">3</td>
+            <td class="actions"><a class="btn btn-ghost btn-sm" href="org-detail.html">查看仓库</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notice notice-info" style="margin-top:18px">
+      <span>💡</span>
+      <span><b>空状态：</b>无组织时显示「暂无组织 — 创建第一个组织以开始使用」，主按钮「新建组织」；新建表单含 slug 自动生成与 URL 友好校验。</span>
+    </div>
+  </main>
+</div>
+
+<!-- 新建组织对话框 -->
+<div class="overlay center" id="orgDialog">
+  <div class="dialog">
+    <div class="dialog-head"><h2>新建组织</h2></div>
+    <div class="dialog-body">
+      <div class="field">
+        <label>名称</label>
+        <input type="text" id="orgName" placeholder="例如：电商平台团队" />
+      </div>
+      <div class="field">
+        <label>标识符</label>
+        <input type="text" id="orgSlug" placeholder="自动生成，可编辑" />
+        <div class="hint">URL 友好标识：仅小写字母、数字和连字符</div>
+      </div>
+      <div class="field">
+        <label>描述（可选）</label>
+        <textarea id="orgDesc" rows="2" placeholder="简要描述这个组织"></textarea>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="#orgDialog">取消</button>
+      <button class="btn btn-primary" id="orgSubmit">创建组织</button>
+    </div>
+  </div>
+</div>
+<script src="assets/mockup.js"></script>
+<script>
+var slugInput = document.getElementById("orgSlug");
+document.getElementById("orgName").addEventListener("input", function () {
+  slugInput.value = this.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+});
+document.getElementById("orgSubmit").addEventListener("click", function () {
+  var name = document.getElementById("orgName").value.trim();
+  if (!name || !slugInput.value.trim()) { showToast("请填写名称与标识符", "warn"); return; }
+  closeOverlay("#orgDialog");
+  var tbody = document.querySelector("#orgTable tbody");
+  var tr = document.createElement("tr");
+  tr.className = "clickable";
+  tr.setAttribute("data-href", "org-detail.html");
+  tr.innerHTML =
+    '<td class="row-title">' + name + '</td>' +
+    '<td class="mono">' + slugInput.value + '</td>' +
+    '<td class="num-cell">1</td><td class="num-cell">0</td>' +
+    '<td class="actions"><a class="btn btn-ghost btn-sm" href="org-detail.html">查看仓库</a></td>';
+  tbody.insertBefore(tr, tbody.firstChild);
+  document.getElementById("orgName").value = "";
+  slugInput.value = "";
+  showToast("组织已创建");
+});
+</script>
+</body>
+</html>
