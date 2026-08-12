@@ -4,7 +4,7 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const config: NextConfig = {
-  transpilePackages: ["@apigent/core"],
+  transpilePackages: ["@apigent/core", "@apigent/ui"],
 };
 
 export default withNextIntl(config);

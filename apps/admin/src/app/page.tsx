@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@apigent/ui";
 import { Users, Building2, Database, Activity } from "lucide-react";
 
 export default async function AdminDashboard() {

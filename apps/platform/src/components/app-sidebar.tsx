@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  LocaleSwitcher,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -12,9 +13,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from "@/components/ui/sidebar";
+} from "@apigent/ui";
 import { LayoutDashboard, Building2, Database, Key } from "lucide-react";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";

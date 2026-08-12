@@ -1,16 +1,13 @@
 {
-  "name": "@apigent/core",
+  "name": "@apigent/server",
   "version": "0.1.0",
   "private": true,
-  "description": "Apigent shared core — config, types, and service container",
+  "description": "Apigent server layer — database access, repositories, and domain services",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./config": "./src/config/index.ts",
-    "./types": "./src/types/index.ts",
-    "./di": "./src/di/index.ts",
-    "./i18n": "./src/i18n/index.ts"
+    "./db": "./src/db/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -18,13 +15,16 @@
     "format": "prettier --write src/",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@apigent/core": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0"
+  },
   "devDependencies": {
     "@types/node": "^26.2.0",
+    "@types/pg": "^8.21.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5.7.0",
     "vitest": "^4.0.0"
-  },
-  "dependencies": {
-    "yaml": "^2.9.0",
-    "zod": "^3.24.0"
   }
 }

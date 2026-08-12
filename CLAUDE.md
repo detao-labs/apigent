@@ -124,6 +124,6 @@ No working application yet. What exists:
 
 - `packages/core/src/config/` — fully typed, runtime-validated configuration system (YAML + `.env` + zod)
 - `packages/core/src/di/` — fail-fast DI container with provider factory registries
-- `packages/core/src/db/` — Drizzle schema (pg-core) exported via `@apigent/core/db`
+- `packages/server/src/db/` — Drizzle schema + connection, exported via `@apigent/server/db`
 - Design documents covering the full V0 architecture
 - `tsconfig.base.json` at root, per-package tsconfigs extending it

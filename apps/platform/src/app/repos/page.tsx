@@ -1,9 +1,7 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, buttonVariants, Card, CardContent } from "@apigent/ui";
 import { Plus, Database, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
 
 export default async function ReposPage() {
   const t = await getTranslations("repos");

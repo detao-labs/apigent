@@ -1,10 +1,16 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Button,
+  buttonVariants,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Textarea,
+} from "@apigent/ui";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
 
 export default async function NewRepoPage() {
   const t = await getTranslations("repos.new");

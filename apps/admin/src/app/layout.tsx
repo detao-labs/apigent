@@ -3,8 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { htmlLang, defaultLocale } from "@apigent/core/i18n";
 import type { Locale } from "@apigent/core/i18n";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarInset, SidebarProvider, TooltipProvider } from "@apigent/ui";
 import { AppSidebar } from "@/components/app-sidebar";
 import "./globals.css";
 

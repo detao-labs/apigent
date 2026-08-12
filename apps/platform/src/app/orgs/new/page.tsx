@@ -1,9 +1,15 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Button,
+  buttonVariants,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@apigent/ui";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
 
 export default async function NewOrgPage() {
   const t = await getTranslations("orgs.new");

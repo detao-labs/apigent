@@ -17,7 +17,7 @@
 // ───────────────────────────────────────────────────────────────────
 
 /**
- * V0 supports PostgreSQL only — the Drizzle schema (packages/core/src/db)
+ * V0 supports PostgreSQL only — the Drizzle schema (packages/server/src/db)
  * is built on `drizzle-orm/pg-core`. Other dialects are not implemented.
  */
 export type DbProvider = "postgresql";

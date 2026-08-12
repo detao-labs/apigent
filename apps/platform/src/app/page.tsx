@@ -1,6 +1,11 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@apigent/ui";
 import { Building2, Database, Upload, Plus } from "lucide-react";
 import Link from "next/link";
 

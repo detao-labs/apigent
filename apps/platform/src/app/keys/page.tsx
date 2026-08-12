@@ -1,7 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, Button, Card, CardContent } from "@apigent/ui";
 import { Plus, Key } from "lucide-react";
 
 export default async function KeysPage() {

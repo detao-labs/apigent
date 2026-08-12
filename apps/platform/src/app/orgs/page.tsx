@@ -1,8 +1,7 @@
 import { getTranslations } from "next-intl/server";
-import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants, Card, CardContent } from "@apigent/ui";
 import { Plus, Building2, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
 
 export default async function OrgsPage() {
   const t = await getTranslations("orgs");
