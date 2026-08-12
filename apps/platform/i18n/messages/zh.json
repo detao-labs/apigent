@@ -133,5 +133,39 @@
     "noData": "暂无数据",
     "comingSoon": "即将开放",
     "backendPending": "后端 API 尚未实现，当前为界面占位"
+  },
+  "auth": {
+    "logout": "退出登录",
+    "login": {
+      "title": "登录",
+      "description": "欢迎回到 Apigent",
+      "email": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "password": "密码",
+      "submit": "登录",
+      "noAccount": "还没有账号？",
+      "registerLink": "立即注册"
+    },
+    "register": {
+      "title": "注册账号",
+      "description": "开始管理你的 API",
+      "name": "姓名",
+      "namePlaceholder": "你的名字",
+      "email": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "password": "密码",
+      "passwordHint": "至少 8 个字符",
+      "submit": "创建账号",
+      "hasAccount": "已有账号？",
+      "loginLink": "去登录"
+    },
+    "errors": {
+      "invalidName": "请填写姓名",
+      "invalidEmail": "请输入有效的邮箱地址",
+      "weakPassword": "密码至少需要 8 个字符",
+      "emailTaken": "该邮箱已注册",
+      "invalidCredentials": "邮箱或密码不正确",
+      "generic": "操作失败，请重试"
+    }
   }
 }

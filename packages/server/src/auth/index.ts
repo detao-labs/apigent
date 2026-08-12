@@ -1,7 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════
-// Apigent Database — Public API
+// Apigent Auth — shared auth primitives
 // ═══════════════════════════════════════════════════════════════════
 
-export * from "./schema";
-export { getDB, getPool, closeDB, resetDB } from "./connection";
-export type { DBClient } from "./connection";
+export { hashPassword, verifyPassword } from "./password";
+export {
+  SESSION_COOKIE,
+  createSessionToken,
+  getSessionMaxAge,
+  verifySessionToken,
+  type SessionPayload,
+} from "./session";

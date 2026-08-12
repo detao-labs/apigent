@@ -6,14 +6,14 @@
 // The connection URL comes from the config system (loaded via loadConfig()).
 //
 // Usage:
-//   import { getDb } from "@apigent/server/db";
-//   const db = getDb();
+//   import { getDB } from "@apigent/server/db";
+//   const db = getDB();
 //   const users = await db.query.users.findMany();
 // ═══════════════════════════════════════════════════════════════════
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { getConfig } from "@apigent/core/config";
+import { getConfig, loadConfig } from "@apigent/core/config";
 import * as schema from "./schema";
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
@@ -24,9 +24,18 @@ let _pool: Pool | null = null;
  * Creates a new connection pool on first call.
  * Requires {@link loadConfig} to have been called first.
  */
-export function getDb() {
+export function getDB() {
   if (!_db) {
-    const config = getConfig();
+    const config = (() => {
+      try {
+        return getConfig();
+      } catch {
+        // Lazily load once when the host (Next.js server component, script,
+        // test) hasn't called loadConfig() at startup. loadConfig() is cached,
+        // so repeated calls are cheap.
+        return loadConfig();
+      }
+    })();
     _pool = new Pool({
       connectionString: config.database.url,
       max: 20,
@@ -43,7 +52,7 @@ export function getDb() {
  */
 export function getPool(): Pool {
   if (!_pool) {
-    getDb(); // Initialize
+    getDB(); // Initialize
   }
   return _pool!;
 }
@@ -52,7 +61,7 @@ export function getPool(): Pool {
  * Close the database connection pool.
  * Call during graceful shutdown.
  */
-export async function closeDb(): Promise<void> {
+export async function closeDB(): Promise<void> {
   if (_pool) {
     await _pool.end();
     _pool = null;
@@ -64,7 +73,7 @@ export async function closeDb(): Promise<void> {
  * Reset the database singleton (for testing).
  * Ends the underlying pool so no connections leak between test runs.
  */
-export async function resetDb(): Promise<void> {
+export async function resetDB(): Promise<void> {
   if (_pool) {
     await _pool.end();
   }
@@ -72,4 +81,4 @@ export async function resetDb(): Promise<void> {
   _db = null;
 }
 
-export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
+export type DBClient = ReturnType<typeof drizzle<typeof schema>>;

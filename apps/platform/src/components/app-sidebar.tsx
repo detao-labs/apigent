@@ -14,14 +14,20 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@apigent/ui";
-import { LayoutDashboard, Building2, Database, Key } from "lucide-react";
+import { LayoutDashboard, Building2, Database, Key, LogOut } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-export function AppSidebar() {
+export function AppSidebar({
+  user,
+}: {
+  user: { name: string; email: string };
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations("nav");
+  const auth = useTranslations("auth");
 
   const navItems = [
     { title: t("dashboard"), url: "/", icon: LayoutDashboard },
@@ -32,6 +38,12 @@ export function AppSidebar() {
 
   const isActive = (url: string) =>
     pathname === url || (url !== "/" && pathname.startsWith(`${url}/`));
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -71,6 +83,23 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center gap-2 rounded-md px-3 py-2">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-sm font-medium">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="sm" onClick={logout}>
+              <LogOut className="size-4" />
+              <span>{auth("logout")}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <LocaleSwitcher />
           </SidebarMenuItem>

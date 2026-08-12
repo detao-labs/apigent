@@ -3,8 +3,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { htmlLang, defaultLocale } from "@apigent/core/i18n";
 import type { Locale } from "@apigent/core/i18n";
-import { SidebarInset, SidebarProvider, TooltipProvider } from "@apigent/ui";
-import { AppSidebar } from "@/components/app-sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,14 +28,7 @@ export default async function RootLayout({
     >
       <body className="antialiased">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <TooltipProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <main className="p-6">{children}</main>
-              </SidebarInset>
-            </SidebarProvider>
-          </TooltipProvider>
+          {children}
         </NextIntlClientProvider>
       </body>
     </html>

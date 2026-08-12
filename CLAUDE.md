@@ -118,6 +118,25 @@ The config system is the first (and currently only) implemented module. It has t
 
 There is no build system (turborepo/nx) — TypeScript sources are consumed directly via tsx/ts-node. When adding tooling, follow the monorepo pattern established by `packages/core/package.json`.
 
+### Database (Drizzle)
+
+| Command             | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| `pnpm db:generate`  | Generate a migration from schema changes         |
+| `pnpm db:migrate`   | Apply pending migrations to the database         |
+| `pnpm db:push`      | Push schema directly to the DB (dev only)        |
+| `pnpm db:check`     | Compare schema vs DB state                       |
+| `pnpm db:seed`      | Seed development data (packages/server seed)     |
+| `pnpm db:studio`    | Open Drizzle Studio                              |
+
+**Migration naming:** drizzle-kit auto-generates random `NNNN_adjective_hero` names by default. Prefer explicit names for reviewability (e.g. `0000_init`):
+
+```bash
+pnpm db:generate -- --name=add_users   # → 0001_add_users.sql
+```
+
+The Drizzle schema and migrations live in `packages/server` (`drizzle.config.ts` + `drizzle/`). The connection URL comes from `APIGENT_DATABASE_URL` (root `.env`), resolved through `@apigent/core/config`.
+
 ## Current State
 
 No working application yet. What exists:

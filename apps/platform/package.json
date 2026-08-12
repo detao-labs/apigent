@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@apigent/core": "workspace:*",
+    "@apigent/server": "workspace:*",
     "@apigent/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.31.0",
     "next": "^15.0.0",
     "next-intl": "^4.13.6",

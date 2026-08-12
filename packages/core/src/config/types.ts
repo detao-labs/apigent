@@ -20,10 +20,10 @@
  * V0 supports PostgreSQL only — the Drizzle schema (packages/server/src/db)
  * is built on `drizzle-orm/pg-core`. Other dialects are not implemented.
  */
-export type DbProvider = "postgresql";
+export type DBProvider = "postgresql";
 
 export interface DatabaseConfig {
-  provider: DbProvider;
+  provider: DBProvider;
   /** Connection URL (from env — contains credentials) */
   url: string;
 }

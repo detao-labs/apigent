@@ -7,7 +7,7 @@
 
 export type {
   // Database
-  DbProvider,
+  DBProvider,
   DatabaseConfig,
   // Vector Store
   VectorStoreProvider,
