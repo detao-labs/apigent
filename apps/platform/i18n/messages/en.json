@@ -44,7 +44,12 @@
       "description": "Description",
       "descriptionPlaceholder": "Brief description of this organization",
       "submit": "Create Organization",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "errors": {
+        "invalid": "Please check the form fields",
+        "slugTaken": "This slug is already in use",
+        "generic": "Something went wrong, please try again"
+      }
     },
     "table": {
       "name": "Name",

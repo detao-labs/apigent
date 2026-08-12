@@ -14,11 +14,10 @@
   "dependencies": {
     "@apigent/core": "workspace:*",
     "@hono/node-server": "^1.0.0",
-    "@hono/zod-openapi": "^0.18.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "hono": "^4.0.0",
     "yaml": "^2.9.0",
-    "zod": "^3.24.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

@@ -10,12 +10,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
-  const { email, password } = (body ?? {}) as Record<string, unknown>;
   try {
-    const user = await loginUser({
-      email: typeof email === "string" ? email : "",
-      password: typeof password === "string" ? password : "",
-    });
+    const user = await loginUser(body);
 
     const response = NextResponse.json({ user });
     response.cookies.set(SESSION_COOKIE, issueSessionToken(user.id), {

@@ -84,12 +84,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.0.0
         version: 1.19.17(hono@4.13.1)
-      '@hono/zod-openapi':
-        specifier: ^0.18.0
-        version: 0.18.0(hono@4.13.1)(zod@3.24.0)
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
-        version: 1.30.0(supports-color@7.1.0)(zod@3.24.0)
+        version: 1.30.0(supports-color@7.1.0)(zod@4.4.3)
       hono:
         specifier: ^4.0.0
         version: 4.13.1
@@ -97,8 +94,8 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
       zod:
-        specifier: ^3.24.0
-        version: 3.24.0
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^26.2.0
@@ -154,6 +151,12 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+      zod-openapi:
+        specifier: ^5.4.6
+        version: 5.4.6(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^26.2.0
@@ -164,6 +167,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.4(@types/react@19.2.18)
+      tsx:
+        specifier: ^4.0.0
+        version: 4.23.11
       typescript:
         specifier: ^5.7.0
         version: 5.7.2
@@ -174,8 +180,8 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
       zod:
-        specifier: ^3.24.0
-        version: 3.24.0
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^26.2.0
@@ -269,11 +275,6 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
-
-  '@asteasolutions/zod-to-openapi@7.1.0':
-    resolution: {integrity: sha512-7E0k56zXV01GaSSWIuVVcHonBBPDtM6DKJqcHTNz4cfRjy1nQTAEslYjEvJd83PZ7gvhXs8NJ5aR1y/L76zt/Q==}
-    peerDependencies:
-      zod: ^3.20.2
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -970,19 +971,6 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
-
-  '@hono/zod-openapi@0.18.0':
-    resolution: {integrity: sha512-MNdFSbACkEq1txteKsBrVB0Mnil0zd5urOrP8eti6kUDI95CKVws+vjHQWNddRqmqlBHa5kFAcVXSInHFmcYGQ==}
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      hono: '>=4.3.6'
-      zod: 3.*
-
-  '@hono/zod-validator@0.4.1':
-    resolution: {integrity: sha512-I8LyfeJfvVmC5hPjZ2Iij7RjexlgSBT7QJudZ4JvNPLxn0JQ3sqclz2zydlwISAnw21D2n4LQ0nfZdoiv9fQQA==}
-    peerDependencies:
-      hono: '>=3.9.0'
-      zod: ^3.19.1
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -3060,9 +3048,6 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openapi3-ts@4.6.1:
-    resolution: {integrity: sha512-XW9MOldkhoICNeXVzzmXzmOW5G73ppOEGmh7fLCqHjgfdEYCGGN+00MlVCeUZgovjjfC56j9tvtDt1zGabNjjA==}
-
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -3766,25 +3751,26 @@ packages:
     resolution: {integrity: sha512-xYqdZFUK/VYazNl/oCDYN+3WloWQwMfZxBoiNt6qNyk+xfOdi598muWE42rNZFp1kNOiqW936q5RhUdnpqElSg==}
     engines: {node: '>=18'}
 
+  zod-openapi@5.4.6:
+    resolution: {integrity: sha512-P2jsOOBAq/6hCwUsMCjUATZ8szkMsV5VAwZENfyxp2Hc/XPJQpVwAgevWZc65xZauCwWB9LAn7zYeiCJFAEL+A==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      zod: ^3.25.74 || ^4.0.0
+
   zod-to-json-schema@3.25.2:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
     peerDependencies:
       zod: ^3.25.28 || ^4
 
-  zod@3.24.0:
-    resolution: {integrity: sha512-Hz+wiY8yD0VLA2k/+nsg2Abez674dDGTai33SwNvMPuf9uIrBC9eFgIMQxBBbHFxVXi8W+5nX9DcAh9YNSQm/w==}
-
   zod@3.24.1:
     resolution: {integrity: sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
-
-  '@asteasolutions/zod-to-openapi@7.1.0(zod@3.24.0)':
-    dependencies:
-      openapi3-ts: 4.6.1
-      zod: 3.24.0
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -4337,18 +4323,6 @@ snapshots:
     dependencies:
       hono: 4.13.1
 
-  '@hono/zod-openapi@0.18.0(hono@4.13.1)(zod@3.24.0)':
-    dependencies:
-      '@asteasolutions/zod-to-openapi': 7.1.0(zod@3.24.0)
-      '@hono/zod-validator': 0.4.1(hono@4.13.1)(zod@3.24.0)
-      hono: 4.13.1
-      zod: 3.24.0
-
-  '@hono/zod-validator@0.4.1(hono@4.13.1)(zod@3.24.0)':
-    dependencies:
-      hono: 4.13.1
-      zod: 3.24.0
-
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -4498,28 +4472,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@modelcontextprotocol/sdk@1.30.0(supports-color@7.1.0)(zod@3.24.0)':
-    dependencies:
-      '@hono/node-server': 2.1.0(hono@4.13.1)
-      ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
-      content-type: 1.0.5
-      cors: 2.8.6
-      cross-spawn: 7.0.6
-      eventsource: 3.0.2
-      eventsource-parser: 3.1.0
-      express: 5.2.1(supports-color@7.1.0)
-      express-rate-limit: 8.6.2(express@5.2.1(supports-color@7.1.0))(supports-color@7.1.0)
-      hono: 4.13.1
-      jose: 6.2.8
-      json-schema-typed: 8.0.2
-      pkce-challenge: 5.0.0
-      raw-body: 3.0.0
-      zod: 3.24.0
-      zod-to-json-schema: 3.25.2(zod@3.24.0)
-    transitivePeerDependencies:
-      - supports-color
-
   '@modelcontextprotocol/sdk@1.30.0(supports-color@7.1.0)(zod@3.24.1)':
     dependencies:
       '@hono/node-server': 2.1.0(hono@4.13.1)
@@ -4539,6 +4491,28 @@ snapshots:
       raw-body: 3.0.0
       zod: 3.24.1
       zod-to-json-schema: 3.25.2(zod@3.24.1)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@modelcontextprotocol/sdk@1.30.0(supports-color@7.1.0)(zod@4.4.3)':
+    dependencies:
+      '@hono/node-server': 2.1.0(hono@4.13.1)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      content-type: 1.0.5
+      cors: 2.8.6
+      cross-spawn: 7.0.6
+      eventsource: 3.0.2
+      eventsource-parser: 3.1.0
+      express: 5.2.1(supports-color@7.1.0)
+      express-rate-limit: 8.6.2(express@5.2.1(supports-color@7.1.0))(supports-color@7.1.0)
+      hono: 4.13.1
+      jose: 6.2.8
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.0
+      raw-body: 3.0.0
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -6143,10 +6117,6 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openapi3-ts@4.6.1:
-    dependencies:
-      yaml: 2.9.0
-
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -6837,14 +6807,18 @@ snapshots:
 
   yoctocolors@2.2.0: {}
 
-  zod-to-json-schema@3.25.2(zod@3.24.0):
+  zod-openapi@5.4.6(zod@4.4.3):
     dependencies:
-      zod: 3.24.0
+      zod: 4.4.3
 
   zod-to-json-schema@3.25.2(zod@3.24.1):
     dependencies:
       zod: 3.24.1
 
-  zod@3.24.0: {}
+  zod-to-json-schema@3.25.2(zod@4.4.3):
+    dependencies:
+      zod: 4.4.3
 
   zod@3.24.1: {}
+
+  zod@4.4.3: {}

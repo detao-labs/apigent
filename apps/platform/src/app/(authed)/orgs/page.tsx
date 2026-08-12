@@ -2,10 +2,11 @@ import { getTranslations } from "next-intl/server";
 import { buttonVariants, Card, CardContent } from "@apigent/ui";
 import { Plus, Building2, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { listOrgs } from "@/services/orgs";
 
 export default async function OrgsPage() {
   const t = await getTranslations("orgs");
-  const orgs: { id: string; name: string; slug: string }[] = [];
+  const orgs = await listOrgs();
 
   return (
     <div className="space-y-6">

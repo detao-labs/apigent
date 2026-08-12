@@ -8,9 +8,11 @@ import {
 } from "@apigent/ui";
 import { Building2, Database, Upload, Plus } from "lucide-react";
 import Link from "next/link";
+import { getDashboardStats } from "@/services/stats";
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
+  const stats = await getDashboardStats();
 
   return (
     <div className="space-y-6">
@@ -27,7 +29,7 @@ export default async function DashboardPage() {
             <Building2 className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{stats.organizations}</div>
           </CardContent>
         </Card>
         <Card>
@@ -36,7 +38,7 @@ export default async function DashboardPage() {
             <Database className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{stats.repositories}</div>
           </CardContent>
         </Card>
         <Card>
@@ -45,7 +47,7 @@ export default async function DashboardPage() {
             <Upload className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{stats.endpoints}</div>
           </CardContent>
         </Card>
       </div>

@@ -17,10 +17,11 @@ import {
   verifySessionToken,
 } from "@apigent/server/auth";
 import { getDB, users } from "@apigent/server/db";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_MIN = 8;
-const PASSWORD_MAX = 128;
+import {
+  loginBodySchema,
+  registerBodySchema,
+} from "@/lib/openapi-schemas";
+import type { ZodError } from "zod/v4";
 
 export class AuthError extends Error {
   constructor(public readonly code: string) {
@@ -60,19 +61,10 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
-export async function registerUser(input: {
-  name: string;
-  email: string;
-  password: string;
-}): Promise<SessionUser> {
-  const name = input.name.trim();
-  const email = input.email.trim().toLowerCase();
-
-  if (!name || name.length > 255) throw new AuthError("invalid-name");
-  if (!EMAIL_RE.test(email) || email.length > 255) throw new AuthError("invalid-email");
-  if (input.password.length < PASSWORD_MIN || input.password.length > PASSWORD_MAX) {
-    throw new AuthError("weak-password");
-  }
+export async function registerUser(input: unknown): Promise<SessionUser> {
+  const parsed = registerBodySchema.safeParse(input);
+  if (!parsed.success) throw new AuthError(mapRegisterIssue(parsed.error));
+  const { name, email, password } = parsed.data;
 
   const db = getDB();
   const existing = await db
@@ -86,8 +78,8 @@ export async function registerUser(input: {
     .insert(users)
     .values({
       name,
-      email,
-      passwordHash: hashPassword(input.password),
+      email: email.trim().toLowerCase(),
+      passwordHash: hashPassword(password),
     })
     .returning({
       id: users.id,
@@ -97,18 +89,17 @@ export async function registerUser(input: {
   return user;
 }
 
-export async function loginUser(input: {
-  email: string;
-  password: string;
-}): Promise<SessionUser> {
-  const email = input.email.trim().toLowerCase();
+export async function loginUser(input: unknown): Promise<SessionUser> {
+  const parsed = loginBodySchema.safeParse(input);
+  if (!parsed.success) throw new AuthError("invalid-credentials");
+  const email = parsed.data.email.trim().toLowerCase();
   const [user] = await getDB()
     .select()
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
 
-  if (!user || !verifyPassword(input.password, user.passwordHash)) {
+  if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
     throw new AuthError("invalid-credentials");
   }
   return { id: user.id, email: user.email, name: user.name };
@@ -116,4 +107,11 @@ export async function loginUser(input: {
 
 export function issueSessionToken(userId: string): string {
   return createSessionToken(userId);
+}
+
+function mapRegisterIssue(error: ZodError): string {
+  const field = error.issues[0]?.path[0];
+  if (field === "name") return "invalid-name";
+  if (field === "password") return "weak-password";
+  return "invalid-email";
 }

@@ -44,7 +44,12 @@
       "description": "描述",
       "descriptionPlaceholder": "简要描述这个组织",
       "submit": "创建组织",
-      "cancel": "取消"
+      "cancel": "取消",
+      "errors": {
+        "invalid": "请检查表单填写内容",
+        "slugTaken": "该标识符已被使用",
+        "generic": "操作失败，请重试"
+      }
     },
     "table": {
       "name": "名称",
