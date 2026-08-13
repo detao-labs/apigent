@@ -10,7 +10,8 @@
     "./config": "./src/config/index.ts",
     "./types": "./src/types/index.ts",
     "./di": "./src/di/index.ts",
-    "./i18n": "./src/i18n/index.ts"
+    "./i18n": "./src/i18n/index.ts",
+    "./agent": "./src/agent/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

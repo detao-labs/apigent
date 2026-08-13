@@ -81,7 +81,7 @@
 
 | Agent                                                 | 版本 | 职责                                                                 | 为什么需要 LLM                                                        |
 | ----------------------------------------------------- | ---- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [Business Context Agent](./business-context.agent.md) | V0   | 推断**能力上下文**（repo 级，V0）与**使用上下文**（project 级，V1+） | 自然语言描述 → 结构化业务知识，需要语义理解                           |
+| [Business Context Agent](./business-context.agent.md) | V0   | 推断**能力上下文**（repo 级，V0）与**使用上下文**（project 级，V1+）；技术设计见 [business-context.md](./business-context.md) | 自然语言描述 → 结构化业务知识，需要语义理解                           |
 | [Semantic Search Agent](./semantic-search.agent.md)   | V0   | 理解自然语言查询意图，匹配最相关的 API                               | "查找退款相关的 API" → 需要理解"退款"对应哪些 API，语义而非关键词匹配 |
 | Knowledge Assistant Agent                             | V1   | 对话式 API 知识问答                                                  | 多轮对话、模糊问题、需要推理                                          |
 | API Generation Agent                                  | V1   | 从需求描述生成 API 设计                                              | 自然语言 → OpenAPI Schema                                             |
@@ -208,10 +208,12 @@ docs/modules/
   README.md                        ← 本文件
   openapi-parser.md                ← OpenAPI Parser Service
   business-context.agent.md        ← Business Context Agent (LLM)
+  business-context.md              ← Business Context 技术设计（任务/存储/API/UI）
   knowledge-graph.md               ← Knowledge Graph Service
   semantic-search.agent.md         ← Semantic Search Agent (LLM)
   knowledge-retrieval.md           ← Knowledge Retrieval Service
   project-context.md               ← Project Context Service
   mcp-gateway.md                   ← MCP Gateway
   async-queue.md                   ← Async Queue Service（异步任务 + 消息通知）
+  agent-runtime.md                 ← Agent Runtime（AI SDK 流式对话 + client/server tools）
 ```
