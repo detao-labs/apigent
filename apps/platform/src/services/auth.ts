@@ -17,6 +17,7 @@ import {
   verifySessionToken,
 } from "@apigent/server/auth";
 import { getDB, users } from "@apigent/server/db";
+import { generateId } from "@apigent/server/id";
 import {
   loginBodySchema,
   registerBodySchema,
@@ -77,6 +78,7 @@ export async function registerUser(input: unknown): Promise<SessionUser> {
   const [user] = await db
     .insert(users)
     .values({
+      id: generateId("user"),
       name,
       email: email.trim().toLowerCase(),
       passwordHash: hashPassword(password),

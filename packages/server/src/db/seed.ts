@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { loadConfig } from "@apigent/core/config";
 import { closeDB, getDB } from "./connection";
 import { users } from "./schema";
+import { generateId } from "../id";
 
 const DEV_USER_EMAIL = "admin@apigent.local";
 
@@ -29,6 +30,7 @@ export async function seed(): Promise<void> {
     console.log("[seed] Dev user already exists — nothing to do");
   } else {
     await db.insert(users).values({
+      id: generateId("user"),
       email: DEV_USER_EMAIL,
       // Placeholder until auth lands — no real authentication is in use yet.
       passwordHash: "placeholder-not-configured",

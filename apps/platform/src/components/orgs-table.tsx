@@ -24,7 +24,6 @@ export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
       <TableHeader>
         <TableRow className="bg-muted/50 hover:bg-muted/50">
           <TableHead>{t("table.name")}</TableHead>
-          <TableHead>{t("table.slug")}</TableHead>
           <TableHead className="text-right">{t("table.members")}</TableHead>
           <TableHead className="text-right">{t("table.repos")}</TableHead>
           <TableHead className="text-right">{t("table.actions")}</TableHead>
@@ -35,14 +34,9 @@ export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
           <TableRow
             key={org.id}
             className="cursor-pointer"
-            onClick={() => router.push(`/repos?org=${org.slug}`)}
+            onClick={() => router.push(`/repos?org=${org.id}`)}
           >
             <TableCell className="font-medium">{org.name}</TableCell>
-            <TableCell>
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                {org.slug}
-              </code>
-            </TableCell>
             <TableCell className="text-right tabular-nums">
               {org.memberCount}
             </TableCell>
@@ -51,7 +45,7 @@ export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
             </TableCell>
             <TableCell className="text-right">
               <Link
-                href={`/repos?org=${org.slug}`}
+                href={`/repos?org=${org.id}`}
                 onClick={(e) => e.stopPropagation()}
                 className={buttonVariants({ variant: "ghost", size: "sm" })}
               >

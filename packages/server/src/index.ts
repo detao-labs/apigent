@@ -6,3 +6,5 @@
 // services will land here as they emerge (see docs/tech-design.md).
 
 export * from "./db";
+export * from "./id";
+export * from "./openapi";

@@ -40,6 +40,7 @@ import {
   Upload,
 } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
+import { ImportVersionDialog } from "@/components/import-version-dialog";
 import { formatRelativeTime } from "@/lib/format";
 import type { RepoDetail } from "@/services/repos";
 
@@ -56,6 +57,7 @@ export function RepoOverview({
   const common = useTranslations("common");
   const router = useRouter();
   const [mcp, setMcp] = React.useState(repo.mcpEnabled);
+  const [importOpen, setImportOpen] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
   const [regenDone, setRegenDone] = React.useState(false);
 
@@ -121,7 +123,8 @@ export function RepoOverview({
             )}
             {repo.currentVersion && (
               <Badge variant="outline" className="font-mono">
-                v{repo.currentVersion}
+                {repo.currentVersion}
+                {repo.currentSpecVersion && ` · ${repo.currentSpecVersion}`}
               </Badge>
             )}
             <span className="ml-1 inline-flex items-center gap-2 text-sm font-normal text-muted-foreground">
@@ -182,12 +185,20 @@ export function RepoOverview({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button type="button" disabled title={common("backendPending")}>
+          <Button type="button" onClick={() => setImportOpen(true)}>
             <Upload className="size-4" />
             {t("importVersion")}
           </Button>
         </div>
       </div>
+
+      <ImportVersionDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        repoId={repo.id}
+        repoName={repo.name}
+        onImported={() => router.refresh()}
+      />
 
       {/* 能力上下文 */}
       <Card>
@@ -340,7 +351,12 @@ export function RepoOverview({
                   >
                     <TableCell>
                       <span className="font-mono text-sm">
-                        v{version.version}
+                        {version.version}
+                        {version.specVersion && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {version.specVersion}
+                          </span>
+                        )}
                       </span>
                       {version.id === repo.versions[0]?.id &&
                         repo.versionCount > 0 && (

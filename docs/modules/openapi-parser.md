@@ -55,7 +55,8 @@ interface APIEntry {
 
 ### 1. 多版本兼容
 
-- 支持 OpenAPI 2.0 (Swagger)、3.0.x、3.1.x
+- 完整支持 OpenAPI 3.0.x、3.1.x；3.2.x 宽容解析（警告）
+- Swagger 2.0 暂不支持，导入时提示先转换为 OpenAPI 3.0+
 - 自动检测并归一化为内部 Model
 - 非标准扩展字段保留在 `x-*` 字段中
 

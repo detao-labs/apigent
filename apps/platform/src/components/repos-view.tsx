@@ -44,10 +44,10 @@ export function ReposView({
   const [mcp, setMcp] = React.useState("all");
 
   const orgs = React.useMemo(() => {
-    const map = new Map<string, { name: string; slug: string }>();
+    const map = new Map<string, { name: string; id: string }>();
     for (const repo of repos) {
-      if (repo.orgName && repo.orgSlug) {
-        map.set(repo.orgSlug, { name: repo.orgName, slug: repo.orgSlug });
+      if (repo.orgName && repo.orgId) {
+        map.set(repo.orgId, { name: repo.orgName, id: repo.orgId });
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -59,7 +59,7 @@ export function ReposView({
       !q ||
       repo.name.toLowerCase().includes(q) ||
       (repo.description ?? "").toLowerCase().includes(q);
-    const matchesOrg = org === "all" || repo.orgSlug === org;
+    const matchesOrg = org === "all" || repo.orgId === org;
     const matchesMcp =
       mcp === "all" ||
       (mcp === "on" && repo.mcpEnabled) ||
@@ -118,7 +118,7 @@ export function ReposView({
             >
               <option value="all">{t("toolbar.allOrgs")}</option>
               {orgs.map((o) => (
-                <option key={o.slug} value={o.slug}>
+                <option key={o.id} value={o.id}>
                   {o.name}
                 </option>
               ))}

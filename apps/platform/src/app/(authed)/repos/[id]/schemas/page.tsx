@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { Boxes } from "lucide-react";
-import { RepoSectionPage } from "@/components/repo-section";
-import { getRepoDetail } from "@/services/repos";
+import { ChevronRight } from "lucide-react";
+import { DataModelList } from "@/components/data-model-list";
+import { RepoNotFound } from "@/components/repo-not-found";
+import { getRepoDetail, getRepoDataModels } from "@/services/repos";
 
 export default async function RepoSchemasPage({
   params,
@@ -10,17 +12,31 @@ export default async function RepoSchemasPage({
 }) {
   const { id } = await params;
   const t = await getTranslations("repos.detail");
+  const reposT = await getTranslations("repos");
   const repo = await getRepoDetail(id);
+  if (!repo) return <RepoNotFound />;
+  const models = await getRepoDataModels(id);
 
   return (
-    <RepoSectionPage
-      repo={repo}
-      crumb={t("nav.schemas")}
-      title={repo?.name ?? ""}
-      sub={t("schemasSub")}
-      icon={Boxes}
-      emptyTitle={t("schemasEmpty")}
-      emptyDesc={t("schemasEmptyDesc")}
-    />
+    <div className="space-y-6">
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link href="/repos" className="hover:text-foreground">
+          {reposT("title")}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <Link href={`/repos/${repo.id}`} className="hover:text-foreground">
+          {repo.name}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <span className="text-foreground">{t("nav.schemas")}</span>
+      </nav>
+
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{repo.name}</h1>
+        <p className="text-muted-foreground">{t("schemasSub")}</p>
+      </div>
+
+      <DataModelList models={models} />
+    </div>
   );
 }

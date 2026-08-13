@@ -1,6 +1,5 @@
 import {
   pgTable,
-  uuid,
   varchar,
   text,
   boolean,
@@ -18,11 +17,11 @@ import { repositories, repoVersions, modules } from "./repo";
 export const endpoints = pgTable(
   "endpoints",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    versionId: uuid("version_id")
+    id: text("id").primaryKey(),
+    versionId: text("version_id")
       .notNull()
       .references(() => repoVersions.id),
-    repoId: uuid("repo_id")
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
     /** OpenAPI operationId — 跨版本身份标识 */
@@ -48,10 +47,10 @@ export const endpoints = pgTable(
 export const endpointModules = pgTable(
   "endpoint_modules",
   {
-    endpointId: uuid("endpoint_id")
+    endpointId: text("endpoint_id")
       .notNull()
       .references(() => endpoints.id),
-    moduleId: uuid("module_id")
+    moduleId: text("module_id")
       .notNull()
       .references(() => modules.id),
   },
@@ -70,8 +69,8 @@ export const endpointModules = pgTable(
 export const endpointResponses = pgTable(
   "endpoint_responses",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    endpointId: uuid("endpoint_id")
+    id: text("id").primaryKey(),
+    endpointId: text("endpoint_id")
       .notNull()
       .references(() => endpoints.id, { onDelete: "cascade" }),
     statusCode: varchar("status_code", { length: 3 }).notNull(),
@@ -98,11 +97,11 @@ export const endpointResponses = pgTable(
 export const dataModels = pgTable(
   "data_models",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    versionId: uuid("version_id")
+    id: text("id").primaryKey(),
+    versionId: text("version_id")
       .notNull()
       .references(() => repoVersions.id),
-    repoId: uuid("repo_id")
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
     name: varchar("name", { length: 255 }).notNull(),
@@ -126,11 +125,11 @@ export const dataModels = pgTable(
 export const businessContexts = pgTable(
   "business_contexts",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    endpointId: uuid("endpoint_id")
+    id: text("id").primaryKey(),
+    endpointId: text("endpoint_id")
       .notNull()
       .references(() => endpoints.id),
-    versionId: uuid("version_id")
+    versionId: text("version_id")
       .notNull()
       .references(() => repoVersions.id),
     capabilityName: varchar("capability_name", { length: 255 }),
@@ -157,18 +156,18 @@ export const businessContexts = pgTable(
 export const endpointRelationships = pgTable(
   "endpoint_relationships",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    sourceEndpointId: uuid("source_endpoint_id")
+    id: text("id").primaryKey(),
+    sourceEndpointId: text("source_endpoint_id")
       .notNull()
       .references(() => endpoints.id),
-    targetEndpointId: uuid("target_endpoint_id")
+    targetEndpointId: text("target_endpoint_id")
       .notNull()
       .references(() => endpoints.id),
     relationType: varchar("relation_type", { length: 50 }).notNull(),
-    repoId: uuid("repo_id")
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
-    versionId: uuid("version_id")
+    versionId: text("version_id")
       .notNull()
       .references(() => repoVersions.id),
   },

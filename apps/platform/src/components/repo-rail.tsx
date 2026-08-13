@@ -61,7 +61,8 @@ export function RepoRail({
           )}
           {repo?.currentVersion && (
             <Badge variant="outline" className="font-mono text-xs">
-              v{repo.currentVersion}
+              {repo.currentVersion}
+              {repo.currentSpecVersion && ` · ${repo.currentSpecVersion}`}
             </Badge>
           )}
         </div>

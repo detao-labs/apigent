@@ -1,6 +1,5 @@
 import {
   pgTable,
-  uuid,
   varchar,
   text,
   boolean,
@@ -17,7 +16,7 @@ import {
 export const users = pgTable(
   "users",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey(),
     email: varchar("email", { length: 255 }).notNull().unique(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
@@ -40,10 +39,9 @@ export const users = pgTable(
 export const organizations = pgTable(
   "organizations",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
-    slug: varchar("slug", { length: 255 }).notNull().unique(),
-    ownerId: uuid("owner_id")
+    ownerId: text("owner_id")
       .notNull()
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -52,7 +50,6 @@ export const organizations = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("orgs_slug_idx").on(table.slug)],
 );
 
 // ═══════════════════════════════════════════════════════════════════
@@ -62,10 +59,10 @@ export const organizations = pgTable(
 export const organizationMembers = pgTable(
   "organization_members",
   {
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    orgId: uuid("org_id")
+    orgId: text("org_id")
       .notNull()
       .references(() => organizations.id),
     role: varchar("role", { length: 50 }).notNull(),

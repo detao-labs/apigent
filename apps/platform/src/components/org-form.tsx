@@ -22,7 +22,6 @@ export function OrgForm() {
   const router = useRouter();
 
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,15 +33,14 @@ export function OrgForm() {
       const res = await fetch("/api/orgs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, slug }),
+        body: JSON.stringify({ name }),
       });
       if (res.ok) {
         router.push("/orgs");
         router.refresh();
         return;
       }
-      if (res.status === 409) setError(errors("slugTaken"));
-      else if (res.status === 400) setError(errors("invalid"));
+      if (res.status === 400) setError(errors("invalid"));
       else setError(errors("generic"));
     } catch {
       setError(errors("generic"));
@@ -79,23 +77,6 @@ export function OrgForm() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="slug" className="text-sm font-medium">
-                {t("slug")}
-              </label>
-              <Input
-                id="slug"
-                name="slug"
-                type="text"
-                required
-                pattern="[a-z0-9-]+"
-                placeholder={t("slugPlaceholder")}
-                className="font-mono"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">{t("slugHint")}</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex items-center gap-3 pt-4">

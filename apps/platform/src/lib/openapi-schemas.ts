@@ -6,7 +6,8 @@
 
 import * as z from "zod/v4";
 
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const shortId = (prefix: string) =>
+  z.string().regex(new RegExp(`^${prefix}[0-9A-Za-z]{10}$`));
 
 // ─────────────────────────────────────────────────────────────────────
 // Users
@@ -14,7 +15,7 @@ const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const userSchema = z
   .object({
-    id: z.uuid().meta({ description: "User UUID" }),
+    id: shortId("usr_").meta({ description: "User short ID" }),
     email: z.email().meta({
       description: "Email address",
       example: "ada@example.com",
@@ -73,20 +74,12 @@ export type LoginInput = z.infer<typeof loginBodySchema>;
 // Organizations
 // ─────────────────────────────────────────────────────────────────────
 
-const orgIdField = z.uuid().meta({ description: "Organization UUID" });
+const orgIdField = shortId("org_").meta({ description: "Organization short ID" });
 const orgNameField = z
   .string()
   .min(1)
   .max(255)
   .meta({ description: "Organization name" });
-const orgSlugField = z
-  .string()
-  .regex(SLUG_RE)
-  .max(255)
-  .meta({
-    description: "URL-friendly slug — lowercase letters, digits, hyphens",
-    example: "acme-corp",
-  });
 const createdAtField = z
   .date()
   .meta({ format: "date-time", description: "Creation time (ISO 8601)" });
@@ -98,7 +91,6 @@ export const orgSummarySchema = z
   .object({
     id: orgIdField,
     name: orgNameField,
-    slug: orgSlugField,
     createdAt: createdAtField,
   })
   .meta({ id: "OrgSummary", description: "Organization summary" });
@@ -109,8 +101,7 @@ export const orgSchema = z
   .object({
     id: orgIdField,
     name: orgNameField,
-    slug: orgSlugField,
-    ownerId: z.uuid().meta({ description: "Owner user UUID" }),
+    ownerId: shortId("usr_").meta({ description: "Owner user short ID" }),
     createdAt: createdAtField,
     updatedAt: updatedAtField,
   })
@@ -121,21 +112,78 @@ export type Org = z.infer<typeof orgSchema>;
 export const orgCreateBodySchema = z
   .object({
     name: orgNameField.meta({ description: "Organization display name" }),
-    slug: z
-      .string()
-      .trim()
-      .toLowerCase()
-      .regex(SLUG_RE)
-      .max(255)
-      .meta({
-        description:
-          "URL-friendly slug — lowercase letters, digits, hyphens (e.g. acme-corp)",
-        example: "acme-corp",
-      }),
   })
   .meta({ id: "OrgCreateBody", description: "Organization creation payload" });
 
 export type OrgCreateInput = z.infer<typeof orgCreateBodySchema>;
+
+// ─────────────────────────────────────────────────────────────────────
+// Repositories
+// ─────────────────────────────────────────────────────────────────────
+
+const repoIdField = shortId("repo_").meta({ description: "Repository short ID" });
+const repoNameField = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .meta({ description: "Repository name", example: "Payment Service API" });
+
+export const repoCreateBodySchema = z
+  .object({
+    orgId: orgIdField.meta({
+      description: "Organization the repository belongs to",
+    }),
+    name: repoNameField,
+    description: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional()
+      .meta({ description: "Short description of the API repository" }),
+  })
+  .meta({ id: "RepoCreateBody", description: "Repository creation payload" });
+
+export type RepoCreateInput = z.infer<typeof repoCreateBodySchema>;
+
+export const repoSchema = z
+  .object({
+    id: repoIdField,
+    name: repoNameField,
+    description: z
+      .string()
+      .nullable()
+      .meta({ description: "Repository description" }),
+    orgId: orgIdField.meta({ description: "Owning organization UUID" }),
+    orgName: z
+      .string()
+      .min(1)
+      .meta({ description: "Organization display name" }),
+    mcpEnabled: z.boolean().meta({ description: "Whether MCP access is enabled" }),
+    createdAt: createdAtField,
+  })
+  .meta({ id: "Repo", description: "Repository record" });
+
+export type Repo = z.infer<typeof repoSchema>;
+
+// ─────────────────────────────────────────────────────────────────────
+// OpenAPI import
+// ─────────────────────────────────────────────────────────────────────
+
+export const importContentBodySchema = z
+  .object({
+    content: z
+      .string()
+      .min(1)
+      .max(5 * 1024 * 1024)
+      .meta({
+        description: "Raw OpenAPI 3.0/3.1 document (JSON or YAML)",
+        writeOnly: true,
+      }),
+  })
+  .meta({ id: "ImportContentBody", description: "OpenAPI import payload" });
+
+export type ImportContentInput = z.infer<typeof importContentBodySchema>;
 
 // ─────────────────────────────────────────────────────────────────────
 // Common responses

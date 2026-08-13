@@ -198,7 +198,7 @@ export default async function DashboardPage() {
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {repo.currentVersion
-                            ? `v${repo.currentVersion} · `
+                            ? `${repo.currentVersion} · `
                             : ""}
                           {formatRelativeTime(repo.updatedAt, locale)}
                         </p>

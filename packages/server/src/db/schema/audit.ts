@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { users, organizations } from "./auth";
 import { repositories } from "./repo";
 import { endpoints } from "./endpoint";
@@ -10,15 +10,15 @@ import { endpoints } from "./endpoint";
 export const operationLogs = pgTable(
   "operation_logs",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey(),
     /** NULL = 平台级操作（Admin Webapp） */
-    orgId: uuid("org_id").references(() => organizations.id),
-    repoId: uuid("repo_id").references(() => repositories.id),
+    orgId: text("org_id").references(() => organizations.id),
+    repoId: text("repo_id").references(() => repositories.id),
     /** NULL = 系统自动操作 */
-    actorId: uuid("actor_id").references(() => users.id),
+    actorId: text("actor_id").references(() => users.id),
     operationType: varchar("operation_type", { length: 50 }).notNull(),
     resourceType: varchar("resource_type", { length: 50 }).notNull(),
-    resourceId: uuid("resource_id"),
+    resourceId: text("resource_id"),
     summary: jsonb("summary").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -34,8 +34,8 @@ export const operationLogs = pgTable(
 export const operationLogDetails = pgTable(
   "operation_log_details",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    operationId: uuid("operation_id")
+    id: text("id").primaryKey(),
+    operationId: text("operation_id")
       .notNull()
       .references(() => operationLogs.id),
     changeType: varchar("change_type", { length: 20 }).notNull(),
@@ -43,8 +43,8 @@ export const operationLogDetails = pgTable(
     operationIdRef: varchar("operation_id_ref", { length: 255 }),
     method: varchar("method", { length: 10 }).notNull(),
     path: varchar("path", { length: 500 }).notNull(),
-    fromEndpointId: uuid("from_endpoint_id").references(() => endpoints.id),
-    toEndpointId: uuid("to_endpoint_id").references(() => endpoints.id),
+    fromEndpointId: text("from_endpoint_id").references(() => endpoints.id),
+    toEndpointId: text("to_endpoint_id").references(() => endpoints.id),
     fieldsChanged: jsonb("fields_changed").$type<string[]>(),
   },
   (table) => [

@@ -30,6 +30,9 @@ yarn-error.log*
 .env*.local
 .env
 
+# local runtime data (OpenAPI spec snapshots, etc.)
+.data/
+
 # NOTE: apigent.config.yaml is tracked — it contains scheme choices (no secrets).
 # Secrets go in .env which is gitignored above.
 

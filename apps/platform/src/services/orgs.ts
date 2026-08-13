@@ -13,11 +13,11 @@ import {
   organizations,
   repositories,
 } from "@apigent/server/db";
+import { generateId } from "@apigent/server/id";
 
 export interface OrgSummary {
   id: string;
   name: string;
-  slug: string;
   memberCount: number;
   repoCount: number;
   createdAt: Date;
@@ -28,7 +28,6 @@ export async function listOrgs(): Promise<OrgSummary[]> {
     .select({
       id: organizations.id,
       name: organizations.name,
-      slug: organizations.slug,
       createdAt: organizations.createdAt,
       memberCount: sql<number>`${count(organizationMembers.userId)}::int`,
       repoCount: sql<number>`${count(repositories.id)}::int`,
@@ -49,20 +48,22 @@ export async function listOrgs(): Promise<OrgSummary[]> {
   }));
 }
 
-export async function getOrgBySlug(slug: string) {
+export async function getOrgById(id: string) {
   const [org] = await getDB()
     .select()
     .from(organizations)
-    .where(eq(organizations.slug, slug))
+    .where(eq(organizations.id, id))
     .limit(1);
   return org ?? null;
 }
 
 export async function createOrg(input: {
   name: string;
-  slug: string;
   ownerId: string;
 }) {
-  const [org] = await getDB().insert(organizations).values(input).returning();
+  const [org] = await getDB()
+    .insert(organizations)
+    .values({ id: generateId("org"), ...input })
+    .returning();
   return org;
 }

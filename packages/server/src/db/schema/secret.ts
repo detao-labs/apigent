@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -6,8 +6,8 @@ import { users } from "./auth";
 // ═══════════════════════════════════════════════════════════════════
 
 export const secretKeys = pgTable("secret_keys", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
+  id: text("id").primaryKey(),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
   name: varchar("name", { length: 255 }).notNull(),

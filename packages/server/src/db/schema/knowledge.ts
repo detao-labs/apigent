@@ -1,6 +1,5 @@
 import {
   pgTable,
-  uuid,
   varchar,
   text,
   jsonb,
@@ -53,20 +52,20 @@ const tsvector = customType<{ data: string; driverData: string }>({
 export const knowledgeChunks = pgTable(
   "knowledge_chunks",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey(),
     /** 冗余 org 快照 — 检索前权限过滤；repo 迁移 org 后保持 snapshot 语义 */
-    orgId: uuid("org_id")
+    orgId: text("org_id")
       .notNull()
       .references(() => organizations.id),
-    repoId: uuid("repo_id")
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
     /** 所属 OpenAPI 版本（project/usage-context chunk 可为空） */
-    versionId: uuid("version_id").references(() => repoVersions.id),
+    versionId: text("version_id").references(() => repoVersions.id),
     /** endpoint 级 chunk 关联（L2/L3） */
-    endpointId: uuid("endpoint_id").references(() => endpoints.id),
+    endpointId: text("endpoint_id").references(() => endpoints.id),
     /** 分层 chunk 的父节点（L3 → L2；双语 chunk 共享同一 parent） */
-    parentId: uuid("parent_id").references((): AnyPgColumn => knowledgeChunks.id),
+    parentId: text("parent_id").references((): AnyPgColumn => knowledgeChunks.id),
     /**
      * 跨系统稳定 ID（repo 内唯一），如
      * `{version}:{level}:{method}:{path}:{lang}` — Milvus/ES 同步按它 upsert

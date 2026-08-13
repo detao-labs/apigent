@@ -1,6 +1,5 @@
 import {
   pgTable,
-  uuid,
   varchar,
   text,
   boolean,
@@ -17,15 +16,15 @@ import { users, organizations } from "./auth";
 // ═══════════════════════════════════════════════════════════════════
 
 export const repositories = pgTable("repositories", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  orgId: uuid("org_id")
+  id: text("id").primaryKey(),
+  orgId: text("org_id")
     .notNull()
     .references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   capabilityContext: jsonb("capability_context").default({}),
   /** Points to the active version. Soft reference — FK added in migration. */
-  currentVersionId: uuid("current_version_id"),
+  currentVersionId: text("current_version_id"),
   mcpEnabled: boolean("mcp_enabled").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -41,10 +40,10 @@ export const repositories = pgTable("repositories", {
 export const repoPermissions = pgTable(
   "repo_permissions",
   {
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    repoId: uuid("repo_id")
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
     role: varchar("role", { length: 50 }).notNull(),
@@ -60,11 +59,13 @@ export const repoPermissions = pgTable(
 export const repoVersions = pgTable(
   "repo_versions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    repoId: uuid("repo_id")
+    id: text("id").primaryKey(),
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
     version: varchar("version", { length: 50 }).notNull(),
+    /** OpenAPI info.version — 发布版本标签（区别于快照序号 version） */
+    specVersion: varchar("spec_version", { length: 100 }),
     specStoragePath: varchar("spec_storage_path", { length: 500 }).notNull(),
     source: varchar("source", { length: 20 }).default("import"),
     importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
@@ -79,11 +80,11 @@ export const repoVersions = pgTable(
 export const modules = pgTable(
   "modules",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    repoId: uuid("repo_id")
+    id: text("id").primaryKey(),
+    repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
-    versionId: uuid("version_id")
+    versionId: text("version_id")
       .notNull()
       .references(() => repoVersions.id),
     name: varchar("name", { length: 255 }).notNull(),
