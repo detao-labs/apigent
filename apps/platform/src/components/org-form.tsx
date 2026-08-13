@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { PageContainer } from "@/components/page-container";
 import {
   Button,
   buttonVariants,
@@ -51,6 +52,7 @@ export function OrgForm() {
   }
 
   return (
+    <PageContainer>
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
@@ -108,5 +110,6 @@ export function OrgForm() {
         </CardContent>
       </Card>
     </div>
+    </PageContainer>
   );
 }

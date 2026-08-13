@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { SidebarInset, SidebarProvider, TooltipProvider } from "@apigent/ui";
+import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
 import { getSessionUser } from "@/services/auth";
 
@@ -14,9 +15,10 @@ export default async function AppLayout({
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar user={user} />
+        <AppSidebar />
         <SidebarInset>
-          <main className="p-6">{children}</main>
+          <AppHeader user={user} />
+          <main className="flex-1">{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

@@ -11,12 +11,14 @@ import {
   Textarea,
 } from "@apigent/ui";
 import Link from "next/link";
+import { PageContainer } from "@/components/page-container";
 
 export default async function NewRepoPage() {
   const t = await getTranslations("repos.new");
   const common = await getTranslations("common");
 
   return (
+    <PageContainer>
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
@@ -63,7 +65,7 @@ export default async function NewRepoPage() {
             </div>
             <div className="space-y-2">
               <label htmlFor="description" className="text-sm font-medium">
-                {t("description")}
+                {t("descriptionLabel")}
               </label>
               <Textarea
                 id="description"
@@ -99,5 +101,6 @@ export default async function NewRepoPage() {
         </CardContent>
       </Card>
     </div>
+    </PageContainer>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  LocaleSwitcher,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -14,36 +13,26 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@apigent/ui";
-import { LayoutDashboard, Building2, Database, Key, LogOut } from "lucide-react";
+import { Building2, Database, LayoutDashboard, Settings } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-export function AppSidebar({
-  user,
-}: {
-  user: { name: string; email: string };
-}) {
+export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const t = useTranslations("nav");
-  const auth = useTranslations("auth");
 
-  const navItems = [
-    { title: t("dashboard"), url: "/", icon: LayoutDashboard },
-    { title: t("organizations"), url: "/orgs", icon: Building2 },
-    { title: t("repositories"), url: "/repos", icon: Database },
-    { title: t("apiKeys"), url: "/keys", icon: Key },
-  ];
+  // Repo detail and settings pages render their own rails, so the global
+  // sidebar is hidden there (see repo-detail layout & settings page).
+  const isRepoDetail =
+    pathname.startsWith("/repos/") &&
+    pathname !== "/repos" &&
+    !pathname.startsWith("/repos/new");
+  const isSettings = pathname.startsWith("/settings");
+  if (isRepoDetail || isSettings) return null;
 
   const isActive = (url: string) =>
     pathname === url || (url !== "/" && pathname.startsWith(`${url}/`));
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }
 
   return (
     <Sidebar collapsible="icon">
@@ -56,56 +45,78 @@ export function AppSidebar({
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-semibold">Apigent</span>
-                <span className="text-xs text-muted-foreground">{t("brandSubtitle")}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t("brandSubtitle")}
+                </span>
               </div>
             </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
+        {/* 仪表盘 — 平台入口，不设分组名 */}
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link href={item.url} className="flex items-center gap-2 w-full">
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive("/")}
+                  tooltip={t("dashboard")}
+                >
+                  <Link href="/" className="flex w-full items-center gap-2">
+                    <LayoutDashboard />
+                    <span>{t("dashboard")}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* 工作台 — 组织与仓库 */}
+        <SidebarGroup>
+          <SidebarGroupLabel>{t("workspace")}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive("/orgs")}
+                  tooltip={t("organizations")}
+                >
+                  <Link href="/orgs" className="flex w-full items-center gap-2">
+                    <Building2 />
+                    <span>{t("organizations")}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive("/repos")}
+                  tooltip={t("repositories")}
+                >
+                  <Link href="/repos" className="flex w-full items-center gap-2">
+                    <Database />
+                    <span>{t("repositories")}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-2 rounded-md px-3 py-2">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 leading-tight">
-                <p className="truncate text-sm font-medium">{user.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-              </div>
-            </div>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="sm" onClick={logout}>
-              <LogOut className="size-4" />
-              <span>{auth("logout")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <LocaleSwitcher />
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="sm">
-              <span className="text-xs text-muted-foreground">Apigent v0.1</span>
+            <SidebarMenuButton
+              isActive={isActive("/settings")}
+              tooltip={t("settings")}
+            >
+              <Link href="/settings" className="flex w-full items-center gap-2">
+                <Settings />
+                <span>{t("settings")}</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -4,24 +4,67 @@
     "organizations": "Organizations",
     "repositories": "Repositories",
     "apiKeys": "API Keys",
-    "brandSubtitle": "Platform"
+    "settings": "Settings",
+    "workspace": "Workspace",
+    "brandSubtitle": "API for Agents"
+  },
+  "topbar": {
+    "searchPlaceholder": "Search APIs, repositories, models…",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet",
+    "systemSettings": "System settings",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "chinese": "中文",
+    "english": "English",
+    "about": "About Apigent",
+    "version": "Apigent v0.1.0",
+    "userMenu": "User menu",
+    "profile": "Profile",
+    "settings": "Settings"
   },
   "dashboard": {
     "title": "Dashboard",
     "description": "Overview of your API knowledge platform",
+    "newRepo": "New Repository",
+    "onboarding": {
+      "title": "Getting started",
+      "description": "Complete the core steps to unlock Agent access",
+      "progress": "{done} / {total} completed",
+      "steps": {
+        "org": "Create an organization",
+        "repo": "Create a repository and import OpenAPI",
+        "key": "Generate an API key",
+        "keyHint": "Generate",
+        "mcp": "Connect your Agent (MCP)",
+        "mcpHint": "Copy the config to Cursor / Claude",
+        "done": "Done"
+      }
+    },
     "stats": {
       "organizations": "Organizations",
       "repositories": "Repositories",
-      "endpoints": "Endpoints"
+      "endpoints": "Endpoints",
+      "mcpEnabled": "MCP enabled"
     },
-    "quickActions": "Quick Actions",
-    "createOrg": {
-      "title": "Create Organization",
-      "description": "Set up a new team workspace"
+    "recentUpdates": {
+      "title": "Recent updates",
+      "description": "Sorted by last update",
+      "viewAll": "View all",
+      "empty": "No updates yet. Repositories you create will show up here."
     },
-    "newRepo": {
-      "title": "New Repository",
-      "description": "Create a repository and import an OpenAPI spec"
+    "connectAgent": {
+      "title": "Connect your Agent",
+      "description": "Copy the MCP config to use it in Cursor / Claude",
+      "serviceUrl": "Service URL",
+      "auth": "Authentication",
+      "authValue": "API key (Bearer)",
+      "copy": "Copy config",
+      "guide": "View integration guide",
+      "copied": "Copied"
     }
   },
   "orgs": {
@@ -41,7 +84,6 @@
       "slug": "Slug",
       "slugPlaceholder": "e.g. ecommerce-team",
       "slugHint": "URL-friendly identifier. Lowercase letters, numbers, and hyphens only.",
-      "description": "Description",
       "descriptionPlaceholder": "Brief description of this organization",
       "submit": "Create Organization",
       "cancel": "Cancel",
@@ -56,12 +98,23 @@
       "slug": "Slug",
       "members": "Members",
       "repos": "Repos",
-      "actions": "Actions"
+      "actions": "Actions",
+      "viewRepos": "View repos"
     }
   },
   "repos": {
     "title": "Repositories",
     "description": "Manage and browse your API repositories",
+    "toolbar": {
+      "searchPlaceholder": "Search by repository name or description…",
+      "allOrgs": "All organizations",
+      "allMcp": "All MCP statuses",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "filtered": "Filtered",
+      "clear": "Clear",
+      "noMatch": "No matching repositories"
+    },
     "empty": {
       "title": "No repositories",
       "description": "Create your first repository and import an OpenAPI spec"
@@ -77,7 +130,7 @@
       "createOrg": "Create an organization",
       "name": "Name",
       "namePlaceholder": "e.g. Payment Service API",
-      "description": "Description",
+      "descriptionLabel": "Description",
       "descriptionPlaceholder": "Brief description of this API repository",
       "spec": "OpenAPI Specification",
       "specOptional": "(optional)",
@@ -87,22 +140,87 @@
       "cancel": "Cancel"
     },
     "detail": {
-      "title": "Repository Detail",
-      "tabs": {
+      "back": "Back to repositories",
+      "breadcrumbRepos": "Repositories",
+      "importVersion": "Import new version",
+      "more": "More",
+      "editInfo": "Edit info",
+      "copyLink": "Copy link",
+      "deleteRepo": "Delete repository",
+      "mcp": "MCP",
+      "nav": {
         "overview": "Overview",
         "endpoints": "Endpoints",
-        "schemas": "Data Models",
+        "schemas": "Data models",
+        "context": "Business context",
+        "versions": "Versions",
         "settings": "Settings"
       },
-      "emptyTitle": "No endpoints yet",
-      "emptyDescription": "Import an OpenAPI specification and endpoints will be listed here."
+      "capability": {
+        "title": "Capability context",
+        "generated": "Generated",
+        "sub": "AI-generated repository knowledge",
+        "regen": "Regenerate",
+        "generating": "Generating…",
+        "intent": "Intent",
+        "constraints": "Constraints",
+        "sideEffects": "Side effects",
+        "scenarios": "Use cases",
+        "empty": "Capability context is not generated yet. It will be created automatically after importing OpenAPI."
+      },
+      "stats": {
+        "endpoints": "Endpoints",
+        "models": "Data models",
+        "versions": "Versions"
+      },
+      "mcpPanel": {
+        "title": "MCP access",
+        "copyConfig": "Copy config",
+        "generateKey": "Generate key",
+        "copied": "Copied"
+      },
+      "recentVersions": {
+        "title": "Recent versions",
+        "description": "Version history of this repository",
+        "viewAll": "All versions",
+        "current": "Current",
+        "version": "Version",
+        "importedAt": "Imported",
+        "source": "Source",
+        "endpointCount": "Endpoints",
+        "actions": "Actions",
+        "compare": "Compare",
+        "empty": "No versions yet"
+      },
+      "mcpConfirmTitle": "Disable MCP",
+      "mcpConfirmDescription": "After disabling, external Agents can no longer access this repository's endpoints. Disable MCP?",
+      "deleteConfirmTitle": "Delete repository",
+      "deleteConfirmDescription": "Deleting removes all versions, endpoints and business context permanently. Delete repository?",
+      "notFound": "Repository not found or has been deleted",
+      "notFoundBack": "Back to repositories",
+      "endpointsEmpty": "No endpoints yet",
+      "endpointsEmptyDesc": "Import an OpenAPI specification and endpoints will be listed here.",
+      "endpointsSub": "Browse and search this repository's endpoints",
+      "schemasEmpty": "No data models yet",
+      "schemasEmptyDesc": "Schemas from components/schemas in OpenAPI will be listed here.",
+      "schemasSub": "Browse data models defined in OpenAPI",
+      "contextEmpty": "No business context yet",
+      "contextEmptyDesc": "Repository capability context is generated by AI after importing OpenAPI.",
+      "contextSub": "Repository knowledge: intent, constraints, side effects and use cases",
+      "versionsEmpty": "No versions yet",
+      "versionsEmptyDesc": "After importing a new version, history and change comparison will be listed here.",
+      "versionsSub": "Version history and change comparison",
+      "settingsEmpty": "Repository settings",
+      "settingsEmptyDesc": "Basic info, MCP switch and danger zone (V1 planned).",
+      "settingsSub": "Basic info, MCP switch and danger zone"
     },
     "table": {
-      "name": "Name",
+      "name": "Repository",
       "org": "Organization",
       "endpoints": "Endpoints",
-      "updated": "Updated",
+      "version": "Version",
       "mcp": "MCP",
+      "updated": "Updated",
       "actions": "Actions",
       "details": "Details",
       "enabled": "Enabled",
@@ -120,11 +238,81 @@
       "prefix": "Key Prefix",
       "scopes": "Scopes",
       "lastUsed": "Last Used",
+      "expires": "Expires",
       "actions": "Actions"
     },
     "empty": {
       "title": "No keys",
       "description": "Create your first API key"
+    },
+    "examples": {
+      "title": "Integration examples",
+      "description": "Use your key with MCP or REST calls",
+      "mcp": "MCP config (claude_desktop_config.json)",
+      "rest": "REST call",
+      "copy": "Copy",
+      "copied": "Copied"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Account, API keys and preferences",
+    "backToDashboard": "Back to dashboard",
+    "groups": {
+      "userInfo": "User",
+      "prefs": "Preferences"
+    },
+    "sections": {
+      "account": "Account",
+      "keys": "API keys",
+      "prefs": "Preferences",
+      "more": "More"
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Shown on sign-in and team collaboration",
+      "avatar": "Avatar",
+      "changeAvatar": "Change avatar",
+      "name": "Name",
+      "email": "Email",
+      "emailHint": "Used to sign in and receive notifications",
+      "save": "Save",
+      "saved": "Profile saved",
+      "pending": "(backend pending)"
+    },
+    "password": {
+      "title": "Change password",
+      "description": "Regularly changing your password improves security",
+      "current": "Current password",
+      "new": "New password",
+      "newPlaceholder": "At least 8 characters",
+      "hint": "Mix letters, numbers and symbols",
+      "confirm": "Confirm new password",
+      "confirmPlaceholder": "Enter the new password again",
+      "update": "Update password",
+      "updated": "Password updated",
+      "errors": {
+        "currentRequired": "Enter your current password",
+        "weak": "New password must be at least 8 characters",
+        "mismatch": "Passwords do not match"
+      }
+    },
+    "prefs": {
+      "languageTitle": "Interface language",
+      "languageDescription": "Synced with the top bar quick switch",
+      "language": "Language",
+      "languageHint": "Switch language from the top bar on any page",
+      "themeTitle": "Theme",
+      "themeDescription": "Synced with the top bar settings",
+      "appearance": "Appearance"
+    },
+    "more": {
+      "title": "More settings",
+      "description": "Settings live on this page and can be extended with new sections",
+      "notifications": "Notification preferences",
+      "sessions": "Session management",
+      "apiPrefs": "API preferences",
+      "comingSoon": "Coming soon"
     }
   },
   "common": {
@@ -137,6 +325,7 @@
     "loading": "Loading...",
     "noData": "No data",
     "comingSoon": "Coming soon",
+    "copied": "Copied",
     "backendPending": "Backend API is not implemented yet — placeholder UI"
   },
   "auth": {
