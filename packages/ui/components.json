@@ -17,15 +17,5 @@
     "ui": "@apigent/ui",
     "lib": "@apigent/ui",
     "hooks": "@apigent/ui"
-  },
-  "resolvedPaths": {
-    "cwd": ".",
-    "tailwindConfig": "",
-    "tailwindCss": "../../apps/platform/src/app/globals.css",
-    "utils": "./src/lib/utils.ts",
-    "components": "./src",
-    "lib": "./src/lib",
-    "hooks": "./src/hooks",
-    "ui": "./src/components/ui"
   }
 }
