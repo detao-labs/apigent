@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { htmlLang, defaultLocale } from "@apigent/core/i18n";
 import type { Locale } from "@apigent/core/i18n";
+import "cf-json-schema-viz/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

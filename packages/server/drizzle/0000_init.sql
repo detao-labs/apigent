@@ -46,7 +46,8 @@ CREATE TABLE "endpoint_responses" (
 	"status_code" varchar(3) NOT NULL,
 	"description" text,
 	"headers" jsonb DEFAULT '[]'::jsonb,
-	"content" jsonb,
+	"content_type" varchar(100),
+	"schema" jsonb,
 	"is_error" boolean DEFAULT false,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -60,6 +61,7 @@ CREATE TABLE "endpoints" (
 	"path" varchar(500) NOT NULL,
 	"summary" text,
 	"description" text,
+	"request_content_type" varchar(100),
 	"request_schema" jsonb,
 	"parameters" jsonb DEFAULT '[]'::jsonb,
 	"deprecated" boolean DEFAULT false,
@@ -227,7 +229,7 @@ ALTER TABLE "secret_keys" ADD CONSTRAINT "secret_keys_user_id_users_id_fk" FOREI
 CREATE UNIQUE INDEX "business_contexts_endpoint_version_idx" ON "business_contexts" USING btree ("endpoint_id","version_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "data_models_version_name_idx" ON "data_models" USING btree ("version_id","name");--> statement-breakpoint
 CREATE UNIQUE INDEX "endpoint_relations_unique_idx" ON "endpoint_relationships" USING btree ("source_endpoint_id","target_endpoint_id","relation_type");--> statement-breakpoint
-CREATE UNIQUE INDEX "endpoint_responses_endpoint_status_idx" ON "endpoint_responses" USING btree ("endpoint_id","status_code");--> statement-breakpoint
+CREATE UNIQUE INDEX "endpoint_responses_endpoint_status_content_type_idx" ON "endpoint_responses" USING btree ("endpoint_id","status_code","content_type");--> statement-breakpoint
 CREATE UNIQUE INDEX "endpoints_version_method_path_idx" ON "endpoints" USING btree ("version_id","method","path");--> statement-breakpoint
 CREATE UNIQUE INDEX "knowledge_chunks_repo_key_idx" ON "knowledge_chunks" USING btree ("repo_id","chunk_key");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_org_idx" ON "knowledge_chunks" USING btree ("org_id");--> statement-breakpoint

@@ -1,5 +1,5 @@
 {
-  "id": "6ab23f9f-60a9-494a-80c8-1ef4120307f0",
+  "id": "8163143e-f793-41a2-97cf-2e227fe1d207",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -486,8 +486,14 @@
           "notNull": false,
           "default": "'[]'::jsonb"
         },
-        "content": {
-          "name": "content",
+        "content_type": {
+          "name": "content_type",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "schema": {
+          "name": "schema",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -508,8 +514,8 @@
         }
       },
       "indexes": {
-        "endpoint_responses_endpoint_status_idx": {
-          "name": "endpoint_responses_endpoint_status_idx",
+        "endpoint_responses_endpoint_status_content_type_idx": {
+          "name": "endpoint_responses_endpoint_status_content_type_idx",
           "columns": [
             {
               "expression": "endpoint_id",
@@ -519,6 +525,12 @@
             },
             {
               "expression": "status_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "content_type",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -600,6 +612,12 @@
         "description": {
           "name": "description",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_content_type": {
+          "name": "request_content_type",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
         },

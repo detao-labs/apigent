@@ -60,11 +60,18 @@ export interface SchemaRef {
   unresolved?: boolean;
 }
 
-/** Response definition for a status code */
+/**
+ * Response definition — one entry per (status code, media type) pair.
+ * A status code without content, or with content but no schema, yields a
+ * single entry with only statusCode/description.
+ */
 export interface ResponseDef {
   statusCode: string;
   description: string;
-  content?: Record<string, SchemaRef>;
+  /** Media type, e.g. "application/json" or "multipart/form-data" */
+  contentType?: string;
+  /** Schema for this media type (SchemaRef wrapper is preserved) */
+  schema?: SchemaRef;
 }
 
 /** Security requirement (map from scheme name to scopes) */
@@ -82,6 +89,8 @@ export interface APIEntry {
   description?: string;
   parameters: ParameterDef[];
   requestBody?: SchemaRef;
+  /** Media type of the request body, e.g. "multipart/form-data" (first declared media type with a schema) */
+  requestContentType?: string;
   responses: ResponseDef[];
   tags: string[];
   security: SecurityRequirement[];

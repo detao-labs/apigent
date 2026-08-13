@@ -30,6 +30,8 @@ export const endpoints = pgTable(
     path: varchar("path", { length: 500 }).notNull(),
     summary: text("summary"),
     description: text("description"),
+    /** Media type of the request body, e.g. "application/json" / "multipart/form-data" */
+    requestContentType: varchar("request_content_type", { length: 100 }),
     requestSchema: jsonb("request_schema"),
     parameters: jsonb("parameters").default([]),
     deprecated: boolean("deprecated").default(false),
@@ -60,10 +62,10 @@ export const endpointModules = pgTable(
 // ═══════════════════════════════════════════════════════════════════
 // Endpoint Responses — OpenAPI paths.{path}.{method}.responses.{status}
 //
-// A single endpoint can have many responses (200/400/401/409/500...),
-// each with its own description, headers and content. Modeled as a
-// separate table so AI agents and tooling can annotate/manage each
-// status code independently instead of rewriting one big jsonb blob.
+// A single endpoint can have many responses (200/400/401/409/500...).
+// A response with multiple media types yields one row per media type.
+// Modeled as a separate table so AI agents and tooling can annotate/manage
+// each status code independently instead of rewriting one big jsonb blob.
 // ═══════════════════════════════════════════════════════════════════
 
 export const endpointResponses = pgTable(
@@ -76,16 +78,19 @@ export const endpointResponses = pgTable(
     statusCode: varchar("status_code", { length: 3 }).notNull(),
     description: text("description"),
     headers: jsonb("headers").default([]),
-    /** Media type → OpenAPI media object, e.g. { "application/json": { schema: {...} } } */
-    content: jsonb("content"),
+    /** Media type, e.g. "application/json" (NULL when the status has no content) */
+    contentType: varchar("content_type", { length: 100 }),
+    /** SchemaRef ({ schema, ref, unresolved }) for this media type */
+    schema: jsonb("schema"),
     /** Denormalized from statusCode for cheap filtering of error responses */
     isError: boolean("is_error").default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("endpoint_responses_endpoint_status_idx").on(
+    uniqueIndex("endpoint_responses_endpoint_status_content_type_idx").on(
       table.endpointId,
       table.statusCode,
+      table.contentType,
     ),
   ],
 );

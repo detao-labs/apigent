@@ -189,6 +189,7 @@ function extractAPIs(
       if (!operation) continue;
 
       const id = `${method}:${path}`;
+      const requestBody = extractRequestBody(operation);
       const api: APIEntry = {
         id,
         method,
@@ -202,7 +203,8 @@ function extractAPIs(
           pathLevelParams,
           extractParameters(operation, issues),
         ),
-        requestBody: extractRequestBody(operation),
+        requestBody: requestBody?.schema,
+        requestContentType: requestBody?.contentType,
         responses: extractResponses(operation),
         tags: Array.isArray(operation.tags)
           ? operation.tags.filter((t): t is string => typeof t === "string")
@@ -279,18 +281,23 @@ function isValidParamLocation(
   return typeof loc === "string" && ["path", "query", "header", "cookie"].includes(loc);
 }
 
-function extractRequestBody(operation: Record<string, unknown>): SchemaRef | undefined {
+function extractRequestBody(
+  operation: Record<string, unknown>,
+): { contentType?: string; schema: SchemaRef } | undefined {
   const rb = operation.requestBody as Record<string, unknown> | undefined;
   if (!rb || typeof rb !== "object") return undefined;
 
   const content = rb.content as Record<string, unknown> | undefined;
   if (!content || typeof content !== "object") return undefined;
 
-  for (const [, mediaType] of Object.entries(content)) {
-    if (mediaType && typeof mediaType === "object") {
-      const mt = mediaType as Record<string, unknown>;
+  for (const [mediaType, mediaTypeObj] of Object.entries(content)) {
+    if (mediaTypeObj && typeof mediaTypeObj === "object") {
+      const mt = mediaTypeObj as Record<string, unknown>;
       if (mt.schema) {
-        return toSchemaRef(mt.schema as Record<string, unknown>);
+        return {
+          contentType: mediaType,
+          schema: toSchemaRef(mt.schema as Record<string, unknown>),
+        };
       }
     }
   }
@@ -302,31 +309,40 @@ function extractResponses(operation: Record<string, unknown>): ResponseDef[] {
   const responses = operation.responses as Record<string, unknown> | undefined;
   if (!responses || typeof responses !== "object") return [];
 
-  return Object.entries(responses).map(([statusCode, response]) => {
+  const result: ResponseDef[] = [];
+
+  for (const [statusCode, response] of Object.entries(responses)) {
     const r = response as Record<string, unknown>;
-    const content: Record<string, SchemaRef> = {};
+    const description = typeof r?.description === "string" ? r.description : "";
     const rContent = r?.content as Record<string, unknown> | undefined;
 
     if (rContent && typeof rContent === "object") {
-      for (const [mediaType, mtObj] of Object.entries(rContent)) {
+      let hasSchema = false;
+      for (const [mediaType, mediaTypeObj] of Object.entries(rContent)) {
+        const mt = mediaTypeObj as Record<string, unknown> | undefined;
         if (
-          mtObj &&
-          typeof mtObj === "object" &&
-          (mtObj as Record<string, unknown>).schema
+          mt &&
+          typeof mt === "object" &&
+          mt.schema
         ) {
-          content[mediaType] = toSchemaRef(
-            (mtObj as Record<string, unknown>).schema as Record<string, unknown>,
-          );
+          hasSchema = true;
+          result.push({
+            statusCode,
+            description,
+            contentType: mediaType,
+            schema: toSchemaRef(mt.schema as Record<string, unknown>),
+          });
         }
       }
+      // Content declared without any schema (e.g. example-only): keep the
+      // status row so the code still shows up in the UI.
+      if (!hasSchema) result.push({ statusCode, description });
+    } else {
+      result.push({ statusCode, description });
     }
+  }
 
-    return {
-      statusCode,
-      description: typeof r?.description === "string" ? r.description : "",
-      content: Object.keys(content).length > 0 ? content : undefined,
-    };
-  });
+  return result;
 }
 
 function extractSecurity(

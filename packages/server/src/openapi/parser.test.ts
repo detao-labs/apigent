@@ -204,6 +204,7 @@ describe("parseOpenAPI", () => {
       const result = parseOpenAPI(input(SAMPLE_SPEC));
       const postPets = result.apis.find((a) => a.id === "POST:/pets")!;
       expect(postPets.requestBody).toBeDefined();
+      expect(postPets.requestContentType).toBe("application/json");
       // After $ref resolution, the schema is resolved to its inline value
       expect(postPets.requestBody!.schema).toBeDefined();
       const schema = postPets.requestBody!.schema!;
@@ -215,6 +216,64 @@ describe("parseOpenAPI", () => {
       const getPet = result.apis.find((a) => a.id === "GET:/pets/{petId}")!;
       expect(getPet.responses).toHaveLength(2);
       expect(getPet.responses.map((r) => r.statusCode).sort()).toEqual(["200", "404"]);
+      const ok = getPet.responses.find((r) => r.statusCode === "200")!;
+      expect(ok.contentType).toBe("application/json");
+      expect(ok.schema?.schema).toBeDefined();
+      expect(ok.schema?.schema?.type).toBe("object");
+    });
+
+    it("preserves request body media type and splits responses per media type", () => {
+      const spec = JSON.stringify({
+        openapi: "3.0.3",
+        info: { title: "Multipart API", version: "1.0.0" },
+        paths: {
+          "/upload": {
+            post: {
+              operationId: "upload",
+              requestBody: {
+                content: {
+                  "multipart/form-data": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string", format: "uuid" },
+                        profileImage: { type: "string", format: "binary" },
+                      },
+                    },
+                  },
+                },
+              },
+              responses: {
+                "200": {
+                  description: "OK",
+                  content: {
+                    "application/json": { schema: { type: "object" } },
+                    "application/xml": { schema: { type: "object" } },
+                  },
+                },
+                "204": { description: "No content" },
+              },
+            },
+          },
+        },
+      });
+      const api = parseOpenAPI(input(spec)).apis[0];
+      expect(api.requestContentType).toBe("multipart/form-data");
+      const rbSchema = api.requestBody?.schema as
+        | Record<string, unknown>
+        | undefined;
+      const rbProps = (rbSchema?.properties ?? {}) as Record<string, unknown>;
+      const profileImage = rbProps.profileImage as Record<string, unknown> | undefined;
+      expect(profileImage?.format).toBe("binary");
+      expect(api.responses).toHaveLength(3);
+      expect(api.responses.map((r) => r.contentType)).toEqual([
+        "application/json",
+        "application/xml",
+        undefined,
+      ]);
+      expect(api.responses.every((r) => r.schema?.schema === undefined || r.schema.schema)).toBe(
+        true,
+      );
     });
 
     it("extracts data models from components/schemas", () => {

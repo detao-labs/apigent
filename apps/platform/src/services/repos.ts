@@ -213,7 +213,8 @@ export async function getRepoDetail(id: string): Promise<RepoDetail | null> {
 export interface RepoEndpointResponse {
   statusCode: string;
   description: string | null;
-  content: unknown;
+  contentType: string | null;
+  schema: unknown;
   isError: boolean;
 }
 
@@ -227,6 +228,7 @@ export interface RepoEndpoint {
   deprecated: boolean;
   modules: string[];
   parameters: unknown[];
+  requestContentType: string | null;
   requestSchema: unknown;
   responses: RepoEndpointResponse[];
 }
@@ -255,6 +257,7 @@ export async function getRepoEndpoints(
         description: endpoints.description,
         deprecated: endpoints.deprecated,
         parameters: endpoints.parameters,
+        requestContentType: endpoints.requestContentType,
         requestSchema: endpoints.requestSchema,
       })
       .from(endpoints)
@@ -274,7 +277,8 @@ export async function getRepoEndpoints(
         endpointId: endpointResponses.endpointId,
         statusCode: endpointResponses.statusCode,
         description: endpointResponses.description,
-        content: endpointResponses.content,
+        contentType: endpointResponses.contentType,
+        schema: endpointResponses.schema,
         isError: endpointResponses.isError,
       })
       .from(endpointResponses)
@@ -295,7 +299,8 @@ export async function getRepoEndpoints(
     list.push({
       statusCode: row.statusCode,
       description: row.description,
-      content: row.content,
+      contentType: row.contentType,
+      schema: row.schema,
       isError: Boolean(row.isError),
     });
     responsesByEndpoint.set(row.endpointId, list);
@@ -305,6 +310,7 @@ export async function getRepoEndpoints(
     ...row,
     deprecated: Boolean(row.deprecated),
     parameters: (row.parameters ?? []) as unknown[],
+    requestContentType: row.requestContentType ?? null,
     requestSchema: row.requestSchema ?? null,
     modules: moduleByEndpoint.get(row.id) ?? [],
     responses: responsesByEndpoint.get(row.id) ?? [],

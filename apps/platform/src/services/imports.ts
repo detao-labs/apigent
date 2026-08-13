@@ -234,6 +234,7 @@ export async function importVersion(
             path: api.path,
             summary: api.summary ?? null,
             description: api.description ?? null,
+            requestContentType: api.requestContentType ?? null,
             requestSchema: api.requestBody ?? null,
             parameters: api.parameters,
             deprecated: api.deprecated,
@@ -248,7 +249,8 @@ export async function importVersion(
             statusCode: resp.statusCode,
             description: resp.description,
             headers: [],
-            content: resp.content ?? null,
+            contentType: resp.contentType ?? null,
+            schema: resp.schema ?? null,
             isError: isErrorStatus(resp.statusCode),
           })),
         );
