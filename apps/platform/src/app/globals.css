@@ -99,6 +99,11 @@ body {
 }
 
 .dark {
+  --color-bg: var(--background);
+  --color-surface: var(--card);
+  --color-border: var(--border);
+  --color-text: var(--foreground);
+  --color-text-muted: var(--muted-foreground);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
