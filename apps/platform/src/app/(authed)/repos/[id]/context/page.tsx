@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { Sparkles } from "lucide-react";
-import { RepoSectionPage } from "@/components/repo-section";
+import { ChevronRight } from "lucide-react";
+import { ContextManagement } from "@/components/context-management";
+import { RepoNotFound } from "@/components/repo-not-found";
 import { getRepoDetail } from "@/services/repos";
 
 export default async function RepoContextPage({
@@ -11,16 +13,28 @@ export default async function RepoContextPage({
   const { id } = await params;
   const t = await getTranslations("repos.detail");
   const repo = await getRepoDetail(id);
+  if (!repo) return <RepoNotFound />;
 
   return (
-    <RepoSectionPage
-      repo={repo}
-      crumb={t("nav.context")}
-      title={repo?.name ?? ""}
-      sub={t("contextSub")}
-      icon={Sparkles}
-      emptyTitle={t("contextEmpty")}
-      emptyDesc={t("contextEmptyDesc")}
-    />
+    <div className="space-y-6">
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link href="/repos" className="hover:text-foreground">
+          {t("breadcrumbRepos")}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <Link href={`/repos/${repo.id}`} className="hover:text-foreground">
+          {repo.name}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <span className="text-foreground">{t("nav.context")}</span>
+      </nav>
+
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{repo.name}</h1>
+        <p className="text-muted-foreground">{t("contextSub")}</p>
+      </div>
+
+      <ContextManagement repoId={repo.id} />
+    </div>
   );
 }

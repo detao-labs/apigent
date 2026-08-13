@@ -36,7 +36,7 @@ export default async function RepoEndpointsPage({
         <p className="text-muted-foreground">{t("endpointsSub")}</p>
       </div>
 
-      <EndpointList endpoints={endpoints} />
+      <EndpointList endpoints={endpoints} repoId={id} />
     </div>
   );
 }

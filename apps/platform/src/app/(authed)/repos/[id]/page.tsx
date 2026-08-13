@@ -5,6 +5,7 @@ import { RepoNotFound } from "@/components/repo-not-found";
 import { RepoOverview } from "@/components/repo-overview";
 import { getRepoDetail } from "@/services/repos";
 import { getLatestImportTask } from "@apigent/server/imports";
+import { getLatestContextTask } from "@apigent/server/contexts";
 
 export default async function RepoDetailOverviewPage({
   params,
@@ -19,6 +20,7 @@ export default async function RepoDetailOverviewPage({
   if (!repo) return <RepoNotFound />;
 
   const latestTask = await getLatestImportTask(id);
+  const latestContextTask = await getLatestContextTask(id);
 
   return (
     <div className="space-y-6">
@@ -29,7 +31,12 @@ export default async function RepoDetailOverviewPage({
         <ChevronRight className="size-3.5" />
         <span className="text-foreground">{repo.name}</span>
       </nav>
-      <RepoOverview repo={repo} locale={locale} latestTask={latestTask} />
+      <RepoOverview
+        repo={repo}
+        locale={locale}
+        latestTask={latestTask}
+        latestContextTask={latestContextTask}
+      />
     </div>
   );
 }

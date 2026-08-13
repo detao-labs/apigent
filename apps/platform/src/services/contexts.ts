@@ -21,6 +21,9 @@ export interface EndpointContextSummary {
   summary: string | null;
   capabilityName: string | null;
   intent: string | null;
+  constraints: unknown[] | null;
+  sideEffects: string[] | null;
+  usageScenarios: string[] | null;
   confidence: number | null;
   needsReview: boolean;
   editedByHuman: boolean;
@@ -49,6 +52,9 @@ export async function listEndpointContexts(
       summary: endpoints.summary,
       capabilityName: businessContexts.capabilityName,
       intent: businessContexts.intent,
+      constraints: businessContexts.constraints,
+      sideEffects: businessContexts.sideEffects,
+      usageScenarios: businessContexts.usageScenarios,
       confidence: businessContexts.confidence,
       needsReview: businessContexts.needsReview,
       editedByHuman: businessContexts.editedByHuman,
@@ -68,6 +74,9 @@ export async function listEndpointContexts(
 
   return rows.map((row) => ({
     ...row,
+    constraints: (row.constraints ?? null) as unknown[] | null,
+    sideEffects: (row.sideEffects ?? null) as string[] | null,
+    usageScenarios: (row.usageScenarios ?? null) as string[] | null,
     needsReview: Boolean(row.needsReview),
     editedByHuman: Boolean(row.editedByHuman),
   }));

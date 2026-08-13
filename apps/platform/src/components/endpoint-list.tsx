@@ -4,6 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   Input,
@@ -14,10 +15,12 @@ import {
   Folder,
   ListTree,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import type { RepoEndpoint } from "@/services/repos";
 import { SchemaTree } from "@/components/schema-tree";
+import { useOpenBusinessContext } from "@/hooks/use-open-business-context";
 
 const METHOD_STYLES: Record<string, string> = {
   GET: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -52,7 +55,13 @@ function matches(ep: RepoEndpoint, q: string): boolean {
   );
 }
 
-export function EndpointList({ endpoints }: { endpoints: RepoEndpoint[] }) {
+export function EndpointList({
+  endpoints,
+  repoId,
+}: {
+  endpoints: RepoEndpoint[];
+  repoId: string;
+}) {
   const t = useTranslations("repos.detail");
   const [query, setQuery] = React.useState("");
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
@@ -209,7 +218,7 @@ export function EndpointList({ endpoints }: { endpoints: RepoEndpoint[] }) {
       {/* ── 右侧：接口详情面板 ───────────────────────── */}
       <section className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background p-4 lg:p-6">
         {selected ? (
-          <EndpointDetail endpoint={selected} />
+          <EndpointDetail endpoint={selected} repoId={repoId} />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             {t("endpointsSelectHint")}
@@ -220,8 +229,15 @@ export function EndpointList({ endpoints }: { endpoints: RepoEndpoint[] }) {
   );
 }
 
-function EndpointDetail({ endpoint }: { endpoint: RepoEndpoint }) {
+function EndpointDetail({
+  endpoint,
+  repoId,
+}: {
+  endpoint: RepoEndpoint;
+  repoId: string;
+}) {
   const t = useTranslations("repos.detail");
+  const openBusinessContext = useOpenBusinessContext();
   const parameters = (endpoint.parameters ?? []) as Record<
     string,
     unknown
@@ -254,6 +270,19 @@ function EndpointDetail({ endpoint }: { endpoint: RepoEndpoint }) {
               {m}
             </Badge>
           ))}
+        </div>
+        <div className="mt-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              openBusinessContext({ repoId, endpointId: endpoint.id })
+            }
+          >
+            <Sparkles className="mr-1.5 size-3.5" />
+            {t("endpointsContext")}
+          </Button>
         </div>
       </div>
 

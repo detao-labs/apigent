@@ -28,7 +28,6 @@ import {
 import {
   ArrowRight,
   Boxes,
-  Check,
   History,
   KeyRound,
   Link2,
@@ -44,6 +43,7 @@ import { CopyButton } from "@/components/copy-button";
 import { ImportVersionDialog } from "@/components/import-version-dialog";
 import { formatRelativeTime } from "@/lib/format";
 import type { RepoDetail } from "@/services/repos";
+import type { ContextTaskSummary } from "@apigent/server/contexts";
 
 const MCP_SERVICE_URL = "https://apigent.acme.dev/mcp";
 
@@ -57,10 +57,12 @@ export function RepoOverview({
   repo,
   locale,
   latestTask,
+  latestContextTask,
 }: {
   repo: RepoDetail;
   locale: string;
   latestTask?: LatestImportTask | null;
+  latestContextTask?: ContextTaskSummary | null;
 }) {
   const t = useTranslations("repos.detail");
   const common = useTranslations("common");
@@ -68,8 +70,10 @@ export function RepoOverview({
   const [mcp, setMcp] = React.useState(repo.mcpEnabled);
   const [importOpen, setImportOpen] = React.useState(false);
   const [task, setTask] = React.useState<LatestImportTask | null>(latestTask ?? null);
+  const [contextTask, setContextTask] = React.useState<ContextTaskSummary | null>(
+    latestContextTask ?? null,
+  );
   const [regenerating, setRegenerating] = React.useState(false);
-  const [regenDone, setRegenDone] = React.useState(false);
 
   const hasContext =
     repo.capabilityContext !== null &&
@@ -98,14 +102,38 @@ export function RepoOverview({
     setMcp(!mcp);
   }
 
-  function regenerate() {
+  async function regenerate() {
     setRegenerating(true);
-    setRegenDone(false);
-    setTimeout(() => {
+    try {
+      const res = await fetch(`/api/repos/${repo.id}/contexts/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        const started = Date.now();
+        while (Date.now() - started < 10 * 60 * 1000) {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          const taskRes = await fetch(
+            `/api/repos/${repo.id}/context-tasks/latest`,
+            { cache: "no-store" },
+          );
+          const data = (await taskRes.json()) as {
+            task?: ContextTaskSummary;
+          };
+          setContextTask(data.task ?? null);
+          if (
+            data.task &&
+            (data.task.status === "succeeded" || data.task.status === "failed")
+          ) {
+            break;
+          }
+        }
+      }
+      router.refresh();
+    } finally {
       setRegenerating(false);
-      setRegenDone(true);
-      setTimeout(() => setRegenDone(false), 2000);
-    }, 1200);
+    }
   }
 
   async function copyLink() {
@@ -251,21 +279,39 @@ export function RepoOverview({
                   {t("capability.generated")}
                 </Badge>
               )}
+              {contextTask &&
+                (contextTask.status === "queued" ||
+                  contextTask.status === "running") && (
+                  <Badge variant="secondary" className="gap-1.5">
+                    <Loader2 className="size-3 animate-spin" />
+                    {t("capability.generating")} {contextTask.progress}%
+                  </Badge>
+                )}
             </CardTitle>
             <CardDescription>{t("capability.sub")}</CardDescription>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={regenerate}
-            disabled={regenerating}
-          >
-            <RefreshCw
-              className={`size-3.5 ${regenerating ? "animate-spin" : ""}`}
-            />
-            {regenerating ? t("capability.generating") : t("capability.regen")}
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href={`/repos/${repo.id}/context`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              {t("capability.manage")}
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={regenerate}
+              disabled={regenerating}
+            >
+              <RefreshCw
+                className={`size-3.5 ${regenerating ? "animate-spin" : ""}`}
+              />
+              {regenerating
+                ? t("capability.generating")
+                : t("capability.regen")}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {hasContext ? (
@@ -292,12 +338,6 @@ export function RepoOverview({
           ) : (
             <p className="text-sm text-muted-foreground">
               {t("capability.empty")}
-            </p>
-          )}
-          {regenDone && (
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Check className="size-3.5 text-primary" />
-              {t("capability.generated")}
             </p>
           )}
         </CardContent>
