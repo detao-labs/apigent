@@ -14,9 +14,11 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   Badge,
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,7 +28,7 @@ import {
   Input,
   Textarea,
 } from "@apigent/ui";
-import { Check, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { CONSTRAINT_TYPES } from "@apigent/core/agent";
 import type { EndpointContextSummary } from "@/services/contexts";
 import type { ContextTaskSummary } from "@apigent/server/contexts";
@@ -55,6 +57,7 @@ function splitLines(value: string): string[] {
 
 export function BusinessContextDialog() {
   const t = useTranslations("contexts");
+  const common = useTranslations("common");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -69,8 +72,8 @@ export function BusinessContextDialog() {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [saved, setSaved] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   const [capabilityName, setCapabilityName] = React.useState("");
   const [intent, setIntent] = React.useState("");
@@ -149,7 +152,6 @@ export function BusinessContextDialog() {
     );
     setSideEffectsText((selected.sideEffects ?? []).join("\n"));
     setUsageScenariosText((selected.usageScenarios ?? []).join("\n"));
-    setSaved(false);
   }, [selected]);
 
   async function save() {
@@ -173,9 +175,10 @@ export function BusinessContextDialog() {
         },
       );
       if (!res.ok) throw new Error(`save failed: ${res.status}`);
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
+      toast.success(t("saved"));
       await refresh();
+    } catch {
+      toast.error(t("generateFailed"));
     } finally {
       setSaving(false);
     }
@@ -192,8 +195,6 @@ export function BusinessContextDialog() {
 
   async function regenerate() {
     if (!repoId || !selectedId) return;
-    const confirmed = window.confirm(t("confirmRegenerate"));
-    if (!confirmed) return;
     setRegenerating(true);
     try {
       const res = await fetch(`/api/repos/${repoId}/contexts/generate`, {
@@ -223,6 +224,9 @@ export function BusinessContextDialog() {
         }
       }
       await refresh();
+      toast.success(t("regenerated"));
+    } catch {
+      toast.error(t("generateFailed"));
     } finally {
       setRegenerating(false);
     }
@@ -408,16 +412,10 @@ export function BusinessContextDialog() {
         )}
 
         <DialogFooter>
-          {saved && (
-            <span className="mr-auto flex items-center gap-1 text-sm text-primary">
-              <Check className="size-4" />
-              {t("saved")}
-            </span>
-          )}
           <Button
             type="button"
             variant="secondary"
-            onClick={regenerate}
+            onClick={() => setConfirmOpen(true)}
             disabled={!selected || regenerating}
           >
             <RefreshCw
@@ -431,6 +429,20 @@ export function BusinessContextDialog() {
           </Button>
         </DialogFooter>
       </DialogContent>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={t("regenerate")}
+        description={t("confirmRegenerate")}
+        confirmText={common("confirm")}
+        cancelText={common("cancel")}
+        destructive
+        loading={regenerating}
+        onConfirm={async () => {
+          setConfirmOpen(false);
+          await regenerate();
+        }}
+      />
     </Dialog>
   );
 }

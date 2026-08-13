@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { SidebarInset, SidebarProvider, TooltipProvider } from "@apigent/ui";
+import {
+  SidebarInset,
+  SidebarProvider,
+  TooltipProvider,
+} from "@apigent/ui";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BusinessContextDialog } from "@/components/business-context-dialog";
+import { Toaster } from "@/components/sonner";
 import { getSessionUser } from "@/services/auth";
 
 export default async function AppLayout({
@@ -26,6 +31,7 @@ export default async function AppLayout({
           </Suspense>
         </SidebarInset>
       </SidebarProvider>
+      <Toaster />
     </TooltipProvider>
   );
 }

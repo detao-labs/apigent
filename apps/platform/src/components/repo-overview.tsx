@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   Badge,
   Button,
@@ -13,6 +14,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  ConfirmDialog,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -68,6 +70,7 @@ export function RepoOverview({
   const common = useTranslations("common");
   const router = useRouter();
   const [mcp, setMcp] = React.useState(repo.mcpEnabled);
+  const [mcpConfirmOpen, setMcpConfirmOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
   const [task, setTask] = React.useState<LatestImportTask | null>(latestTask ?? null);
   const [contextTask, setContextTask] = React.useState<ContextTaskSummary | null>(
@@ -98,7 +101,10 @@ export function RepoOverview({
   }, [taskActive, repo.id]);
 
   function toggleMcp() {
-    if (mcp && !window.confirm(t("mcpConfirmDescription"))) return;
+    if (mcp) {
+      setMcpConfirmOpen(true);
+      return;
+    }
     setMcp(!mcp);
   }
 
@@ -131,6 +137,9 @@ export function RepoOverview({
         }
       }
       router.refresh();
+      toast.success(t("capability.regenerated"));
+    } catch {
+      toast.error(t("capability.generateFailed"));
     } finally {
       setRegenerating(false);
     }
@@ -342,6 +351,19 @@ export function RepoOverview({
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={mcpConfirmOpen}
+        onOpenChange={setMcpConfirmOpen}
+        title={t("mcpConfirmTitle")}
+        description={t("mcpConfirmDescription")}
+        confirmText={common("confirm")}
+        cancelText={common("cancel")}
+        onConfirm={() => {
+          setMcpConfirmOpen(false);
+          setMcp(false);
+        }}
+      />
 
       {/* 统计 + MCP 接入 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

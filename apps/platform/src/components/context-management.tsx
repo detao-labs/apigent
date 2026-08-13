@@ -10,6 +10,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   Badge,
   Button,
@@ -96,6 +97,9 @@ export function ContextManagement({ repoId }: { repoId: string }) {
         }
       }
       await refresh();
+      toast.success(t("regenerated"));
+    } catch {
+      toast.error(t("generateFailed"));
     } finally {
       setGenerating(false);
     }

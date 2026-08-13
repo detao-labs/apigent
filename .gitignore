@@ -3,6 +3,7 @@
 # dependencies
 node_modules/
 /.pnpm-store
+/.npmrc
 /.pnp
 .pnp.js
 

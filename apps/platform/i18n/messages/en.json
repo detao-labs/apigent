@@ -70,6 +70,8 @@
     "lineSeparatedPlaceholder": "One item per line",
     "save": "Save",
     "saved": "Saved",
+    "regenerated": "Regenerated",
+    "generateFailed": "Generation failed, please try again later",
     "regenerate": "Regenerate",
     "confirmRegenerate": "Regenerating will overwrite the current content. Continue?",
     "confidence": "Confidence",
@@ -215,6 +217,8 @@
         "manage": "Manage",
         "regen": "Regenerate",
         "generating": "Generating…",
+        "regenerated": "Regenerated",
+        "generateFailed": "Generation failed, please try again later",
         "intent": "Intent",
         "constraints": "Constraints",
         "sideEffects": "Side effects",
@@ -444,6 +448,8 @@
     }
   },
   "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
     "save": "Save",
     "cancel": "Cancel",
     "create": "Create",

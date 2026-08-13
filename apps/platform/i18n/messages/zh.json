@@ -70,6 +70,8 @@
     "lineSeparatedPlaceholder": "每行一项",
     "save": "保存",
     "saved": "已保存",
+    "regenerated": "已重新生成",
+    "generateFailed": "生成失败，请稍后重试",
     "regenerate": "重新生成",
     "confirmRegenerate": "重新生成将覆盖当前内容，确定继续吗？",
     "confidence": "置信度",
@@ -215,6 +217,8 @@
         "manage": "管理",
         "regen": "重新生成",
         "generating": "生成中…",
+        "regenerated": "已重新生成",
+        "generateFailed": "生成失败，请稍后重试",
         "intent": "意图",
         "constraints": "约束",
         "sideEffects": "副作用",
@@ -444,6 +448,8 @@
     }
   },
   "common": {
+    "confirm": "确认",
+    "cancel": "取消",
     "save": "保存",
     "cancel": "取消",
     "create": "创建",
