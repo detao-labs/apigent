@@ -5,21 +5,27 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "",
+    "css": "../../apps/platform/src/app/globals.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
   },
   "iconLibrary": "lucide",
-  "rtl": false,
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@apigent/ui",
+    "utils": "@apigent/ui",
+    "ui": "@apigent/ui",
+    "lib": "@apigent/ui",
+    "hooks": "@apigent/ui"
   },
-  "menuColor": "default",
-  "menuAccent": "subtle",
-  "registries": {}
+  "resolvedPaths": {
+    "cwd": ".",
+    "tailwindConfig": "",
+    "tailwindCss": "../../apps/platform/src/app/globals.css",
+    "utils": "./src/lib/utils.ts",
+    "components": "./src",
+    "lib": "./src/lib",
+    "hooks": "./src/hooks",
+    "ui": "./src/components/ui"
+  }
 }
