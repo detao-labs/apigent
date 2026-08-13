@@ -1,446 +1,446 @@
-# Apigent Platform Page Design (V0)
+# Apigent Platform 页面设计（V0）
 
-> 🌐 Language: [English](./platform-ux.md) | [中文](./platform-ux.zh.md)
+> 唯一设计文档 · 中文版 · V0
 
-This document defines the page architecture and UX design for `apps/platform` — the developer-facing Apigent web application. The goal for V0 is to be **simple, usable, and guided**: a new user can complete the full loop — sign up → create an organization → import OpenAPI → browse endpoints → create an API key → connect an Agent — in under 10 minutes.
+本文档定义 `apps/platform`（面向开发者的 Apigent 平台 Web 应用）的页面架构与用户体验设计，目标是在 V0 范围内做到**简单、易用、可引导**：新用户能在 10 分钟内完成「注册 → 创建组织 → 导入 OpenAPI → 浏览接口 → 生成密钥 → 接入 Agent」的完整闭环。
 
 ---
 
-# 1. Design Goals & Principles
+# 1. 设计目标与原则
 
-## 1.1 Goals
+## 1.1 设计目标
 
-| Goal | Description |
+| 目标 | 说明 |
 | --- | --- |
-| Beginner-friendly | First import and integration should not require reading documentation |
-| Core tasks first | Import, browse, and MCP integration are the highest-frequency paths; no page may lose the user |
-| Visible state | Import progress, AI generation status, MCP enablement, and key lifecycle are always visible |
-| Progressive disclosure | Advanced features (version diff, business context editing, permission management) are collapsed and never interrupt the main flow |
-| Consistent & predictable | The same kind of action appears in the same place with the same style everywhere |
+| 新手可上手 | 不需要阅读文档即可完成第一次导入和接入 |
+| 核心任务优先 | 导入、浏览、接入 MCP 是最高频路径，任何页面不得让用户迷失 |
+| 状态可见 | 导入进度、AI 生成状态、MCP 启用状态、密钥生命周期全程可见 |
+| 渐进披露 | 高级功能（版本对比、业务上下文编辑、权限管理）折叠，不干扰主流程 |
+| 一致可预期 | 同一类操作在全局保持相同位置、样式与交互 |
 
-## 1.2 UX Principles
+## 1.2 用户体验原则
 
-1. **One screen, one task**: each page answers a single question, e.g. "What repositories exist?" or "What does this endpoint do?"
-2. **Empty states are guidance**: when there is no data, the page tells the user what to do next instead of showing a blank table.
-3. **One primary action**: each page has a single primary button in the top-right; secondary and destructive actions live in a "More" menu.
-4. **See first, click later**: a list row is the entry to detail; click the row rather than hunting for a button.
-5. **Recoverable errors**: every failure shows a reason and a retry path; no silent failures.
-6. **Permission-driven UI**: users do not see buttons for actions they cannot perform, instead of clicking and getting an error.
+1. **一屏一任务**：每个页面只回答一个问题，例如「现在有哪些仓库？」「这个接口的业务含义是什么？」
+2. **空状态即引导**：没有数据时，页面直接告诉用户下一步该做什么，而不是显示空白表格。
+3. **主操作唯一**：每个页面右上角只有一个主按钮；次要与危险操作进入「更多」菜单。
+4. **先看后点**：列表行即详情入口，点击整行进入详情，避免「找到行 → 找按钮」的二次思考。
+5. **错误可恢复**：所有失败操作给出原因与重试入口，禁止静默失败。
+6. **权限驱动界面**：用户看不到自己没有权限的操作按钮，而不是点击后报错。
 
 ---
 
-# 2. Users & Core Tasks
+# 2. 用户与核心任务
 
-## 2.1 Personas
+## 2.1 用户画像
 
-| Role | Goal | Frequency |
+| 角色 | 目标 | 频率 |
 | --- | --- | --- |
-| API developer | Import OpenAPI, browse endpoints, read business context, update versions | High |
-| Team lead (org_admin/owner) | Create organizations, manage members, manage repos, create keys | Medium |
-| AI Agent (via MCP) | Search and read API knowledge (does not use this UI directly) | — |
+| API 开发者 | 导入 OpenAPI、浏览接口、查看业务上下文、更新版本 | 高 |
+| 团队负责人（org_admin/owner） | 创建组织、管理成员、管理仓库、生成密钥 | 中 |
+| AI Agent（经 MCP） | 搜索与读取 API 知识（不直接使用本界面） | — |
 
-## 2.2 Core flows (V0)
-
-```
-Sign up / sign in
-  → dashboard checklist
-  → create an organization (if none)
-  → create a repository + import OpenAPI
-  → browse endpoints and business context
-  → create an API key
-  → copy MCP configuration, connect Cursor / Claude
-```
-
-Daily loop:
+## 2.2 核心任务流（V0）
 
 ```
-Search / browse endpoints → read business context → call or integrate → release a new version → compare changes
+注册/登录
+  → 仪表盘引导清单
+  → 创建组织（若无）
+  → 新建仓库 + 导入 OpenAPI
+  → 查看接口与业务上下文
+  → 生成 API 密钥
+  → 复制 MCP 配置，接入 Cursor / Claude
+```
+
+日常循环：
+
+```
+搜索/浏览接口 → 查看业务上下文 → 调用或接入 → 更新版本 → 对比变更
 ```
 
 ---
 
-# 3. Information Architecture
+# 3. 信息架构
 
-## 3.1 Sitemap
+## 3.1 站点地图
 
 ```mermaid
 flowchart LR
-  A["/login"] --> D["/ dashboard"]
-  B["/register"] --> D
-  D --> R["/repos"]
-  R --> RN["/repos/new"]
-  R --> RD["/repos/[id]"]
-  RD --> RT1["Overview"]
-  RD --> RT2["/endpoints"]
-  RD --> RT3["/schemas"]
-  RD --> RT4["/context"]
-  RD --> RT5["/versions"]
-  RD --> RT6["/settings"]
-  D --> O["/orgs"]
-  O --> ON["/orgs/new"]
-  O --> OD["/orgs/[id]"]
-  D --> K["/keys"]
+  A["/login 登录"] --> D["/ 仪表盘"]
+  B["/register 注册"] --> D
+  D --> R["/repos 仓库"]
+  R --> RN["/repos/new 新建仓库"]
+  R --> RD["/repos/[id] 仓库详情"]
+  RD --> RT1["概览"]
+  RD --> RT2["/endpoints 接口"]
+  RD --> RT3["/schemas 数据模型"]
+  RD --> RT4["/context 业务上下文"]
+  RD --> RT5["/versions 版本"]
+  RD --> RT6["/settings 设置"]
+  D --> O["/orgs 组织"]
+  O --> ON["/orgs/new 新建组织"]
+  O --> OD["/orgs/[id] 组织详情"]
+  D --> K["/keys API 密钥"]
 ```
 
-## 3.2 Page inventory
+## 3.2 页面清单
 
-| Route | Page | Priority | Current state |
-| --- | --- | --- | --- |
-| `/login`, `/register` | Auth | P0 | Implemented |
-| `/` | Dashboard | P0 | Implemented (needs checklist) |
-| `/repos` | Repository list | P0 | Skeleton (data pending) |
-| `/repos/new` | Create repository wizard | P0 | Form implemented (backend pending) |
-| `/repos/[id]` | Repository detail (tabs) | P0 | Placeholder |
-| `/repos/[id]/endpoints` | Endpoint list + detail | P0 | Not implemented |
-| `/repos/[id]/schemas` | Data models | P1 | Not implemented |
-| `/repos/[id]/context` | Business context | P1 | Not implemented |
-| `/repos/[id]/versions` | Version history & diff | P1 | Not implemented |
-| `/repos/[id]/settings` | Repository settings | P1 | Not implemented |
-| `/orgs`, `/orgs/new` | Organization list/create | P0 | Implemented |
-| `/orgs/[id]` | Organization detail (members/repos) | P1 | Not implemented |
-| `/settings` | Settings (account / API keys / preferences / more) | P0 | Dedicated primary menu; key management merged in |
-| `/search` | Semantic search | P2 (V1) | Not implemented |
-| `/projects` | Projects (cross-repo) | P2 (V1) | Not implemented |
+> 线框实现位于 `design/platform/`（目录页：`index.html`），与本文档同步维护。
 
-## 3.3 Navigation
+| 路由 | 页面 | HTML 文件 | 优先级 | 当前状态 |
+| --- | --- | --- | --- | --- |
+| `/login`、`/register` | 认证 | `login.html`、`register.html` | P0 | 已实现 |
+| `/` | 仪表盘 | `dashboard.html` | P0 | 已实现（需加引导清单） |
+| `/repos` | 仓库列表 | `repos.html` | P0 | 骨架（数据源待接入） |
+| `/repos/new` | 新建仓库向导 | `repo-new.html` | P0 | 表单已实现（后端待接入） |
+| `/repos/[id]` | 仓库详情（独立布局） | `repo-detail.html` | P0 | 占位 |
+| `/repos/[id]/endpoints` | 接口列表 + 接口详情 | `repo-endpoints.html` | P0 | 未实现 |
+| `/repos/[id]/schemas` | 数据模型 | `data-models.html` | P1 | 未实现 |
+| `/repos/[id]/context` | 业务上下文 | `repo-context.html` | P1 | 未实现 |
+| `/repos/[id]/versions` | 版本历史与对比 | `repo-versions.html` | P1 | 未实现 |
+| `/repos/[id]/settings` | 仓库设置 | `repo-settings.html` | P1 | 未实现 |
+| `/orgs`、`/orgs/new` | 组织列表/新建 | `orgs.html` | P0 | 已实现 |
+| `/orgs/[id]` | 组织详情（成员/仓库） | `org-detail.html` | P1 | 未实现 |
+| `/settings` | 设置（账号 / API 密钥 / 偏好 / 更多） | `account-settings.html` | P0 | 独立一级菜单；密钥管理已并入 |
+| `/search` | 语义搜索 | —（V1） | P2（V1） | 未实现 |
+| `/projects` | 项目（跨仓库聚合） | —（V1） | P2（V1） | 未实现 |
 
-Reorder the sidebar (`AppSidebar`) by **frequency of use**:
+## 3.3 导航设计
 
-1. **Dashboard** — status and guidance
-2. **Repositories** — the core object, daily use
-3. **Organizations** — tenants and members (low frequency)
-4. **API Keys** — credentials (low frequency, critical)
+侧边栏（`AppSidebar`）调整为按**使用频率**排序：
 
-**Grouping (V0):** light functional grouping:
+1. **仪表盘** —— 状态与引导
+2. **仓库** —— 核心对象，日常高频
+3. **组织** —— 租户与成员管理（低频）
+4. **API 密钥** —— 接入凭证（低频但关键）
 
-- **Dashboard**: pinned at the top with no group label (platform entry)
-- **Workbench**: Organizations, Repositories (organizations are the tenant container of repositories; ordered by domain hierarchy)
-- **API keys**: removed from the sidebar and merged into the settings page (see 4.10); no longer takes a primary-nav slot
+**分组（V0）：** 按功能域轻分组：
 
-As V1 adds items (Projects, semantic search, knowledge graph), expand to 3–4 groups: Workbench (Dashboard, semantic search), API Assets (Repositories, Projects), Organization & Collaboration (Organizations), Access & Security (MCP integration). Principles: single-item groups are rarely worth the label, so keep groups few and stable; system/account-level actions stay out of sidebar groups (they live in the top bar and settings page).
+- **仪表盘**：置顶且不设分组名（平台入口）
+- **工作台**：组织、仓库（组织为仓库的租户容器，按领域层级排列）
+- **API 密钥**：从侧栏移除，并入设置页（见 4.10），不占用一级导航
 
-The sidebar bottom-left keeps a persistent "Settings" entry (desktop-app convention, good discoverability); API key management has been merged into that page. Identity details (name/email) and sign out stay in the top-bar user menu, and system quick settings (theme/language) stay in the top-bar gear menu.
+V1 条目增多（项目、语义搜索、知识图谱）后可扩为 3~4 组：工作台（仪表盘、语义搜索）、API 资产（仓库、项目）、组织与协作（组织）、接入与安全（MCP 接入）。原则：单条目组不划算，分组宁可少而稳；系统/账号级操作不进侧栏分组（留在顶栏与设置页）。
 
-**Resource detail pages are an exception (repository detail, etc.):** once inside a repository, the left side switches from the global platform navigation to repository-scoped navigation (back to repository list + repo info + Overview/Endpoints/Data models/Business context/Versions/Settings); the horizontal tabs move into the left rail as vertical sections, freeing up content space. Global navigation stays reachable via the top bar and the "back to repository list" entry (see 4.4).
+侧栏左下角保留「设置」常驻入口（桌面应用惯例，可发现性好），API 密钥管理已并入该页；用户身份细节（姓名/邮箱）与退出登录仍在顶栏用户菜单，系统快捷设置（主题/语言）在顶栏 ⚙。
 
-**Placement rule for account operations:** sign out, locale switching, and other system/account-level actions are consolidated in the global top bar (see 3.4) and stay reachable at all times; they are not buried in a settings page. Profile and password changes live in a dedicated "Account settings" page (see 4.10), entered via the top-bar user menu.
+**资源详情页例外（仓库详情等）：** 进入仓库后，左侧从「平台全局导航」切换为「仓库级导航」（返回仓库列表 + 仓库信息 + 概览/接口/数据模型/业务上下文/版本/设置），水平 Tab 移入左侧变为纵向分区，为内容区腾出空间；全局导航通过顶栏与「返回仓库列表」可达（详见 4.4）。
 
-## 3.4 Global top bar
+**账号操作的放置原则：** 退出登录、语言切换等系统/账号级操作统一收拢到全局顶栏（见 3.4），保持随时可达，不放入设置页；个人资料与密码修改放在独立的「账号设置」页（见 4.10），入口为顶栏用户菜单。
 
-A horizontal global menu sits above the "sidebar + content" shell and carries system- and account-level actions consistently across all pages:
+## 3.4 全局顶栏
 
-| Area | Content |
+在「侧边栏 + 内容区」之外增加一条横向全局菜单，承载系统级与账号级操作，全站保持一致：
+
+| 区域 | 内容 |
 | --- | --- |
-| Left | Global search entry (V1) |
-| Right · Notifications | Bell + unread dot; dropdown lists recent notifications |
-| Right · System settings | Theme (light/dark), language (Chinese/English), version info |
-| Right · User | Profile, settings, sign out |
+| 左侧 | 全局搜索入口（V1） |
+| 右侧 · 通知 | 铃铛 + 未读标记，下拉展示最近通知 |
+| 右侧 · 系统设置 | 主题（浅色/深色）、语言（中文/English）、版本信息 |
+| 右侧 · 用户 | 个人信息、设置、退出登录 |
 
-Design principle: the sidebar is workspace navigation only; system and account actions unrelated to Organizations/Repositories live in the top bar so the navigation area stays clean.
+设计原则：侧边栏只承担工作区导航；与「组织 / 仓库」无关的系统与账号操作全部收拢到顶栏，避免导航区混杂。
 
-**Settings layering:** the top-bar ⚙ holds only lightweight quick settings (theme, language, about); full settings (profile, password, preferences, and future items) live on the "Account settings" page (see 4.10). Dialogs are reserved for transient light actions (create, confirm, one-time input) and never host growing settings content.
+**设置分层：** 顶栏 ⚙ 只放轻量快捷设置（主题、语言、关于）；完整设置（个人资料、密码、偏好及未来新增项）统一放在「账号设置」页（见 4.10）。弹窗仅用于瞬时轻操作（创建、确认、一次性输入），不承载会长大的设置内容。
 
-> Rationale: the current order (Dashboard / Organizations / Repositories / Keys) places low-frequency Organizations before high-frequency Repositories; Repositories are what users face daily and should sit right after Dashboard.
+> 调整理由：当前顺序（仪表盘/组织/仓库/密钥）把低频的「组织」放在高频的「仓库」之前；仓库才是用户每天面对的对象，应紧随仪表盘。
 
 ---
 
-# 4. Page Design
+# 4. 页面设计
 
-## 4.1 Auth (/login, /register)
+## 4.1 认证页（/login、/register）
 
-**Goal**: get in fast; guide immediately after sign-up.
+**目标**：最快进入平台，注册后无缝引导。
 
-- Centered card: brand mark + title + description + form.
-- Login: email + password; Register: name + email + password (min 8 chars).
-- Auto-login after register and redirect to the dashboard, where the checklist takes over.
-- Errors are inline (email taken, bad credentials) — no redirect or full reload.
+- 居中卡片布局：品牌标识 + 标题 + 描述 + 表单。
+- 登录：邮箱 + 密码；注册：姓名 + 邮箱 + 密码（至少 8 位）。
+- 注册成功后自动登录并跳转仪表盘，由仪表盘的引导清单接管下一步。
+- 错误提示内联显示（邮箱已注册、凭证错误等），不跳转不刷新。
 
-## 4.2 Dashboard (/)
+## 4.2 仪表盘（/）
 
-**Goal**: new users see "what to do", returning users see "platform status".
+**目标**：新用户看到「该做什么」，老用户看到「平台状态」。
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Dashboard                    [New repository] │
-│ API knowledge overview                       │
+│ 仪表盘                      [新建仓库]        │
+│ API 知识平台概览                              │
 ├──────────────────────────────────────────────┤
-│ Checklist (shown until complete)             │
-│ ✔ Create org   ○ Import OpenAPI  ○ Key      │
+│ 引导清单（未完成时显示）                       │
+│ ✔ 创建组织   ○ 导入 OpenAPI  ○ 生成密钥       │
 ├──────────┬──────────┬──────────┬─────────────┤
-│ Orgs 3   │ Repos 5  │ EP 128   │ MCP on 2    │
+│ 组织 3    │ 仓库 5   │ 接口 128 │ MCP 启用 2  │
 ├──────────┴──────────┴──────────┴─────────────┤
-│ Recent updates                    Quick      │
-│ · Payments v2.1 · yesterday       actions    │
-│ · Users v1.3 · 3 days ago         More →     │
+│ 最近更新                           快捷操作   │
+│ · 支付服务 v2.1 · 昨天             创建仓库   │
+│ · 用户中心 v1.3 · 3 天前           创建组织   │
+│                                      更多 →  │
 └──────────────────────────────────────────────┘
 ```
 
-Blocks, in priority order:
+内容区块（按优先级）：
 
-1. **Onboarding checklist**: shown until the core steps are done; each step gets a checkmark. Steps: create org → create repo → import OpenAPI → create key.
-2. **Stat cards**: organizations, repositories, endpoints, MCP-enabled. Numbers link to their lists.
-3. **Recent updates**: repositories ordered by `updatedAt` (with version and time), linking to detail.
-4. **Connect an Agent card**: MCP endpoint + config snippet + copy button, below the stats to encourage immediate integration.
+1. **引导清单（onboarding checklist）**：未完成核心步骤时显示，完成一项即打勾；全部完成后隐藏。步骤：创建组织 → 创建仓库 → 导入 OpenAPI → 生成密钥。
+2. **统计卡**：组织数、仓库数、接口数、MCP 启用数。数字可点击跳转到对应列表。
+3. **最近更新**：按 `updatedAt` 展示最近变更的仓库（含版本号与时间），点击进详情。
+4. **接入 Agent 卡片**：展示 MCP 接入方式（服务地址 + 配置片段 + 复制按钮），放在统计卡下方，鼓励「导入后立即接入」。
 
-## 4.3 Repository list (/repos)
+## 4.3 仓库列表（/repos）
 
-**Goal**: find a repository quickly and enter detail.
+**目标**：快速找到仓库并进入详情。
 
-- Page header: title + description; primary button "New repository" top-right.
-- Toolbar: keyword search, organization filter, MCP status filter.
-- Table columns: repository (name + description) | organization | endpoints | current version | MCP badge | updated | actions (details).
-- Whole row is clickable; MCP column uses green/gray badges (enabled/disabled).
-- Empty state: icon + "No repositories" + description + "New repository" CTA.
-- Support `?org=slug` pre-filter (arriving from the org page), shown in the toolbar with a clear filter + clear action.
+- 页面头部：标题 + 描述，右上角主按钮「新建仓库」。
+- 工具栏：关键字搜索框、组织筛选下拉、MCP 状态筛选。
+- 表格列：仓库（名称 + 描述）｜组织｜接口数｜当前版本｜MCP 状态徽章｜更新时间｜操作（详情）。
+- 整行可点击进入详情；「MCP」列使用绿/灰徽章（已启用/未启用）。
+- 空状态：图标 + 「暂无仓库」+ 说明 + 「新建仓库」主按钮。
+- 支持 URL 参数 `?org=slug` 预筛选（组织页跳转进入时生效），并在工具栏显示当前筛选与清除入口。
 
-## 4.4 Repository detail (/repos/[id], core page)
+## 4.4 仓库详情（/repos/[id]，核心页面）
 
-**Goal**: everything about one repository, without losing context.
+**目标**：一个仓库的所有信息与操作，无需离开当前上下文。
 
-### 4.4.1 Header
+### 4.4.1 头部
 
-- Breadcrumb: Repositories / name.
-- Title row: name + org badge + current version + MCP toggle.
-- Primary action: **Import new version**; secondary: More menu (edit info, delete).
-- The MCP toggle has explanatory copy and a confirmation dialog: disabling immediately stops Agent access to this repository.
+- 面包屑：仓库 / 仓库名。
+- 标题行：仓库名 + 组织徽章 + 当前版本号 + MCP 开关。
+- 主操作：**导入新版本**；次要操作：更多菜单（编辑信息、删除仓库）。
+- MCP 开关带说明文案与确认对话框：关闭会立即停止 Agent 对该仓库的访问。
 
-### 4.4.2 Section structure (left repo nav)
+### 4.4.2 分区结构（左侧仓库导航）
 
-Repository detail uses an independent layout: the left rail is repository-scoped navigation (repo info, repository section menu), replacing the global sidebar and horizontal tabs; the bottom-left keeps only the "Back to repository list" button (no settings entry here — settings remain reachable via the top-bar user menu). Sections:
+仓库详情使用独立布局：左侧为仓库级导航（仓库信息、仓库分区菜单），替代全局侧栏与水平 Tab；左下角仅保留「返回仓库列表」按钮（设置入口不放此处，仍经顶栏用户菜单可达）。分区如下：
 
-| Section | Content |
+| 分区 | 内容 |
 | --- | --- |
-| Overview | Description, capability context card (AI-generated, can regenerate), stats (endpoints/models/versions), MCP integration panel, recent versions |
-| Endpoints | Endpoint list (see 4.5) |
-| Data models | Model card grid; click opens a schema dialog |
-| Business context | Repository-level capability context (intent/constraints/side effects/scenarios) view + edit, generation state visible |
-| Versions | Version history table + diff entry points |
-| Settings | Basic info edit, MCP toggle, danger zone (delete requires typing the repo name) |
+| 概览 | 描述、能力上下文卡片（AI 生成，可重新生成）、统计（接口/模型/版本）、MCP 接入面板、最近版本 |
+| 接口 | 接口列表（见 4.5） |
+| 数据模型 | 模型卡片网格，点击打开 Schema 对话框 |
+| 业务上下文 | 仓库级能力上下文（意图/约束/副作用/使用场景）查看与编辑，生成状态可见 |
+| 版本 | 版本历史表 + 版本对比入口 |
+| 设置 | 基本信息编辑、MCP 开关、危险区（删除仓库需输入名称确认） |
 
-### 4.4.3 Overview wireframe
+### 4.4.3 概览页线框
 
 ```
 ┌────────────────────────────────────────────────┐
-│ ‹ Repos  /  Payments API        [Import ver] [⋯] │
-│ Ecommerce team · v2.1 · MCP [On]               │
+│ ‹ 仓库  /  支付服务 API         [导入新版本] [⋯] │
+│ 电商平台团队 · v2.1 · MCP [已启用]             │
 ├────────────────────────────────────────────────┤
-│ Capability context                             │
-│ Payments provides order payment, refund, and   │
-│ reconciliation. Refund only within 7 days;     │
-│ refunds return to the original channel.        │
-│                                  [Regenerate]  │
+│ 能力上下文                                      │
+│ 支付服务提供订单支付、退款、对账能力。          │
+│ 退款仅限支付后 7 天内；退款需原路返回。        │
+│                                [重新生成]      │
 ├──────────┬──────────┬──────────┐               │
-│ EP 42    │ Models 18│ Ver 6    │  MCP access   │
-├──────────┴──────────┴──────────┤  URL + config │
-│ Recent versions                │  [Copy]       │
-│ v2.1 · 3 days ago              │               │
+│ 接口 42  │ 模型 18  │ 版本 6   │  MCP 接入     │
+├──────────┴──────────┴──────────┤  URL + 配置   │
+│ 最近版本                        │  [复制]       │
+│ v2.1 · 3 天前                   │               │
 └────────────────────────────────┴───────────────┘
 ```
 
-## 4.5 Endpoint list & detail (/repos/[id]/endpoints)
+## 4.5 接口列表与详情（/repos/[id]/endpoints）
 
-### 4.5.1 Endpoint list
+### 4.5.1 接口列表
 
-- Toolbar: search (path/summary/operationId), method filter, module (tag) filter, business-context status filter (generated/not).
-- Table columns: method (colored badge) | path | summary | module | context status | actions.
-- Method colors (consistent site-wide): `GET` green, `POST` blue, `PUT` amber, `PATCH` purple, `DELETE` red.
-- Rows without business context show a "pending" marker — visible progress for the AI pipeline.
-- Clicking a row opens an **endpoint detail drawer** (keeps list context).
+- 工具栏：搜索（路径/摘要/operationId）、方法筛选、模块（tag）筛选、业务上下文状态筛选（已生成/未生成）。
+- 表格列：方法（彩色徽章）｜路径｜摘要｜模块｜业务上下文状态｜操作。
+- 方法配色（全站统一）：`GET` 绿、`POST` 蓝、`PUT` 琥珀、`PATCH` 紫、`DELETE` 红。
+- 未生成业务上下文的接口行显示「待生成」标记，作为 AI 流程的进度可见性。
+- 点击行打开**接口详情抽屉**（保留列表上下文，符合「一屏一任务」）。
 
-### 4.5.2 Endpoint detail (drawer or dedicated page)
+### 4.5.2 接口详情（抽屉或独立页）
 
 ```
 ┌────────────────────────────────────────────────────┐
-│ GET  /v1/orders/{id}/refund                [Close] │
-│ Refund an order                                    │
+│ GET  /v1/orders/{id}/refund                [关闭]  │
+│ 申请订单退款                                        │
 ├──────────────────────────┬─────────────────────────┤
-│ Request schema           │ Business context        │
-│ · order_id: string       │ Intent: refund a paid   │
-│ · amount: number         │   order                 │
-│ · reason: string         │ Constraints: within 7d   │
-│ ─────────────────        │ Side effects: refunds    │
-│ Response schema          │   original channel       │
-│ 200 → RefundResult       │ Scenarios: …            │
-│ 400/404/409 errors       │                         │
-│                          │ Related endpoints       │
-│                          │ · POST /payments/refund │
+│ 请求 Schema               │ 业务上下文               │
+│ · order_id: string        │ 意图：对已支付订单退款    │
+│ · amount: number          │ 约束：仅支付后 7 天内     │
+│ · reason: string          │ 副作用：原路退回资金      │
+│ ─────────────────         │ 使用场景：…              │
+│ 响应 Schema               │                         │
+│ 200 → RefundResult        │ 关联接口                 │
+│ 400/404/409 错误定义       │ · POST /payments/refund │
 ├──────────────────────────┴─────────────────────────┤
-│ MCP tool: order_refund · [Copy call example]       │
+│ MCP 工具名：order_refund · [复制调用示例]           │
 └────────────────────────────────────────────────────┘
 ```
 
-Layout:
+内容组织：
 
-- Left column: request/response schema (JSON ↔ table view toggle, collapsible).
-- Right column: business context (intent, constraints, side effects, scenarios) + related endpoints (clickable).
-- Footer: MCP tool name and call example with one-click copy — this is the key differentiator of an Agent-first product and must be prominent.
+- 左列：请求/响应 Schema（JSON ↔ 表格视图切换，可折叠）。
+- 右列：业务上下文（意图、约束、副作用、使用场景）+ 关联接口列表（可点击跳转）。
+- 底部：MCP 工具名与调用示例，一键复制 —— 这是「面向 Agent」产品与普通 API 文档的最大差异点，必须放在显眼位置。
 
-## 4.6 Create repository wizard (/repos/new)
+## 4.6 新建仓库向导（/repos/new）
 
-**Goal**: turn "create + import" into a three-step wizard so users never wonder about ordering.
+**目标**：把「创建 + 导入」做成一个三步向导，避免新用户分不清先后。
 
-| Step | Content |
+| 步骤 | 内容 |
 | --- | --- |
-| 1 Basic info | Organization (inline "create org" when none exists), name, description |
-| 2 Import OpenAPI | Upload file (drag & drop) / paste JSON-YAML / URL; validation is instant, errors inline |
-| 3 Confirm & result | Parse preview (endpoint/model/module counts) → submit → success page with three exits: view endpoints / enable MCP / create key |
+| 1 基本信息 | 组织（无组织时内联「创建组织」）、名称、描述 |
+| 2 导入 OpenAPI | 上传文件（拖拽）/ 粘贴 JSON/YAML / URL；解析校验即时反馈，错误内联展示 |
+| 3 确认与结果 | 解析预览（接口数、模型数、模块数）→ 提交 → 成功页：查看接口 / 启用 MCP / 生成密钥 三个出口 |
 
-Notes:
+要点：
 
-- Step 2 supports all three import modes side by side; validation errors are shown in place (unsupported version, YAML syntax) without breaking the flow.
-- The success page says "next step" instead of "done", pushing users toward Agent integration.
+- 步骤 2 支持三种导入方式并存，任选其一；校验错误就地提示（如版本不支持、YAML 语法错误），不打断流程。
+- 成功页给出「下一步」而非「完成」，把用户推向 Agent 接入。
 
-## 4.7 API keys (/keys)
+## 4.7 API 密钥（/keys）
 
-**Goal**: secure, clear, one-time credential display.
+**目标**：安全、清晰、一次性展示凭证。
 
-### 4.7.1 Key list
+### 4.7.1 密钥列表
 
-- Page header + primary button "Generate key".
-- Table columns: name | prefix | scopes (badges) | last used | expires | actions (revoke).
-- Empty state: description + "Generate key" CTA.
+- 页面头部 + 主按钮「生成新密钥」。
+- 表格列：名称｜前缀｜权限范围（徽章）｜最近使用｜过期时间｜操作（吊销）。
+- 空状态：说明 + 「生成新密钥」主按钮。
 
-### 4.7.2 Generate dialog
+### 4.7.2 生成密钥对话框
 
-1. Name + scope checkboxes grouped by surface:
-   - API access: `api:read`, `api:write`
-   - MCP access: `mcp:search`, `mcp:detail`, `mcp:context`
-2. Optional expiry.
-3. Submit opens a **one-time reveal** dialog: full key + copy button + clear warning "This key is shown only once" and "store it in your password manager".
+1. 名称 + 权限范围（分组勾选）：
+   - API 访问：`api:read`、`api:write`
+   - MCP 访问：`mcp:search`、`mcp:detail`、`mcp:context`
+2. 有效期（可选）。
+3. 提交后进入**一次性展示**弹窗：完整密钥 + 复制按钮 + 明确警示「此密钥仅显示一次，关闭后无法再次查看」，并提示「请保存在你的密码管理器中」。
 
-### 4.7.3 Usage examples
+### 4.7.3 使用示例
 
-Collapsible integration snippets at the bottom of the page:
+密钥页底部提供可折叠的接入示例：
 
-- MCP config (`claude_desktop_config.json` fragment with a key placeholder).
-- curl example (`Authorization: Bearer <key>`).
+- MCP 配置（`claude_desktop_config.json` 片段，含密钥占位符）。
+- curl 调用示例（`Authorization: Bearer <key>`）。
 
-## 4.8 Organizations (/orgs, /orgs/new, /orgs/[id])
+## 4.8 组织（/orgs、/orgs/new、/orgs/[id]）
 
-### 4.8.1 List
+### 4.8.1 组织列表
 
-- Table columns: name | slug | members | repositories | actions (view repos).
-- Empty state guides creation of the first org.
+- 表格列：名称｜标识符（slug）｜成员数｜仓库数｜操作（查看仓库）。
+- 空状态：引导创建第一个组织。
 
-### 4.8.2 Organization detail (full in V1, shell in V0)
+### 4.8.2 组织详情（V1 完整实现，V0 先建壳）
 
-- Tabs: Overview (stats) / Members (invites, roles: owner/admin/member) / Repositories / Settings.
-- Member management follows the RBAC model in `docs/tech-design.md` §2.8; the Members tab is visible only to owner/admin.
+- Tab：概览（统计）/ 成员（邀请、角色：owner/admin/member）/ 仓库 / 设置。
+- 成员管理与角色说明按 `docs/tech-design.md` 2.8 的 RBAC 模型呈现；仅 owner/admin 可见成员 Tab。
 
-## 4.9 Semantic search (/search, V1)
+## 4.9 语义搜索（/search，V1 预留）
 
-- Global search entry (sidebar or top bar).
-- Results page: natural-language query → semantic result cards (method + path + summary + match reason + confidence).
-- Cards expand into endpoint detail (reusing the 4.5.2 drawer).
-
----
-
-## 4.10 Settings (/settings, dedicated primary menu)
-
-**Goal**: centralize account, API keys, and preferences. The settings page uses its own dedicated left menu (same pattern as repository detail), organized into two groups:
-
-- **User info**: Account (profile/change password), API keys (list/generate/revoke/integration examples — moved in from the sidebar primary navigation).
-- **Preferences**: Preferences (UI language, theme — synced with the top-bar quick settings), More (V1: notification preferences, session management, API preferences, etc.).
-- **Entry**: "Settings" at the sidebar bottom-left or the top-bar user menu; a "Back to dashboard" button sits at the bottom-left.
-
-> Extensibility: settings use a dedicated page (growable via sections, shareable URL); future additions become new left-menu sections rather than dialogs. Dialogs are reserved for transient light actions (generate key, confirm, one-time input).
+- 顶部全局搜索入口（侧栏或顶栏）。
+- 结果页：自然语言查询输入 → 语义匹配结果卡片（方法 + 路径 + 摘要 + 匹配理由 + 置信度）。
+- 结果卡片可展开为接口详情（复用 4.5.2 抽屉）。
 
 ---
 
-# 5. State Design
+## 4.10 设置（/settings，独立一级菜单）
 
-## 5.1 Empty states
+**目标**：集中管理账号、API 密钥与偏好。设置页使用与仓库详情一致的「独立一级菜单」布局，菜单分为两组：
 
-Every empty state has four elements: **icon + title + description + primary action** (optional secondary). Examples:
+- **用户信息**：账号（个人资料/修改密码）、API 密钥（列表/生成/吊销/接入示例，从侧栏一级导航并入本页）。
+- **偏好设置**：偏好（界面语言、主题，与顶栏快捷设置同步）、更多（V1：通知偏好、会话管理、API 偏好等）。
+- **入口**：侧栏左下角「设置」或顶栏用户菜单「设置」；左下角另设「← 返回仪表盘」按钮回到仪表盘。
 
-| Page | Title | Primary action |
+> 扩展性：设置类信息统一使用页面承载（可按分区扩展、有 URL 可直达）；后续新增设置直接加为左侧新分区，不改为弹窗。弹窗只用于瞬时轻操作（生成密钥、确认、一次性输入）。
+
+---
+
+# 5. 状态设计
+
+## 5.1 空状态规范
+
+所有空状态统一四要素：**图标 + 标题 + 说明 + 主操作**（可选次操作）。示例：
+
+| 页面 | 标题 | 主操作 |
 | --- | --- | --- |
-| Repository list | No repositories | New repository |
-| Endpoint list | No endpoints | Import new version |
-| API keys | No keys | Generate key |
-| Organization list | No organizations | New organization |
+| 仓库列表 | 暂无仓库 | 新建仓库 |
+| 接口列表 | 暂无接口 | 导入新版本 |
+| API 密钥 | 暂无密钥 | 生成新密钥 |
+| 组织列表 | 暂无组织 | 新建组织 |
 
-## 5.2 Loading & async states
+## 5.2 加载与异步状态
 
-- Lists/details use skeletons (`Skeleton`) to avoid layout shifts.
-- Async work (OpenAPI import, business-context generation) shows progress or a status badge (running/success/failed); failures show the reason and a retry.
-- Destructive actions (revoke key, delete repo, disable MCP): confirmation dialog; deleting a repo requires typing its name.
+- 列表/详情使用骨架屏（`Skeleton` 组件），避免布局跳动。
+- 导入 OpenAPI、业务上下文生成等异步任务：进度条或状态徽章（进行中/成功/失败），失败显示原因与「重试」。
+- 破坏性操作（吊销密钥、删除仓库、关闭 MCP）：确认对话框；删除仓库要求输入仓库名。
 
-## 5.3 Errors
+## 5.3 错误状态
 
-- Form errors are inline under fields.
-- Request failures use toasts with a retry action.
-- Insufficient permissions: hide the entry; in edge cases show an "access denied" explanation instead of a raw error.
+- 表单错误内联显示在字段下方。
+- 请求失败使用 toast 提示 + 重试按钮。
+- 权限不足：隐藏入口；极端情况下显示「无权限」说明页而非报错。
 
 ---
 
-# 6. Interaction & Visual Guidelines
+# 6. 交互与视觉规范
 
-## 6.1 Common layout
+## 6.1 通用布局
 
-- Page header pattern: title + description on the left, primary button on the right.
-- Dense tables for lists; relaxed cards and grids for details.
-- One primary button site-wide; additional equal-level actions degrade to secondary buttons.
+- 页面头部固定模式：左侧标题 + 描述，右侧主操作按钮。
+- 列表用紧凑表格；详情用宽松卡片与网格。
+- 主按钮全站唯一；同一页面出现多个同级别操作时，其余降级为次要按钮。
 
-## 6.2 Component reuse
+## 6.2 组件复用
 
-Reuse `@apigent/ui` components: `Sidebar`, `Card`, `Table`, `Badge`, `Dialog`, `DropdownMenu`, `Input`, `Textarea`, `Button`, `Breadcrumb`, `Skeleton`, `Sheet` (mobile drawer), `Separator`. Avoid per-page custom styling.
+全部复用 `@apigent/ui` 已有组件：`Sidebar`、`Card`、`Table`、`Badge`、`Dialog`、`DropdownMenu`、`Input`、`Textarea`、`Button`、`Breadcrumb`、`Skeleton`、`Sheet`（移动端抽屉）、`Separator`。避免为单个页面自造样式。
 
-## 6.3 Method colors
+## 6.3 方法色标
 
-| Method | Color |
+| 方法 | 颜色 |
 | --- | --- |
-| GET | Green |
-| POST | Blue |
-| PUT | Amber |
-| PATCH | Purple |
-| DELETE | Red |
+| GET | 绿 |
+| POST | 蓝 |
+| PUT | 琥珀 |
+| PATCH | 紫 |
+| DELETE | 红 |
 
-Implemented as `Badge`, consistent site-wide.
+以 `Badge` 实现，全站统一。
 
-## 6.4 Responsive
+## 6.4 响应式
 
-- Desktop: fixed sidebar + content area.
-- Mobile: sidebar collapses to a drawer (`use-mobile` + `Sheet`), tables scroll horizontally, primary actions stay visible.
+- 桌面：固定侧栏 + 内容区。
+- 移动端：侧栏收起为抽屉（`use-mobile` + `Sheet`），表格横向滚动，主操作保持可见。
 
-## 6.5 Keyboard & shortcuts (V1)
+## 6.5 键盘与快捷操作（V1）
 
-- `/` or `Cmd+K` focuses global search.
-- `Esc` closes dialogs and drawers.
-- Optional `N` for new on list pages.
+- `/` 或 `Cmd+K` 聚焦全局搜索。
+- `Esc` 关闭弹窗与抽屉。
+- 列表页 `N` 新建（可选）。
 
 ---
 
-# 7. Phased Implementation
+# 7. 分阶段实施计划
 
-| Phase | Scope | Notes |
+| 阶段 | 范围 | 说明 |
 | --- | --- | --- |
-| P0 | Navigation reorder, dashboard checklist, real repository list/detail data, create-repo wizard, key create/revoke flow, org detail shell | Wire to backend APIs; replace placeholders |
-| P1 | Endpoint detail, version diff, business context view/edit, global search, MCP integration guide (one-click config copy) | Delivers the Agent-first differentiator |
-| P2 (V1) | Projects, member invites, knowledge-graph visualization, usage insights, command palette | Depends on Project model and V1 agents |
+| P0 | 导航调整、仪表盘引导清单、仓库列表/详情真实数据、新建仓库向导、密钥生成/吊销流程、组织详情壳 | 与后端接口接通，替换当前占位 |
+| P1 | 接口详情、版本对比、业务上下文查看/编辑、全局搜索、MCP 接入引导（一键复制配置） | 体现「面向 Agent」差异价值 |
+| P2（V1） | 项目、成员邀请流程、知识图谱可视化、使用洞察、命令面板 | 依赖 Project 模型与 V1 Agent |
 
-Suggested order:
+## 实施顺序建议
 
-1. Wire up **repository list + detail** first (data loop) so placeholders become usable.
-2. Then the **create-repo wizard** and **key flow** to complete the import → integrate path.
-3. Finally the **dashboard checklist** and **org detail** for guidance and permission UX.
+1. 先接通**仓库列表 + 详情**（数据闭环），让现有占位变成可用。
+2. 再做**新建仓库向导**与**密钥流程**，打通「导入 → 接入」主链路。
+3. 最后补**仪表盘引导清单**与**组织详情**，完善引导与权限体验。
 
 ---
 
-# 8. Success Metrics
+# 8. 成功指标
 
-| Metric | Target |
+| 指标 | 目标 |
 | --- | --- |
-| Time to first full loop for new users | < 10 min (register → import → create key) |
-| Import success rate | ≥ 95%, failures diagnosable and retryable |
-| Empty-state CTA click rate | Observable, continuously optimized |
-| Key-path bounce | > 60% of repo-detail visits continue to endpoints/context |
-| Integration conversion | ≥ 60% of imported repos enable MCP or create a key |
+| 新用户首次完整闭环耗时 | < 10 分钟（注册 → 导入 → 生成密钥） |
+| 导入成功率 | ≥ 95%，失败可定位可重试 |
+| 空状态页 CTA 点击率 | 可观测并持续优化 |
+| 关键路径页面跳出率 | 仓库详情页 > 60% 的访问继续浏览接口/上下文 |
+| 接入转化 | 导入后的仓库 ≥ 60% 启用 MCP 或生成密钥 |
 
 ---
 
-# 9. Open Questions
+# 9. 待确认问题
 
-- Repository detail: tabs vs. separate child routes? (This plan recommends tabs with separate child routes for shareable URLs.)
-- Endpoint detail: drawer vs. dedicated page? (This plan recommends a drawer to reduce back-and-forth.)
-- Is a Workspace concept needed above Organizations? V0 default: no, to avoid deep hierarchy.
+- 仓库详情采用「Tab 页」还是「子路由独立页」？（本方案推荐 Tab 页 + 独立子路由，兼顾上下文与可分享 URL。）
+- 接口详情采用「抽屉」还是「独立页」？（本方案推荐抽屉，减少来回跳转。）
+- 是否需要 Workspace 概念（组织之上再聚合）？V0 默认不需要，避免层级过深。
