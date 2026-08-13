@@ -26,6 +26,22 @@
     "profile": "Profile",
     "settings": "Settings"
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet",
+    "markAllRead": "Mark all as read",
+    "categories": {
+      "import": "Import",
+      "context": "Business Context",
+      "key": "API Keys",
+      "mcp": "MCP",
+      "system": "System"
+    },
+    "import": {
+      "succeeded": "OpenAPI import succeeded: {repoName} v{version}",
+      "failed": "OpenAPI import failed: {repoName} ({error})"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "description": "Overview of your API knowledge platform",
@@ -143,7 +159,9 @@
     "detail": {
       "back": "Back to repositories",
       "breadcrumbRepos": "Repositories",
-      "importVersion": "Import new version",
+    "importVersion": "Import new version",
+    "importRunning": "Importing…",
+    "importFailedBadge": "Import failed",
       "more": "More",
       "editInfo": "Edit info",
       "copyLink": "Copy link",
@@ -283,7 +301,11 @@
       "viewEndpoints": "View endpoints",
       "generateKey": "Generate key",
       "cancel": "Cancel",
-      "done": "Done"
+      "done": "Done",
+      "taskSubmitted": "Task submitted, parsing in background",
+      "taskDesc": "You will be notified via the top bar when it finishes; you can close this window",
+      "retry": "Retry",
+      "importInProgress": "This repository already has an import in progress"
     },
     "table": {
       "name": "Repository",

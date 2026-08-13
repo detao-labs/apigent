@@ -34,6 +34,9 @@ export const ID_PREFIXES = {
   chunk: "chunk_",
   log: "log_",
   logDetail: "logd_",
+  job: "job_",
+  task: "task_",
+  notification: "noti_",
 } as const;
 
 /** Generate a short ID with the given entity prefix, e.g. generateId("org") → "org_Xk9mQ2zA7b". */

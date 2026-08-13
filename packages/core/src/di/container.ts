@@ -75,6 +75,16 @@ export class Container {
     return factory;
   }
 
+  /**
+   * Register a provider factory for a component.
+   * Used by packages that own the implementation (e.g. packages/server
+   * registers the "postgres" queue factory) — fail-fast contract still
+   * applies: an unregistered provider throws on first access.
+   */
+  registerQueueFactory(name: string, factory: ProviderFactory<QueueProvider>): void {
+    this.queueFactories[name] = factory;
+  }
+
   getVectorStore(): VectorStore {
     if (!this._vectorStore) {
       const factory = this.resolve(

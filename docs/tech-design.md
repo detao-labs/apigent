@@ -341,9 +341,11 @@ After login, users see:
 | Action                  | Description                                       |
 | ----------------------- | ------------------------------------------------- |
 | **Create Repository**   | Name + optional description                       |
-| **Import OpenAPI**      | Upload JSON/YAML file, or fetch from URL          |
+| **Import OpenAPI**      | Upload JSON/YAML file, or fetch from URL; runs asynchronously after confirmation (see [Async Queue module doc](./modules/async-queue.md)) |
 | **Auto-detect Version** | Extract version from OpenAPI `info.version` field |
 | **Validation**          | Validate spec before import, show errors          |
+
+> **Async execution (V0 target)**: the request returns a task ID immediately; parse/persistence runs in a queue worker, with progress surfaced through top-bar notifications and a repo status badge (see [Async Queue module doc](./modules/async-queue.md)).
 
 ### 3.5.2 Content Display
 
@@ -575,7 +577,7 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 | **Database**        | PostgreSQL                             | `DatabaseAdapter`       | V0 relational store; PostgreSQL only (Drizzle pg-core schema)                              |
 | **Vector Store**    | pgvector                               | `VectorStore`           | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale                       |
 | **ORM**             | Drizzle                                | `DatabaseAdapter`       | SQL-first, type-safe; PostgreSQL (pg-core) for V0 — other dialects planned, not yet supported |
-| **Async Tasks**     | BullMQ + Redis                         | `QueueProvider`         | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS as needed           |
+| **Async Tasks**     | Postgres queue (V0) / BullMQ + Redis (scale) | `QueueProvider`   | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS via config          |
 | **Auth**            | NextAuth.js (credentials + OAuth)      | `AuthProvider`          | Mature, flexible auth for Next.js; supports custom OIDC/LDAP providers                     |
 | **LLM**             | Qwen API (Alibaba Cloud Model Studio)  | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models             |
 | **Embedding**       | Qwen Embedding (text-embedding-v4)     | `EmbeddingProvider`     | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models            |
@@ -626,7 +628,7 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 - **Route visibility**: routes are tagged `internal` or `public`; the public OpenAPI spec exposes only `public` routes — admin, health checks, and internal endpoints are filtered out.
 - **MCP Gateway** is embedded in the same Hono process; it calls Core Services directly (no HTTP overhead), and exposes a Streamable HTTP endpoint for external agents.
 - **Both Webapps** are separate Next.js instances; the API Server is an independent process that can be scaled separately.
-- **Async tasks** (OpenAPI import, Business Context LLM inference) are dispatched to BullMQ workers, not blocking HTTP requests.
+- **Async tasks** (OpenAPI import, Business Context LLM inference) are dispatched through the `QueueProvider` (Postgres queue by default in V0; switchable to BullMQ + Redis via `apigent.config.yaml`), executed by dedicated workers without blocking HTTP requests (see [Async Queue module doc](./modules/async-queue.md)).
 
 ## 5.4 Auth & RBAC Implementation
 
@@ -995,7 +997,7 @@ Apigent is an **open-source, self-hosted** platform. Different teams have differ
 | **LLM Provider**       | `LLMProvider`       | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM            |
 | **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | Claude Embedding, OpenAI Embedding, Cohere, BGE (local) |
 | **Storage Provider**   | `StorageProvider`   | Local filesystem                      | AWS S3, MinIO, Google Cloud Storage, Azure Blob         |
-| **Queue Provider**     | `QueueProvider`     | BullMQ + Redis                        | RabbitMQ, AWS SQS, Google Pub/Sub                       |
+| **Queue Provider**     | `QueueProvider`     | Postgres queue (`PgQueueProvider`)    | BullMQ + Redis, RabbitMQ, AWS SQS                        |
 | **Auth Provider**      | `AuthProvider`      | NextAuth.js                           | Custom OIDC, LDAP, SAML, Authentik                      |
 
 ### 5.5.3 Vector Store Interface
@@ -1229,32 +1231,31 @@ export interface StorageProvider {
 ### 5.5.7 Queue Provider Interface
 
 ```ts
-// packages/core/src/interfaces/queue-provider.ts
+// packages/core/src/types/queue-provider.ts
+
+export interface QueueJob {
+  id?: string;
+  name: string;
+  data: unknown;
+}
 
 export interface QueueProvider {
   /** Enqueue a job with payload */
-  enqueue<T>(
-    queueName: string,
-    payload: T,
-    options?: {
-      delay?: number;
-      priority?: number;
-    },
-  ): Promise<string>;
+  enqueue(queue: string, job: QueueJob): Promise<string>;
 
   /** Register a handler for a queue */
-  register<T, R>(queueName: string, handler: (payload: T) => Promise<R>): void;
-
-  /** Get job status */
-  getStatus(jobId: string): Promise<"waiting" | "active" | "completed" | "failed">;
+  process(queue: string, handler: (job: QueueJob) => Promise<void>): Promise<void>;
 
   /** Gracefully shut down */
   shutdown(): Promise<void>;
 }
 ```
 
-**Default:** `BullmqQueueProvider` wraps BullMQ + Redis.  
-**Alternatives:** `RabbitmqQueueProvider`, `SqsQueueProvider`, `InMemoryQueueProvider` (dev/testing).
+The queue is responsible for **scheduling and delivery only**; business task state (progress, result, error) is persisted in business tables such as `import_tasks`, so `QueueProvider` does not expose status queries.
+
+**Default (V0): `PgQueueProvider` — Postgres queue** (reuses the existing PostgreSQL, no Redis needed; consumption claims jobs with `FOR UPDATE SKIP LOCKED` for multi-instance safety; on restart, stale `running` jobs are marked `failed(interrupted)`).
+
+The full design (`impl_queue_jobs` schema, worker lifecycle, config switching, async OpenAPI import tasks, in-app notifications, API contract) lives in **[Async Queue & Notifications module doc](./modules/async-queue.md)**.
 
 ### 5.5.8 Configuration System — Two-Layer Design
 
@@ -1491,3 +1492,11 @@ Consolidating from the blueprint roadmap, V0 covers the minimal usable product:
 | **Dashboard**    | Simple repo list + recent activity                                                                                               |
 | **Admin**        | Basic user list, platform stats                                                                                                  |
 | **Project**      | Model defined in the domain model only; no features in V0                                                                        |
+
+---
+
+# 7. Async Tasks & Notifications
+
+Async OpenAPI import, in-app notifications, and queue implementations (`import_tasks` / `notifications` / `impl_queue_jobs`, state machine, API contract, frontend presentation, implementation order) have been split into a dedicated module doc:
+
+👉 **[Async Queue & Notifications module doc](./modules/async-queue.md)**

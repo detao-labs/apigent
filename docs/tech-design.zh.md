@@ -340,9 +340,11 @@ Organization 角色 (org_owner / org_admin / org_member)
 | 操作             | 说明                                     |
 | ---------------- | ---------------------------------------- |
 | **创建仓库**     | 填写名称 + 可选描述                      |
-| **导入 OpenAPI** | 上传 JSON/YAML 文件，或从 URL 获取       |
+| **导入 OpenAPI** | 上传 JSON/YAML 文件，或从 URL 获取；确认后异步执行（见 §7） |
 | **自动识别版本** | 从 OpenAPI `info.version` 字段提取版本号 |
 | **校验**         | 导入前验证 Spec 合法性，展示错误信息     |
+
+> **异步执行（V0 目标）**：提交后立即返回任务 ID，解析/落库由队列 Worker 在后台执行，进度通过顶栏消息通知与仓库状态徽章可见（详见 [Async Queue 模块文档](./modules/async-queue.md)）。
 
 ### 3.5.2 内容展示
 
@@ -574,7 +576,7 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 | **数据库**      | PostgreSQL                              | `DatabaseAdapter`   | V0 关系型存储；仅支持 PostgreSQL（Drizzle pg-core Schema）                         |
 | **向量存储**    | pgvector                                | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                    |
 | **ORM**         | Drizzle                                 | `DatabaseAdapter`   | SQL 优先、类型安全；V0 使用 PostgreSQL（pg-core）——其他方言规划中，暂未支持       |
-| **异步任务**    | BullMQ + Redis                          | `QueueProvider`     | OpenAPI 导入、LLM 推理、批处理——可按需换 RabbitMQ/SQS                           |
+| **异步任务**    | Postgres 队列（V0）/ BullMQ + Redis（扩容） | `QueueProvider`  | OpenAPI 导入、LLM 推理、批处理——可通过配置切换 RabbitMQ/SQS                   |
 | **认证**        | NextAuth.js（credentials + OAuth）      | `AuthProvider`      | Next.js 生态成熟、灵活的认证方案；可接自定义 OIDC/LDAP                          |
 | **LLM**         | Qwen API（阿里云百炼）                  | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型         |
 | **Embedding**   | Qwen Embedding（text-embedding-v4）     | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型                   |
@@ -625,7 +627,7 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 - **路由可见性**：路由标记为 `internal` / `public`；对外 OpenAPI 规范只暴露 `public` 路由——admin、健康检查、内部端点会被过滤掉。
 - **MCP Gateway** 嵌入同一个 Hono 进程，直接调用 Core Services（内部调用无 HTTP 开销），对外暴露 Streamable HTTP 端点。
 - **两个 Webapp** 是独立的 Next.js 实例；API Server 是独立进程，可单独扩缩。
-- **异步任务**（OpenAPI 导入、Business Context LLM 推理）分发到 BullMQ Worker 执行，不阻塞 HTTP 请求。
+- **异步任务**（OpenAPI 导入、Business Context LLM 推理）通过 `QueueProvider` 调度（V0 默认 Postgres 队列，可通过 `apigent.config.yaml` 切换 BullMQ + Redis），由独立 Worker 执行，不阻塞 HTTP 请求（见 [Async Queue 模块文档](./modules/async-queue.md)）。
 
 ## 5.4 认证与 RBAC 实现
 
@@ -994,7 +996,7 @@ Apigent 是一个**开源、自托管**的平台。不同团队有不同的基�
 | **LLM 提供商**       | `LLMProvider`       | Qwen API（阿里云百炼）              | Claude、OpenAI、Gemini、Ollama（本地）、vLLM            |
 | **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | Claude Embedding、OpenAI Embedding、Cohere、BGE（本地） |
 | **存储提供商**       | `StorageProvider`   | 本地文件系统                        | AWS S3、MinIO、Google Cloud Storage、Azure Blob         |
-| **队列提供商**       | `QueueProvider`     | BullMQ + Redis                      | RabbitMQ、AWS SQS、Google Pub/Sub                       |
+| **队列提供商**       | `QueueProvider`     | Postgres 队列（`PgQueueProvider`）  | BullMQ + Redis、RabbitMQ、AWS SQS                        |
 | **认证提供商**       | `AuthProvider`      | NextAuth.js                         | 自定义 OIDC、LDAP、SAML、Authentik                      |
 
 ### 5.5.3 Vector Store 接口
@@ -1228,32 +1230,31 @@ export interface StorageProvider {
 ### 5.5.7 Queue Provider 接口
 
 ```ts
-// packages/core/src/interfaces/queue-provider.ts
+// packages/core/src/types/queue-provider.ts
+
+export interface QueueJob {
+  id?: string;
+  name: string;
+  data: unknown;
+}
 
 export interface QueueProvider {
   /** 入队一个任务 */
-  enqueue<T>(
-    queueName: string,
-    payload: T,
-    options?: {
-      delay?: number;
-      priority?: number;
-    },
-  ): Promise<string>;
+  enqueue(queue: string, job: QueueJob): Promise<string>;
 
   /** 注册队列处理器 */
-  register<T, R>(queueName: string, handler: (payload: T) => Promise<R>): void;
-
-  /** 查询任务状态 */
-  getStatus(jobId: string): Promise<"waiting" | "active" | "completed" | "failed">;
+  process(queue: string, handler: (job: QueueJob) => Promise<void>): Promise<void>;
 
   /** 优雅关闭 */
   shutdown(): Promise<void>;
 }
 ```
 
-**默认实现：** `BullmqQueueProvider` 封装 BullMQ + Redis。  
-**替代方案：** `RabbitmqQueueProvider`、`SqsQueueProvider`、`InMemoryQueueProvider`（开发/测试）。
+队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `import_tasks`）持久化，`QueueProvider` 本身不做状态查询。
+
+**默认实现（V0）：`PgQueueProvider` — Postgres 队列**（复用现有 PostgreSQL，无需 Redis；消费用 `FOR UPDATE SKIP LOCKED` 抢占，多实例安全；进程重启把遗留 `running` 标记为 `failed(interrupted)`）。
+
+完整设计（`impl_queue_jobs` 表结构、Worker 生命周期、配置切换、OpenAPI 异步导入任务、站内通知、API 契约）见 **[Async Queue & Notifications 模块文档](./modules/async-queue.md)**。
 
 ### 5.5.8 配置系统 — 双层设计
 
@@ -1490,3 +1491,11 @@ const config: ApigentConfig = {
 | **Dashboard**    | 简单仓库列表 + 最近活动                                                                                 |
 | **Admin**        | 基础用户列表、平台统计                                                                                  |
 | **Project**      | 仅领域模型定义，V0 不实现功能                                                                           |
+
+---
+
+# 7. 异步任务与消息通知
+
+OpenAPI 异步导入、站内通知与队列实现（`import_tasks` / `notifications` / `impl_queue_jobs`、状态机、API 契约、前端呈现、实施顺序）已独立为模块文档：
+
+👉 **[Async Queue & Notifications 模块文档](./modules/async-queue.md)**

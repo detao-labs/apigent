@@ -436,9 +436,12 @@ function loadStorage(): StorageConfig {
 // ───────────────────────────────────────────────────────────────────
 
 function loadQueue(): QueueConfig {
-  const provider = env("APIGENT_QUEUE_PROVIDER", "bullmq") as QueueConfig["provider"];
+  const provider = env("APIGENT_QUEUE_PROVIDER", "postgres") as QueueConfig["provider"];
 
   switch (provider) {
+    case "postgres":
+      return { provider: "postgres" };
+
     case "bullmq":
       return {
         provider: "bullmq",

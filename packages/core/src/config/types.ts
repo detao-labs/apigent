@@ -298,7 +298,12 @@ export type StorageConfig = LocalStorageConfig | S3StorageConfig | GCSStorageCon
 // 7. Queue Provider
 // ───────────────────────────────────────────────────────────────────
 
-export type QueueProviderType = "bullmq" | "rabbitmq" | "sqs" | "memory";
+export type QueueProviderType = "postgres" | "bullmq" | "rabbitmq" | "sqs" | "memory";
+
+export interface PgQueueConfig {
+  /** Postgres-backed queue — V0 default; reuses the DatabaseConfig connection */
+  provider: "postgres";
+}
 
 export interface BullmqQueueConfig {
   provider: "bullmq";
@@ -321,7 +326,11 @@ export interface MemoryQueueConfig {
 }
 
 export type QueueConfig =
-  BullmqQueueConfig | RabbitmqQueueConfig | SqsQueueConfig | MemoryQueueConfig;
+  | PgQueueConfig
+  | BullmqQueueConfig
+  | RabbitmqQueueConfig
+  | SqsQueueConfig
+  | MemoryQueueConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 8. Auth

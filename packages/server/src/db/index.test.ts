@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
 // Import through the public package boundary — this test fails if the
 // "./db" subpath export is ever dropped from package.json again.
-import { users, repositories, secretKeys, operationLogs, knowledgeChunks } from "@apigent/server/db";
+import {
+  users,
+  repositories,
+  secretKeys,
+  operationLogs,
+  knowledgeChunks,
+  implQueueJobs,
+  importTasks,
+  notifications,
+} from "@apigent/server/db";
 
 describe("@apigent/server/db public export", () => {
   it("exposes the Drizzle schema tables with their columns", () => {
@@ -12,5 +21,9 @@ describe("@apigent/server/db public export", () => {
     expect(knowledgeChunks.embedding).toBeDefined();
     expect(knowledgeChunks.searchVector).toBeDefined();
     expect(knowledgeChunks.chunkKey).toBeDefined();
+    expect(implQueueJobs.queueName).toBeDefined();
+    expect(implQueueJobs.data).toBeDefined();
+    expect(importTasks.specPath).toBeDefined();
+    expect(notifications.priority).toBeDefined();
   });
 });

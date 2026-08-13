@@ -10,7 +10,10 @@
     "./db": "./src/db/index.ts",
     "./id": "./src/id.ts",
     "./auth": "./src/auth/index.ts",
-    "./openapi": "./src/openapi/index.ts"
+    "./openapi": "./src/openapi/index.ts",
+    "./queue": "./src/queue/index.ts",
+    "./imports": "./src/imports/index.ts",
+    "./notifications": "./src/notifications/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

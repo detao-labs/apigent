@@ -276,6 +276,11 @@ export const StorageConfigSchema = z.discriminatedUnion("provider", [
 export const QueueConfigSchema = z.discriminatedUnion("provider", [
   z
     .object({
+      provider: z.literal("postgres"),
+    })
+    .strict(),
+  z
+    .object({
       provider: z.literal("bullmq"),
       redisUrl: z.string(),
     })

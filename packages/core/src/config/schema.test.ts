@@ -4,6 +4,7 @@ import type { ApigentConfig } from "./types";
 import {
   ApigentConfigSchema,
   DatabaseConfigSchema,
+  QueueConfigSchema,
   ServerConfigSchema,
 } from "./schema";
 
@@ -78,6 +79,10 @@ describe("ApigentConfigSchema", () => {
       url: "oracle://localhost:1521",
     });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts the postgres queue provider (V0 default)", () => {
+    expect(QueueConfigSchema.safeParse({ provider: "postgres" }).success).toBe(true);
   });
 
   it("rejects unknown keys (typos)", () => {

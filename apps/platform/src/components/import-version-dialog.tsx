@@ -23,6 +23,7 @@ import {
   KeyRound,
   ListTree,
   Loader2,
+  RotateCcw,
   Upload,
 } from "lucide-react";
 
@@ -58,11 +59,17 @@ export function ImportVersionDialog({
   onImported?: () => void;
 }) {
   const t = useTranslations("repos.import");
-  const [step, setStep] = React.useState<"input" | "preview" | "done">("input");
+  const [step, setStep] = React.useState<"input" | "preview" | "task" | "done">("input");
   const [mode, setMode] = React.useState<"file" | "paste">("file");
   const [content, setContent] = React.useState("");
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [preview, setPreview] = React.useState<PreviewData | null>(null);
+  const [taskId, setTaskId] = React.useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = React.useState<
+    "queued" | "running" | "succeeded" | "failed" | null
+  >(null);
+  const [progress, setProgress] = React.useState(0);
+  const [taskError, setTaskError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<{
     version: string;
     stats: PreviewData["stats"];
@@ -78,6 +85,10 @@ export function ImportVersionDialog({
     setContent("");
     setFileName(null);
     setPreview(null);
+    setTaskId(null);
+    setTaskStatus(null);
+    setProgress(0);
+    setTaskError(null);
     setResult(null);
     setError(null);
     setBusy(false);
@@ -141,17 +152,93 @@ export function ImportVersionDialog({
         body: JSON.stringify({ content }),
       });
       const data = (await res.json().catch(() => null)) as {
-        version?: { version: string; stats: PreviewData["stats"] };
+        task?: { taskId: string; status: string };
       } | null;
-      if (!res.ok || !data?.version) {
+      if (res.status === 409) {
+        setError(t("importInProgress"));
+        return;
+      }
+      if (!res.ok || !data?.task) {
         setError(t("importFailed"));
         return;
       }
-      setResult(data.version);
-      setStep("done");
-      onImported?.();
+      setTaskId(data.task.taskId);
+      setTaskStatus("queued");
+      setProgress(0);
+      setTaskError(null);
+      setStep("task");
     } catch {
       setError(t("importFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 任务提交后轮询状态（2s），终态切到成功/失败
+  React.useEffect(() => {
+    if (step !== "task" || !taskId) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/repos/${repoId}/import-tasks/${taskId}`, {
+          cache: "no-store",
+        });
+        const data = (await res.json().catch(() => null)) as {
+          task?: {
+            status: "queued" | "running" | "succeeded" | "failed";
+            progress: number;
+            nextVersion: string | null;
+            result?: { stats: PreviewData["stats"] } | null;
+            error: string | null;
+          };
+        } | null;
+        if (cancelled || !data?.task) return;
+        const task = data.task;
+        setTaskStatus(task.status);
+        setProgress(task.progress ?? 0);
+        if (task.status === "succeeded") {
+          setResult({
+            version: task.nextVersion ?? "",
+            stats: task.result?.stats ?? { endpoints: 0, models: 0, modules: 0 },
+          });
+          setStep("done");
+          onImported?.();
+        } else if (task.status === "failed") {
+          setTaskError(task.error ?? t("importFailed"));
+        }
+      } catch {
+        // 网络抖动继续轮询
+      }
+    }
+
+    void poll();
+    const timer = setInterval(poll, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [step, taskId, repoId, onImported, t]);
+
+  async function retry() {
+    if (!taskId) return;
+    setBusy(true);
+    setTaskError(null);
+    try {
+      const res = await fetch(`/api/repos/${repoId}/import-tasks/${taskId}/retry`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => null)) as {
+        task?: { status: string };
+      } | null;
+      if (!res.ok || !data?.task) {
+        setTaskError(t("importFailed"));
+        return;
+      }
+      setTaskStatus("queued");
+      setProgress(0);
+    } catch {
+      setTaskError(t("importFailed"));
     } finally {
       setBusy(false);
     }
@@ -332,6 +419,41 @@ export function ImportVersionDialog({
           </div>
         )}
 
+        {step === "task" && (
+          <div className="space-y-4 py-4">
+            <div className="flex flex-col items-center text-center">
+              {taskStatus === "failed" ? (
+                <span className="mb-3 flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <AlertTriangle className="size-6" />
+                </span>
+              ) : (
+                <span className="mb-3 flex size-12 items-center justify-center rounded-full bg-muted">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                </span>
+              )}
+              <h3 className="text-base font-semibold">
+                {taskStatus === "failed" ? t("importFailed") : t("taskSubmitted")}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {taskStatus === "failed" ? t("importFailed") : t("taskDesc")}
+              </p>
+            </div>
+            {taskStatus !== "failed" && (
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${Math.max(4, progress)}%` }}
+                />
+              </div>
+            )}
+            {taskStatus === "failed" && taskError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {taskError}
+              </p>
+            )}
+          </div>
+        )}
+
         {error && (
           <p className="flex items-center gap-1.5 text-sm text-destructive">
             <AlertTriangle className="size-4" />
@@ -393,6 +515,33 @@ export function ImportVersionDialog({
             <Button type="button" onClick={() => onOpenChange(false)}>
               {t("done")}
             </Button>
+          )}
+          {step === "task" && (
+            <>
+              {taskStatus === "failed" ? (
+                <Button type="button" onClick={retry} disabled={busy}>
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="size-4" />
+                  )}
+                  {t("retry")}
+                </Button>
+              ) : (
+                <Button type="button" disabled>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t("importing")}
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                disabled={busy}
+              >
+                {t("cancel")}
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

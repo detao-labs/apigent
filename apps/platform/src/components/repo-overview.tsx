@@ -33,6 +33,7 @@ import {
   KeyRound,
   Link2,
   ListTree,
+  Loader2,
   MoreHorizontal,
   Pencil,
   RefreshCw,
@@ -46,24 +47,51 @@ import type { RepoDetail } from "@/services/repos";
 
 const MCP_SERVICE_URL = "https://apigent.acme.dev/mcp";
 
+interface LatestImportTask {
+  taskId: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  error?: string | null;
+}
+
 export function RepoOverview({
   repo,
   locale,
+  latestTask,
 }: {
   repo: RepoDetail;
   locale: string;
+  latestTask?: LatestImportTask | null;
 }) {
   const t = useTranslations("repos.detail");
   const common = useTranslations("common");
   const router = useRouter();
   const [mcp, setMcp] = React.useState(repo.mcpEnabled);
   const [importOpen, setImportOpen] = React.useState(false);
+  const [task, setTask] = React.useState<LatestImportTask | null>(latestTask ?? null);
   const [regenerating, setRegenerating] = React.useState(false);
   const [regenDone, setRegenDone] = React.useState(false);
 
   const hasContext =
     repo.capabilityContext !== null &&
     Object.keys(repo.capabilityContext).length > 0;
+
+  // 导入任务进行中时轮询最新状态（5s），失败/成功即停止
+  const taskActive = task?.status === "queued" || task?.status === "running";
+  React.useEffect(() => {
+    if (!taskActive) return;
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/repos/${repo.id}/import-tasks/latest`, {
+          cache: "no-store",
+        });
+        const data = (await res.json()) as { task?: LatestImportTask | null };
+        setTask(data.task ?? null);
+      } catch {
+        // 网络抖动继续轮询
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [taskActive, repo.id]);
 
   function toggleMcp() {
     if (mcp && !window.confirm(t("mcpConfirmDescription"))) return;
@@ -126,6 +154,18 @@ export function RepoOverview({
                 {repo.currentVersion}
                 {repo.currentSpecVersion && ` · ${repo.currentSpecVersion}`}
               </Badge>
+            )}
+            {taskActive && (
+              <Badge
+                variant="secondary"
+                className="gap-1 bg-amber-100/70 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+              >
+                <Loader2 className="size-3 animate-spin" />
+                {t("importRunning")}
+              </Badge>
+            )}
+            {task?.status === "failed" && (
+              <Badge variant="destructive">{t("importFailedBadge")}</Badge>
             )}
             <span className="ml-1 inline-flex items-center gap-2 text-sm font-normal text-muted-foreground">
               {t("mcp")}

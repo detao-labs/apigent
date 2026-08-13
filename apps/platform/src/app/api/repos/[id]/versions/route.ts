@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/services/auth";
+import { createImportTask } from "@apigent/server/imports";
 import {
+  DuplicateImportError,
   ImportError,
   RepoNotFoundError,
-  importVersion,
-} from "@/services/imports";
+} from "@apigent/server/imports";
 import { importContentBodySchema } from "@/lib/openapi-schemas";
 
+/**
+ * 异步提交导入：202 Accepted + { taskId, status }。
+ * 解析/落库由队列 Worker 后台执行，进度通过
+ * GET /api/repos/:id/import-tasks/:taskId 查询。
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -31,8 +37,8 @@ export async function POST(
   }
 
   try {
-    const version = await importVersion(id, parsed.data.content);
-    return NextResponse.json({ version }, { status: 201 });
+    const task = await createImportTask(id, user.id, parsed.data.content);
+    return NextResponse.json({ task }, { status: 202 });
   } catch (err) {
     if (err instanceof ImportError) {
       return NextResponse.json(
@@ -42,6 +48,12 @@ export async function POST(
     }
     if (err instanceof RepoNotFoundError) {
       return NextResponse.json({ error: "repo-not-found" }, { status: 404 });
+    }
+    if (err instanceof DuplicateImportError) {
+      return NextResponse.json(
+        { error: "import-in-progress", taskId: err.activeTaskId },
+        { status: 409 },
+      );
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }

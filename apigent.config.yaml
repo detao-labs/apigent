@@ -217,8 +217,14 @@ storage:
 # 7. Queue — async task / job queue
 # ───────────────────────────────────────────────────────────────────
 queue:
-  # "bullmq" | "rabbitmq" | "sqs" | "memory"
-  provider: bullmq
+  # "postgres"（V0 默认，复用现有 PostgreSQL，无需 Redis）
+  # | "bullmq" | "rabbitmq" | "sqs" | "memory"（测试）
+  provider: postgres
+
+  # --- Postgres --- (uses the same database connection as `database`)
+
+  # --- BullMQ (Redis) ---
+  # provider: bullmq
   # Redis URL from .env: APIGENT_REDIS_URL
 
   # --- RabbitMQ ---

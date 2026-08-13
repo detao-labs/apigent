@@ -17,7 +17,6 @@ import {
   SidebarTrigger,
 } from "@apigent/ui";
 import {
-  Bell,
   Check,
   ChevronDown,
   Languages,
@@ -30,6 +29,7 @@ import {
   User,
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
+import { NotificationBell } from "@/components/notification-bell";
 
 const LOCALE_COOKIE = "NEXT_LOCALE";
 
@@ -74,22 +74,7 @@ export function AppHeader({
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button variant="ghost" size="icon-sm" aria-label={t("notifications")} />}
-          >
-            <Bell className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{t("notifications")}</DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-              {t("noNotifications")}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger

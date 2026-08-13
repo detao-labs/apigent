@@ -26,6 +26,22 @@
     "profile": "个人信息",
     "settings": "设置"
   },
+  "notifications": {
+    "title": "消息通知",
+    "empty": "暂无消息通知",
+    "markAllRead": "全部已读",
+    "categories": {
+      "import": "导入",
+      "context": "业务上下文",
+      "key": "密钥",
+      "mcp": "MCP",
+      "system": "系统"
+    },
+    "import": {
+      "succeeded": "OpenAPI 导入成功：{repoName} v{version}",
+      "failed": "OpenAPI 导入失败：{repoName}（{error}）"
+    }
+  },
   "dashboard": {
     "title": "仪表盘",
     "description": "API 知识平台概览",
@@ -143,7 +159,9 @@
     "detail": {
       "back": "返回仓库列表",
       "breadcrumbRepos": "仓库",
-      "importVersion": "导入新版本",
+    "importVersion": "导入新版本",
+    "importRunning": "导入中…",
+    "importFailedBadge": "导入失败",
       "more": "更多",
       "editInfo": "编辑信息",
       "copyLink": "复制链接",
@@ -283,7 +301,11 @@
       "viewEndpoints": "查看接口",
       "generateKey": "生成密钥",
       "cancel": "取消",
-      "done": "完成"
+      "done": "完成",
+      "taskSubmitted": "任务已提交，正在后台解析",
+      "taskDesc": "完成后将通过顶栏通知提醒你，可先关闭此窗口",
+      "retry": "重试",
+      "importInProgress": "该仓库已有导入任务进行中，请稍后再试"
     },
     "table": {
       "name": "仓库",

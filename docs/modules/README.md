@@ -75,6 +75,7 @@
 | [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片                                                                  | SQL JOIN + 数据拼装，不涉及理解或推理                  |
 | [Project Context Service](./project-context.md)         | 提取项目级约定（base_url、分页、认证）                                                                     | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理        |
 | [MCP Gateway](./mcp-gateway.md)                         | MCP 协议服务器：路由、鉴权、限流                                                                           | 协议适配和请求路由，纯工程逻辑                         |
+| [Async Queue](./async-queue.md)                         | 异步任务调度（OpenAPI 导入等）+ 通用消息通知（分类/优先级）；`QueueProvider` 可配置（Postgres/BullMQ/SQS）   | 队列调度与状态机，确定性逻辑                           |
 
 ### AI Agent（LLM 驱动，真正需要推理）
 
@@ -94,11 +95,11 @@
 |                     | 之前（错误） | 之后（正确）                          |
 | ------------------- | ------------ | ------------------------------------- |
 | "Agent" 数量        | 7            | 2 (V0) + 4 (V1)                       |
-| Platform Service    | 0            | 5（其中 Knowledge Graph 为 V1+ 可选） |
+| Platform Service    | 0            | 6（其中 Knowledge Graph 为 V1+ 可选） |
 | MCP Gateway         | 归为 Agent   | 协议服务器                            |
 | 需要 LLM 调用的组件 | 7（夸大）    | 2（精确）                             |
 
-> V0 实际落地的 Platform Service 为 4 个（不含 Knowledge Graph）；KG 启用后作为第 5 个。
+> V0 实际落地的 Platform Service 为 5 个（不含 Knowledge Graph）；KG 启用后作为第 6 个。
 
 ---
 
@@ -212,4 +213,5 @@ docs/modules/
   knowledge-retrieval.md           ← Knowledge Retrieval Service
   project-context.md               ← Project Context Service
   mcp-gateway.md                   ← MCP Gateway
+  async-queue.md                   ← Async Queue Service（异步任务 + 消息通知）
 ```

@@ -58,6 +58,7 @@ export type {
   StorageConfig,
   // Queue
   QueueProviderType,
+  PgQueueConfig,
   BullmqQueueConfig,
   RabbitmqQueueConfig,
   SqsQueueConfig,
