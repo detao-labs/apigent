@@ -10,6 +10,7 @@
 
 import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
+import { loadConfig } from "@apigent/core/config";
 import { parseOpenAPI } from "../openapi";
 import { generateId } from "../id";
 import {
@@ -18,13 +19,14 @@ import {
   endpointResponses,
   endpoints,
   getDB,
-  importTasks,
   modules,
   repositories,
   repoVersions,
+  repoTasks,
 } from "../db";
 import { notifySafely } from "../notifications";
 import { logError, logInfo } from "../logger";
+import { createContextTask } from "../contexts";
 import {
   hasFatalIssue,
   ImportError,
@@ -43,7 +45,6 @@ async function updateTask(
     status?: TaskStatus;
     progress?: number;
     versionId?: string;
-    nextVersion?: string;
     result?: unknown;
     error?: string | null;
     startedAt?: Date;
@@ -51,9 +52,9 @@ async function updateTask(
   },
 ): Promise<void> {
   await getDB()
-    .update(importTasks)
+    .update(repoTasks)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(importTasks.id, taskId));
+    .where(eq(repoTasks.id, taskId));
 }
 
 /**
@@ -67,8 +68,8 @@ export async function executeImportTask(taskId: string): Promise<void> {
   const db = getDB();
   const [task] = await db
     .select()
-    .from(importTasks)
-    .where(eq(importTasks.id, taskId))
+    .from(repoTasks)
+    .where(eq(repoTasks.id, taskId))
     .limit(1);
   if (!task) throw new Error(`Import task not found: ${taskId}`);
   if (task.status !== "queued") {
@@ -79,7 +80,10 @@ export async function executeImportTask(taskId: string): Promise<void> {
   await updateTask(taskId, { status: "running", progress: 5, startedAt: new Date() });
 
   try {
-    const content = await readFile(task.specPath, "utf8");
+    const payload = task.payload as { specPath?: string };
+    const specPath = payload.specPath;
+    if (!specPath) throw new Error(`Import task missing specPath: ${taskId}`);
+    const content = await readFile(specPath, "utf8");
     timer.mark("specRead");
 
     const model = parseOpenAPI({ source: "text", content, repoId: task.repoId });
@@ -105,7 +109,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
     const versionId = generateId("version");
     const version = await nextVersionFor(task.repoId);
     timer.mark("nextVersion");
-    await updateTask(taskId, { progress: 40, nextVersion: version });
+    await updateTask(taskId, { progress: 40, result: { nextVersion: version } });
 
     const txTimer = createTimer();
     const stats = await db.transaction(async (tx) => {
@@ -114,7 +118,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
         repoId: task.repoId,
         version,
         specVersion: model.meta.specVersion ?? null,
-        specStoragePath: task.specPath,
+        specStoragePath: specPath,
         source: "import",
       });
       txTimer.mark("versionRow");
@@ -230,7 +234,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
       status: "succeeded",
       progress: 100,
       versionId,
-      result: { stats, issues },
+      result: { stats, issues, nextVersion: version },
       finishedAt: new Date(),
     });
 
@@ -249,6 +253,19 @@ export async function executeImportTask(taskId: string): Promise<void> {
       },
       metadata: { orgId: null },
     });
+
+    // 自动触发（默认关闭）：导入成功后联动创建上下文生成任务
+    if (loadConfig().businessContext.autoGenerate) {
+      await createContextTask(task.repoId, task.userId, {
+        trigger: "auto",
+        dependsOn: taskId,
+      }).catch((err) => {
+        logError("business.context.auto_trigger_failed", err, {
+          repoId: task.repoId,
+          importTaskId: taskId,
+        });
+      });
+    }
 
     logInfo("openapi.import.completed", {
       taskId,

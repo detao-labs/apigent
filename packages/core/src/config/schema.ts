@@ -368,6 +368,29 @@ export const WebappConfigSchema = z
   .strict();
 
 // ───────────────────────────────────────────────────────────────────
+// 12.5 Business Context
+// ───────────────────────────────────────────────────────────────────
+
+export const BusinessContextConfigSchema = z
+  .object({
+    autoGenerate: z.boolean().default(false),
+    batchSize: z.number().int().min(1).max(50).default(5),
+    concurrency: z.number().int().min(1).max(10).default(2),
+    minConfidence: z.number().min(0).max(1).default(0.6),
+    language: z.enum(["auto", "zh", "en"]).default("auto"),
+    skipHumanEdited: z.boolean().default(true),
+  })
+  .strict()
+  .default({
+    autoGenerate: false,
+    batchSize: 5,
+    concurrency: 2,
+    minConfidence: 0.6,
+    language: "auto",
+    skipHumanEdited: true,
+  });
+
+// ───────────────────────────────────────────────────────────────────
 // 12. Top-level Apigent Config
 // ───────────────────────────────────────────────────────────────────
 
@@ -384,6 +407,7 @@ export const ApigentConfigSchema = z
     mcp: MCPConfigSchema,
     server: ServerConfigSchema,
     webapp: WebappConfigSchema,
+    businessContext: BusinessContextConfigSchema,
   })
   .strict();
 

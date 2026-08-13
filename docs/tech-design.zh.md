@@ -1250,7 +1250,7 @@ export interface QueueProvider {
 }
 ```
 
-队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `import_tasks`）持久化，`QueueProvider` 本身不做状态查询。
+队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `repo_tasks`）持久化，`QueueProvider` 本身不做状态查询。
 
 **默认实现（V0）：`PgQueueProvider` — Postgres 队列**（复用现有 PostgreSQL，无需 Redis；消费用 `FOR UPDATE SKIP LOCKED` 抢占，多实例安全；进程重启把遗留 `running` 标记为 `failed(interrupted)`）。
 
@@ -1496,6 +1496,6 @@ const config: ApigentConfig = {
 
 # 7. 异步任务与消息通知
 
-OpenAPI 异步导入、站内通知与队列实现（`import_tasks` / `notifications` / `impl_queue_jobs`、状态机、API 契约、前端呈现、实施顺序）已独立为模块文档：
+OpenAPI 异步导入、站内通知与队列实现（`repo_tasks` / `notifications` / `impl_queue_jobs`、状态机、API 契约、前端呈现、实施顺序）已独立为模块文档：
 
 👉 **[Async Queue & Notifications 模块文档](./modules/async-queue.md)**

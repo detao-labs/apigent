@@ -550,6 +550,14 @@ export function _buildConfigFromEnv(): ApigentConfig {
     mcp: loadMCP(),
     server: loadServer(),
     webapp: loadWebapp(),
+    businessContext: {
+      autoGenerate: false,
+      batchSize: 5,
+      concurrency: 2,
+      minConfidence: 0.6,
+      language: "auto",
+      skipHumanEdited: true,
+    },
   };
 }
 

@@ -58,6 +58,14 @@ describe("ApigentConfigSchema", () => {
         adminUrl: "http://localhost:3001",
         apiUrl: "http://localhost:3002",
       },
+      businessContext: {
+        autoGenerate: false,
+        batchSize: 5,
+        concurrency: 2,
+        minConfidence: 0.6,
+        language: "auto",
+        skipHumanEdited: true,
+      },
     };
 
     expect(ApigentConfigSchema.safeParse(config).success).toBe(true);

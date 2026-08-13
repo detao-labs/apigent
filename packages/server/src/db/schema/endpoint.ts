@@ -5,6 +5,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  doublePrecision,
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -140,8 +141,19 @@ export const businessContexts = pgTable(
     capabilityName: varchar("capability_name", { length: 255 }),
     intent: text("intent"),
     constraints: jsonb("constraints").default([]),
-    sideEffects: text("side_effects"),
+    sideEffects: jsonb("side_effects").$type<string[]>().default([]),
     usageScenarios: jsonb("usage_scenarios").default([]),
+    /** 自动推断置信度 0-1；人工编辑后置 1 */
+    confidence: doublePrecision("confidence"),
+    /** confidence < minConfidence 时 true */
+    needsReview: boolean("needs_review").default(false),
+    /** 人工编辑标记 */
+    editedByHuman: boolean("edited_by_human").default(false),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    /** 版本复用时指向上一版 context 行（快照溯源） */
+    sourceContextId: text("source_context_id"),
+    /** 生成时接口的技术指纹（SHA-256），用于复用比对 */
+    fingerprint: varchar("fingerprint", { length: 64 }),
     generatedBy: varchar("generated_by", { length: 100 }),
     generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

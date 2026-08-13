@@ -13,7 +13,9 @@
     "./openapi": "./src/openapi/index.ts",
     "./queue": "./src/queue/index.ts",
     "./imports": "./src/imports/index.ts",
-    "./notifications": "./src/notifications/index.ts"
+    "./notifications": "./src/notifications/index.ts",
+    "./contexts": "./src/contexts/index.ts",
+    "./ai": "./src/ai/model.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -23,11 +25,14 @@
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.30",
     "@apigent/core": "workspace:*",
+    "ai": "^7.0.62",
     "drizzle-orm": "^0.45.2",
     "nanoid": "^6.0.1",
     "pg": "^8.23.0",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

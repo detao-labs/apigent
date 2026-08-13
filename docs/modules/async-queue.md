@@ -11,7 +11,7 @@
 - 结果通过**站内消息通知**触达用户；
 - 队列实现可配置（Postgres / Redis / RabbitMQ / SQS），业务代码零改动。
 
-**分层原则：** 队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `import_tasks`）持久化。`QueueProvider` 本身不做状态查询。
+**分层原则：** 队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `repo_tasks`）持久化。`QueueProvider` 本身不做状态查询。
 
 ---
 
@@ -55,7 +55,7 @@ export interface QueueProvider {
 
 ### 2.1 表 `impl_queue_jobs`
 
-> **命名约定**：`impl_` 前缀标记"某个具体实现方案（Implementation）专属的表"。`impl_queue_jobs` 是 Postgres 作为队列的临时方案表——将来切换到 BullMQ/Redis 后可整体废弃；业务任务表（`import_tasks` / `notifications`）不加此前缀。
+> **命名约定**：`impl_` 前缀标记"某个具体实现方案（Implementation）专属的表"。`impl_queue_jobs` 是 Postgres 作为队列的临时方案表——将来切换到 BullMQ/Redis 后可整体废弃；业务任务表（`repo_tasks` / `notifications`）不加此前缀。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -186,23 +186,28 @@ V0 以同步接口 + 日志打点（`openapi.import.*`，含分段耗时与结�
 - 进度与结果通过**顶栏消息通知** + **仓库状态徽章**可见；
 - 失败可一键重试，无需重新上传文件。
 
-### 5.2 `import_tasks`（业务事实源）
+### 5.2 `repo_tasks`（统一任务表，业务事实源）
+
+导入与业务上下文生成共用一张 `repo_tasks`，用 `task_type` 区分；类型专属字段放 `payload` / `result` jsonb，通用状态列（status/progress/error/attempts/时间戳）共用。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | text PK | 任务 ID（对外即 `taskId`） |
 | `job_id` | text | 关联 `impl_queue_jobs`（调度投递） |
 | `repo_id` / `user_id` | text FK | 归属仓库与发起人 |
+| `task_type` | varchar | `import` / `context` / `vectorize` / … |
 | `status` | queued / running / succeeded / failed | 状态机 |
 | `progress` | int | 0-100，供进度条展示 |
-| `spec_path` | text | 提交时 Spec 原文已落盘，Worker 不依赖请求体 |
-| `version_id` / `next_version` | text | 成功后的版本快照 ID / 导入序号 |
-| `result` | jsonb | 成功：stats；失败：issues 列表 |
+| `payload` | jsonb | 类型专属入参（import→`{specPath}`；context→`{trigger,endpointIds,force}`） |
+| `result` | jsonb | 类型专属结果（import→stats/issues/nextVersion；context→reused/generated/failed 统计） |
+| `version_id` | text | import→产出版本；context→目标版本 |
+| `depends_on` | text | 同一 repo 的前置任务 id（顺序依赖） |
 | `error` | text | 失败原因 |
 | `attempts` | int | 重试次数 |
 | `enqueued_at` / `started_at` / `finished_at` | timestamptz | 打点用 |
 
-> 任务结果通过**通用通知**触达用户（category=`import`，见 §4），通知服务与前端不感知导入细节。
+> 导入任务的 `spec_path` 存于 `payload`；提交时 Spec 原文已落盘，Worker 不依赖请求体。
+> 任务结果通过**通用通知**触达用户（category=`import` / `context`，见 §4），通知服务与前端不感知任务细节。
 
 ### 5.3 状态机与执行流程
 
@@ -213,7 +218,7 @@ queued → running → succeeded
 
 ```mermaid
 flowchart LR
-  A[POST /api/repos/:id/versions → 202 + taskId] --> B[事务: Spec 落盘 + 写 import_tasks queued + 入队]
+  A[POST /api/repos/:id/versions → 202 + taskId] --> B[事务: Spec 落盘 + 写 repo_tasks(import) queued + 入队]
   B --> C[Worker 抢占任务: FOR UPDATE SKIP LOCKED]
   C --> D[解析 → 计算版本号 → 快照落库 → 切换 current_version_id]
   D --> E[写通知 NotificationService + operation_logs]
@@ -262,7 +267,7 @@ flowchart LR
 
 ## 7. 实施顺序
 
-1. drizzle 迁移：`impl_queue_jobs` + `import_tasks` + `notifications`（通用表，含 category / priority / title_key / title_params）；
+1. drizzle 迁移：`impl_queue_jobs` + `repo_tasks` + `notifications`（通用表，含 category / priority / title_key / title_params）；
 2. `packages/server`：`PgQueueProvider` + `NotificationService` + 导入执行器 + Worker 入口；
 3. API 路由：提交（202）/ 任务状态 / 通知（列表、未读数、已读）/ 重试；
 4. 前端：导入对话框进度、顶栏铃铛（分组 + 优先级）、仓库状态徽章；

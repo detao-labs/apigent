@@ -333,6 +333,29 @@ export type QueueConfig =
   | MemoryQueueConfig;
 
 // ───────────────────────────────────────────────────────────────────
+// 7.5 Business Context
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * 业务上下文生成配置（docs/modules/business-context.md §4）。
+ * 自动触发默认关闭；手动触发始终可用。
+ */
+export interface BusinessContextConfig {
+  /** 导入成功后自动创建上下文生成任务（默认关闭） */
+  autoGenerate: boolean;
+  /** 每批送 LLM 的接口数 */
+  batchSize: number;
+  /** 并行批数 */
+  concurrency: number;
+  /** 低于此置信度标记 needs_review */
+  minConfidence: number;
+  /** 生成语言：auto（跟随 spec 描述）| zh | en */
+  language: "auto" | "zh" | "en";
+  /** 重新生成时跳过人工编辑过的接口 */
+  skipHumanEdited: boolean;
+}
+
+// ───────────────────────────────────────────────────────────────────
 // 8. Auth
 // ───────────────────────────────────────────────────────────────────
 
@@ -418,4 +441,6 @@ export interface ApigentConfig {
   server: ServerConfig;
   /** Webapp URLs */
   webapp: WebappConfig;
+  /** Business context generation */
+  businessContext: BusinessContextConfig;
 }

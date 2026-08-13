@@ -8,7 +8,7 @@ import {
   operationLogs,
   knowledgeChunks,
   implQueueJobs,
-  importTasks,
+  repoTasks,
   notifications,
 } from "@apigent/server/db";
 
@@ -23,7 +23,8 @@ describe("@apigent/server/db public export", () => {
     expect(knowledgeChunks.chunkKey).toBeDefined();
     expect(implQueueJobs.queueName).toBeDefined();
     expect(implQueueJobs.data).toBeDefined();
-    expect(importTasks.specPath).toBeDefined();
+    expect(repoTasks.taskType).toBeDefined();
+    expect(repoTasks.payload).toBeDefined();
     expect(notifications.priority).toBeDefined();
   });
 });

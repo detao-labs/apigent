@@ -74,11 +74,13 @@ export type {
   ServerConfig,
   // Webapp
   WebappConfig,
+  // Business Context
+  BusinessContextConfig,
   // Top-level
   ApigentConfig,
 } from "./types";
 
-export { ApigentConfigSchema } from "./schema";
+export { ApigentConfigSchema, BusinessContextConfigSchema } from "./schema";
 
 export {
   DEFAULT_CLAUDE_MODELS,
