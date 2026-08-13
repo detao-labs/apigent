@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
 import { ContextManagement } from "@/components/context-management";
@@ -34,7 +35,9 @@ export default async function RepoContextPage({
         <p className="text-muted-foreground">{t("contextSub")}</p>
       </div>
 
-      <ContextManagement repoId={repo.id} />
+      <Suspense fallback={null}>
+        <ContextManagement repoId={repo.id} />
+      </Suspense>
     </div>
   );
 }

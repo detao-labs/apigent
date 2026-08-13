@@ -10,6 +10,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Badge,
@@ -37,19 +38,20 @@ function methodStyle(method: string) {
 
 export function ContextManagement({ repoId }: { repoId: string }) {
   const t = useTranslations("contexts");
+  const searchParams = useSearchParams();
   const openBusinessContext = useOpenBusinessContext();
   const [items, setItems] = React.useState<EndpointContextSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
   const [task, setTask] = React.useState<ContextTaskSummary | null>(null);
 
-  async function refresh() {
+  const refresh = React.useCallback(async () => {
     const res = await fetch(`/api/repos/${repoId}/contexts`, {
       cache: "no-store",
     });
     const data = (await res.json()) as { contexts: EndpointContextSummary[] };
     setItems(data.contexts);
-  }
+  }, [repoId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -65,6 +67,16 @@ export function ContextManagement({ repoId }: { repoId: string }) {
       cancelled = true;
     };
   }, [repoId]);
+
+  // 对话框关闭（URL 参数清除）后刷新列表，更新保存/生成后的状态
+  const dialogOpen = searchParams.get("dialog") === "business-context";
+  const wasDialogOpenRef = React.useRef(false);
+  React.useEffect(() => {
+    if (wasDialogOpenRef.current && !dialogOpen) {
+      void refresh();
+    }
+    wasDialogOpenRef.current = dialogOpen;
+  }, [dialogOpen, refresh]);
 
   async function generateAll() {
     setGenerating(true);

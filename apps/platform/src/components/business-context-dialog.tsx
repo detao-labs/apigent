@@ -176,7 +176,7 @@ export function BusinessContextDialog() {
       );
       if (!res.ok) throw new Error(`save failed: ${res.status}`);
       toast.success(t("saved"));
-      await refresh();
+      close();
     } catch {
       toast.error(t("generateFailed"));
     } finally {
@@ -240,7 +240,7 @@ export function BusinessContextDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {selected && (
