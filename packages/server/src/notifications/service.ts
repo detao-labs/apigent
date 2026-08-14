@@ -63,7 +63,7 @@ export interface ListNotificationsOptions {
   limit?: number;
 }
 
-/** 列表：默认按 优先级(high→low) + 创建时间倒序。 */
+/** 列表：按创建时间倒序（最新在前）。 */
 export async function listNotifications(
   userId: string,
   options: ListNotificationsOptions = {},
@@ -89,10 +89,7 @@ export async function listNotifications(
     })
     .from(notifications)
     .where(and(...conditions))
-    .orderBy(
-      sql`CASE ${notifications.priority} WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END`,
-      desc(notifications.createdAt),
-    )
+    .orderBy(desc(notifications.createdAt))
     .limit(limit);
 
   return rows.map((row) => ({
