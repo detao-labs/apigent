@@ -112,10 +112,29 @@ export type Org = z.infer<typeof orgSchema>;
 export const orgCreateBodySchema = z
   .object({
     name: orgNameField.meta({ description: "Organization display name" }),
+    description: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .meta({ description: "Organization description (RAG corpus)" }),
   })
   .meta({ id: "OrgCreateBody", description: "Organization creation payload" });
 
 export type OrgCreateInput = z.infer<typeof orgCreateBodySchema>;
+
+export const orgUpdateBodySchema = z
+  .object({
+    name: orgNameField.optional().meta({ description: "Organization display name" }),
+    description: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .meta({ description: "Organization description (RAG corpus)" }),
+  })
+  .strict()
+  .meta({ id: "OrgUpdateBody", description: "Organization update payload" });
 
 // ─────────────────────────────────────────────────────────────────────
 // Repositories
@@ -145,6 +164,19 @@ export const repoCreateBodySchema = z
   .meta({ id: "RepoCreateBody", description: "Repository creation payload" });
 
 export type RepoCreateInput = z.infer<typeof repoCreateBodySchema>;
+
+export const repoUpdateBodySchema = z
+  .object({
+    name: repoNameField.optional().meta({ description: "Repository display name" }),
+    description: z
+      .string()
+      .trim()
+      .max(1000)
+      .optional()
+      .meta({ description: "Repository description (RAG corpus)" }),
+  })
+  .strict()
+  .meta({ id: "RepoUpdateBody", description: "Repository update payload" });
 
 export const repoSchema = z
   .object({

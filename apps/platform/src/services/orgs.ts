@@ -18,6 +18,7 @@ import { generateId } from "@apigent/server/id";
 export interface OrgSummary {
   id: string;
   name: string;
+  description: string | null;
   memberCount: number;
   repoCount: number;
   createdAt: Date;
@@ -28,6 +29,7 @@ export async function listOrgs(): Promise<OrgSummary[]> {
     .select({
       id: organizations.id,
       name: organizations.name,
+      description: organizations.description,
       createdAt: organizations.createdAt,
       memberCount: sql<number>`${count(organizationMembers.userId)}::int`,
       repoCount: sql<number>`${count(repositories.id)}::int`,
@@ -57,13 +59,43 @@ export async function getOrgById(id: string) {
   return org ?? null;
 }
 
+export async function updateOrg(
+  id: string,
+  input: { name?: string; description?: string },
+) {
+  const [org] = await getDB()
+    .update(organizations)
+    .set({
+      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+      ...(input.description !== undefined
+        ? {
+            description:
+              input.description.trim() !== "" ? input.description.trim() : null,
+          }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.id, id))
+    .returning();
+  return org ?? null;
+}
+
 export async function createOrg(input: {
   name: string;
   ownerId: string;
+  description?: string;
 }) {
   const [org] = await getDB()
     .insert(organizations)
-    .values({ id: generateId("org"), ...input })
+    .values({
+      id: generateId("org"),
+      name: input.name,
+      ownerId: input.ownerId,
+      description:
+        input.description && input.description.trim() !== ""
+          ? input.description.trim()
+          : null,
+    })
     .returning();
   return org;
 }

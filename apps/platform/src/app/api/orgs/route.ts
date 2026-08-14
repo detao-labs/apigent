@@ -27,6 +27,7 @@ export async function POST(request: Request) {
 
   const org = await createOrg({
     name: parsed.data.name,
+    description: parsed.data.description,
     ownerId: user.id,
   });
   return NextResponse.json({ org }, { status: 201 });

@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
   Input,
+  Textarea,
 } from "@apigent/ui";
 
 export function OrgForm() {
@@ -22,6 +23,7 @@ export function OrgForm() {
   const router = useRouter();
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,7 +35,7 @@ export function OrgForm() {
       const res = await fetch("/api/orgs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, description }),
       });
       if (res.ok) {
         router.push("/orgs");
@@ -76,6 +78,19 @@ export function OrgForm() {
                 placeholder={t("namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium">
+                {t("descriptionLabel")}
+              </label>
+              <Textarea
+                id="description"
+                name="description"
+                rows={3}
+                placeholder={t("descriptionPlaceholder")}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

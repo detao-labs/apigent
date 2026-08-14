@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 import { ImportVersionDialog } from "@/components/import-version-dialog";
+import { EditEntityDialog } from "@/components/edit-entity-dialog";
 import { formatRelativeTime } from "@/lib/format";
 import type { RepoDetail } from "@/services/repos";
 import type { ContextTaskSummary } from "@apigent/server/contexts";
@@ -71,6 +72,8 @@ export function RepoOverview({
   const router = useRouter();
   const [mcp, setMcp] = React.useState(repo.mcpEnabled);
   const [mcpConfirmOpen, setMcpConfirmOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [savingEdit, setSavingEdit] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
   const [task, setTask] = React.useState<LatestImportTask | null>(latestTask ?? null);
   const [contextTask, setContextTask] = React.useState<ContextTaskSummary | null>(
@@ -142,6 +145,25 @@ export function RepoOverview({
       toast.error(t("capability.generateFailed"));
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function saveRepoInfo(input: { name: string; description: string }) {
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/repos/${repo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(`save failed: ${res.status}`);
+      toast.success(t("saved"));
+      setEditOpen(false);
+      router.refresh();
+    } catch {
+      toast.error(t("saveFailed"));
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -243,7 +265,9 @@ export function RepoOverview({
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem disabled title={common("backendPending")}>
+              <DropdownMenuItem
+                onClick={() => setEditOpen(true)}
+              >
                 <Pencil className="size-4" />
                 {t("editInfo")}
               </DropdownMenuItem>
@@ -351,6 +375,22 @@ export function RepoOverview({
           )}
         </CardContent>
       </Card>
+
+      <EditEntityDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title={t("editInfoTitle")}
+        nameLabel={t("editInfoName")}
+        namePlaceholder={t("editInfoNamePlaceholder")}
+        descriptionLabel={t("editInfoDescription")}
+        descriptionPlaceholder={t("editInfoDescriptionPlaceholder")}
+        saveLabel={common("confirm")}
+        cancelLabel={common("cancel")}
+        initialName={repo.name}
+        initialDescription={repo.description ?? ""}
+        saving={savingEdit}
+        onSave={saveRepoInfo}
+      />
 
       <ConfirmDialog
         open={mcpConfirmOpen}

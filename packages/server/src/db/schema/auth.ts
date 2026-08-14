@@ -41,6 +41,8 @@ export const organizations = pgTable(
   {
     id: text("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
+    /** 组织描述——未来 RAG 检索的语料（L0 project / org 级 chunk） */
+    description: text("description"),
     ownerId: text("owner_id")
       .notNull()
       .references(() => users.id),

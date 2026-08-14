@@ -84,6 +84,36 @@ export async function createRepo(input: {
   };
 }
 
+export async function updateRepo(
+  repoId: string,
+  input: { name?: string; description?: string },
+) {
+  const db = getDB();
+  const [repo] = await db
+    .update(repositories)
+    .set({
+      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+      ...(input.description !== undefined
+        ? {
+            description:
+              input.description.trim() !== "" ? input.description.trim() : null,
+          }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(repositories.id, repoId))
+    .returning({
+      id: repositories.id,
+      name: repositories.name,
+      description: repositories.description,
+      orgId: repositories.orgId,
+      mcpEnabled: repositories.mcpEnabled,
+      updatedAt: repositories.updatedAt,
+    });
+  if (!repo) throw new Error(`Repository not found: ${repoId}`);
+  return { ...repo, mcpEnabled: Boolean(repo.mcpEnabled ?? false) };
+}
+
 export async function listRepos(): Promise<RepoSummary[]> {
   const db = getDB();
   const rows = await db
