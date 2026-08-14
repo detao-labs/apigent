@@ -118,6 +118,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
         repoId: task.repoId,
         version,
         specVersion: model.meta.specVersion ?? null,
+        description: model.meta.specDescription ?? null,
         specStoragePath: specPath,
         source: "import",
       });
@@ -175,6 +176,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
             repoId: task.repoId,
             versionId,
             name,
+            description: model.tagDescriptions?.[name] ?? null,
             sortOrder: index,
           }),
         );

@@ -112,6 +112,8 @@ export interface ParseMeta {
   parsedAt: number;
   specTitle?: string;
   specVersion?: string;
+  /** OpenAPI info.description — 规范级描述（版本快照的 description 来源） */
+  specDescription?: string;
 }
 
 /** Full parser output */
@@ -121,4 +123,6 @@ export interface ParsedAPIModel {
   schemas: SchemaEntry[];
   parseIssues: ParseIssue[];
   meta: ParseMeta;
+  /** 顶层 tags[].description（tag 名 → 描述），供 modules.description 落库 */
+  tagDescriptions?: Record<string, string>;
 }

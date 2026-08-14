@@ -72,7 +72,28 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
       typeof resolved.info === "object" && resolved.info !== null
         ? (resolved.info as Record<string, unknown>).version as string | undefined
         : undefined,
+    specDescription:
+      typeof resolved.info === "object" && resolved.info !== null
+        ? (resolved.info as Record<string, unknown>).description as string | undefined
+        : undefined,
   };
+
+  // Step 4.5: Extract top-level tag descriptions
+  const tagDescriptions: Record<string, string> = {};
+  if (Array.isArray(resolved.tags)) {
+    for (const tag of resolved.tags) {
+      if (typeof tag !== "object" || tag === null) continue;
+      const name = (tag as Record<string, unknown>).name;
+      const description = (tag as Record<string, unknown>).description;
+      if (
+        typeof name === "string" &&
+        typeof description === "string" &&
+        description.trim() !== ""
+      ) {
+        tagDescriptions[name] = description.trim();
+      }
+    }
+  }
 
   // Step 5: Extract API endpoints from paths
   const apis = extractAPIs(resolved, input.repoId, issues);
@@ -86,6 +107,7 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
     schemas,
     parseIssues: issues,
     meta,
+    tagDescriptions,
   };
 }
 

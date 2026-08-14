@@ -66,6 +66,8 @@ export const repoVersions = pgTable(
     version: varchar("version", { length: 50 }).notNull(),
     /** OpenAPI info.version — 发布版本标签（区别于快照序号 version） */
     specVersion: varchar("spec_version", { length: 100 }),
+    /** 版本描述——来自 OpenAPI info.description，供版本级 RAG 检索 */
+    description: text("description"),
     specStoragePath: varchar("spec_storage_path", { length: 500 }).notNull(),
     source: varchar("source", { length: 20 }).default("import"),
     importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
