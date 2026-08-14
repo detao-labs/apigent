@@ -326,6 +326,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
     let reused = 0;
     let generated = 0;
     let failed = 0;
+    let skipped = 0;
     let processed = 0;
     const pending: EndpointInput[] = [];
 
@@ -335,6 +336,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
 
       if (existing?.editedByHuman && !force) {
         // 人工编辑保护：跳过，视为已处理
+        skipped += 1;
         processed += 1;
         continue;
       }
@@ -378,6 +380,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
           reusedCount: reused,
           generatedCount: generated,
           failedCount: failed,
+          skippedCount: skipped,
         } satisfies ContextTaskResult,
       });
     };
@@ -434,8 +437,9 @@ export async function executeContextTask(taskId: string): Promise<void> {
       reportProgress();
     });
 
-    // 全部失败（0 成功）视为任务失败，允许重试；部分失败仍算主体完成
-    if (totalCount > 0 && reused + generated === 0) {
+    // 全部失败（0 成功且无跳过）视为任务失败，允许重试；
+    // 全部为人工编辑跳过时任务成功（无失败发生）；部分失败仍算主体完成
+    if (totalCount > 0 && reused + generated === 0 && skipped === 0) {
       throw new Error("All endpoints failed to generate context");
     }
 
@@ -455,6 +459,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
         reusedCount: reused,
         generatedCount: generated,
         failedCount: failed,
+        skippedCount: skipped,
       },
       finishedAt: new Date(),
     });
@@ -467,12 +472,15 @@ export async function executeContextTask(taskId: string): Promise<void> {
       titleKey:
         failed > 0
           ? "notifications.context.readyWithFailures"
-          : "notifications.context.ready",
+          : skipped > 0 && reused + generated === 0
+            ? "notifications.context.readySkipped"
+            : "notifications.context.ready",
       titleParams: {
         repoName: task.repoId,
         generatedCount: generated,
         reusedCount: reused,
         failedCount: failed,
+        skippedCount: skipped,
       },
       payload: {
         href: `/repos/${task.repoId}/context`,
@@ -489,7 +497,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
       userId: task.userId,
       versionId,
       trigger: payload.trigger,
-      stats: { totalCount, processedCount: processed, reusedCount: reused, generatedCount: generated, failedCount: failed },
+      stats: { totalCount, processedCount: processed, reusedCount: reused, generatedCount: generated, failedCount: failed, skippedCount: skipped },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

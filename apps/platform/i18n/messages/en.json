@@ -43,6 +43,7 @@
     },
     "context": {
       "ready": "Business context generated: {repoName} ({generatedCount} generated, {reusedCount} reused)",
+      "readySkipped": "Business context unchanged: {repoName} ({skippedCount} endpoints are human-edited and were skipped)",
       "readyWithFailures": "Business context generated with failures: {repoName} ({generatedCount} generated, {failedCount} failed)",
       "failed": "Business context generation failed: {repoName} ({error})"
     }

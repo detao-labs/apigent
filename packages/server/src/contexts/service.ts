@@ -39,6 +39,8 @@ export interface ContextTaskResult {
   reusedCount?: number;
   generatedCount?: number;
   failedCount?: number;
+  /** 人工编辑保护跳过的接口数 */
+  skippedCount?: number;
 }
 
 export interface ContextTaskSummary {
@@ -51,6 +53,7 @@ export interface ContextTaskSummary {
   reusedCount: number;
   generatedCount: number;
   failedCount: number;
+  skippedCount: number;
   result: unknown;
   error: string | null;
   createdAt: Date;
@@ -81,6 +84,7 @@ function toSummary(row: ContextTaskRow): ContextTaskSummary {
     reusedCount: result.reusedCount ?? 0,
     generatedCount: result.generatedCount ?? 0,
     failedCount: result.failedCount ?? 0,
+    skippedCount: result.skippedCount ?? 0,
     result: row.result,
     error: row.error,
     createdAt: row.createdAt,
@@ -171,6 +175,7 @@ export async function createContextTask(
     reusedCount: 0,
     generatedCount: 0,
     failedCount: 0,
+    skippedCount: 0,
     result: null,
     error: null,
     createdAt: new Date(),

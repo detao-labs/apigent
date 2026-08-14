@@ -43,6 +43,7 @@
     },
     "context": {
       "ready": "业务上下文生成完成：{repoName}（{generatedCount} 生成，{reusedCount} 复用）",
+      "readySkipped": "业务上下文未变更：{repoName}（{skippedCount} 个接口为人工编辑，已跳过）",
       "readyWithFailures": "业务上下文生成完成：{repoName}（{generatedCount} 生成，{failedCount} 失败）",
       "failed": "业务上下文生成失败：{repoName}（{error}）"
     }
