@@ -18,10 +18,19 @@ export interface ContextStats {
   failedCount: number;
 }
 
+/** repo 级 LLM 画像摘要（写入 capability_context 的扩展字段） */
+export interface RepoProfileSummary {
+  intent: string | null;
+  constraints: unknown;
+  sideEffects: unknown;
+  usageScenarios: unknown;
+}
+
 export async function buildCapabilitySnapshot(
   repoId: string,
   versionId: string,
   stats: ContextStats,
+  profile: RepoProfileSummary | null = null,
 ): Promise<void> {
   const db = getDB();
   const rows = await db
@@ -54,9 +63,17 @@ export async function buildCapabilitySnapshot(
 
   const snapshot = {
     summary:
-      capabilities.length > 0
+      profile?.intent ??
+      (capabilities.length > 0
         ? `${capabilities.slice(0, 5).join("、")}等 ${stats.endpointCount} 项能力`
-        : "",
+        : ""),
+    /** 仓库定位（LLM 画像 intent） */
+    positioning: profile?.intent ?? null,
+    /** 领域级约束（LLM 画像 constraints） */
+    domainConstraints: profile?.constraints ?? [],
+    sideEffects: profile?.sideEffects ?? [],
+    /** 典型业务流程（LLM 画像 usageScenarios） */
+    typicalFlows: profile?.usageScenarios ?? [],
     capabilities,
     stats: {
       endpointCount: stats.endpointCount,

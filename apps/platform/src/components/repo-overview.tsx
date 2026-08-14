@@ -350,10 +350,10 @@ export function RepoOverview({
           {hasContext ? (
             <dl className="space-y-3">
               {[
-                ["intent", t("capability.intent")],
-                ["constraints", t("capability.constraints")],
+                ["positioning", t("capability.positioning")],
+                ["domainConstraints", t("capability.domainConstraints")],
                 ["sideEffects", t("capability.sideEffects")],
-                ["usageScenarios", t("capability.scenarios")],
+                ["typicalFlows", t("capability.typicalFlows")],
               ].map(
                 ([key, label]) =>
                   repo.capabilityContext![key] !== undefined && (

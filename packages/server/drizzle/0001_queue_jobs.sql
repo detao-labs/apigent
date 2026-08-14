@@ -49,19 +49,6 @@ CREATE TABLE "repo_tasks" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "business_contexts" ADD COLUMN "confidence" double precision;--> statement-breakpoint
-ALTER TABLE "business_contexts" ADD COLUMN "needs_review" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "business_contexts" ADD COLUMN "edited_by_human" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "business_contexts" ADD COLUMN "edited_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "business_contexts" ADD COLUMN "source_context_id" text;--> statement-breakpoint
-ALTER TABLE "business_contexts" ADD COLUMN "fingerprint" varchar(64);--> statement-breakpoint
-ALTER TABLE "business_contexts" ALTER COLUMN "side_effects" TYPE jsonb USING (
-	CASE
-		WHEN "side_effects" IS NULL OR "side_effects" = '' THEN '[]'::jsonb
-		ELSE to_jsonb("side_effects")
-	END
-);--> statement-breakpoint
-ALTER TABLE "business_contexts" ALTER COLUMN "side_effects" SET DEFAULT '[]'::jsonb;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_job_id_impl_queue_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."impl_queue_jobs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

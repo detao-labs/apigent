@@ -1,12 +1,20 @@
 CREATE TABLE "business_contexts" (
 	"id" text PRIMARY KEY NOT NULL,
-	"endpoint_id" text NOT NULL,
-	"version_id" text NOT NULL,
+	"entity_type" varchar(20) DEFAULT 'endpoint' NOT NULL,
+	"entity_id" text NOT NULL,
+	"endpoint_id" text,
+	"version_id" text,
 	"capability_name" varchar(255),
 	"intent" text,
 	"constraints" jsonb DEFAULT '[]'::jsonb,
-	"side_effects" text,
+	"side_effects" jsonb DEFAULT '[]'::jsonb,
 	"usage_scenarios" jsonb DEFAULT '[]'::jsonb,
+	"confidence" double precision,
+	"needs_review" boolean DEFAULT false NOT NULL,
+	"edited_by_human" boolean DEFAULT false NOT NULL,
+	"edited_at" timestamp with time zone,
+	"source_context_id" text,
+	"fingerprint" varchar(64),
 	"generated_by" varchar(100),
 	"generated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -131,6 +139,7 @@ CREATE TABLE "organization_members" (
 CREATE TABLE "organizations" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" varchar(255) NOT NULL,
+	"description" text,
 	"owner_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -149,6 +158,7 @@ CREATE TABLE "repo_versions" (
 	"repo_id" text NOT NULL,
 	"version" varchar(50) NOT NULL,
 	"spec_version" varchar(100),
+	"description" text,
 	"spec_storage_path" varchar(500) NOT NULL,
 	"source" varchar(20) DEFAULT 'import',
 	"imported_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -226,7 +236,7 @@ ALTER TABLE "repo_permissions" ADD CONSTRAINT "repo_permissions_repo_id_reposito
 ALTER TABLE "repo_versions" ADD CONSTRAINT "repo_versions_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "repositories" ADD CONSTRAINT "repositories_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_keys" ADD CONSTRAINT "secret_keys_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "business_contexts_endpoint_version_idx" ON "business_contexts" USING btree ("endpoint_id","version_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "business_contexts_entity_version_idx" ON "business_contexts" USING btree ("entity_type","entity_id","version_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "data_models_version_name_idx" ON "data_models" USING btree ("version_id","name");--> statement-breakpoint
 CREATE UNIQUE INDEX "endpoint_relations_unique_idx" ON "endpoint_relationships" USING btree ("source_endpoint_id","target_endpoint_id","relation_type");--> statement-breakpoint
 CREATE UNIQUE INDEX "endpoint_responses_endpoint_status_content_type_idx" ON "endpoint_responses" USING btree ("endpoint_id","status_code","content_type");--> statement-breakpoint

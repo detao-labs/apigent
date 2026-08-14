@@ -132,11 +132,13 @@ export const businessContexts = pgTable(
   "business_contexts",
   {
     id: text("id").primaryKey(),
+    /** 上下文粒度：endpoint | repo | project（V1+） */
+    entityType: varchar("entity_type", { length: 20 }).notNull().default("endpoint"),
+    /** 粒度对应的实体 id（endpoint_id / repo_id / project_id 统一引用） */
+    entityId: text("entity_id").notNull(),
     endpointId: text("endpoint_id")
-      .notNull()
       .references(() => endpoints.id),
     versionId: text("version_id")
-      .notNull()
       .references(() => repoVersions.id),
     capabilityName: varchar("capability_name", { length: 255 }),
     intent: text("intent"),
@@ -162,7 +164,11 @@ export const businessContexts = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("business_contexts_endpoint_version_idx").on(table.endpointId, table.versionId),
+    uniqueIndex("business_contexts_entity_version_idx").on(
+      table.entityType,
+      table.entityId,
+      table.versionId,
+    ),
   ],
 );
 

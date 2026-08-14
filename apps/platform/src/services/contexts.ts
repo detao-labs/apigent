@@ -158,6 +158,8 @@ export async function saveEndpointContext(
   } else {
     await db.insert(businessContexts).values({
       id: generateId("context"),
+      entityType: "endpoint",
+      entityId: endpointId,
       endpointId,
       versionId: endpoint.versionId,
       ...values,

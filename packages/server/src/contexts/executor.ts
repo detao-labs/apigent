@@ -29,6 +29,7 @@ import { createAIModel } from "../ai/model";
 import { notifySafely } from "../notifications";
 import { logError, logInfo } from "../logger";
 import { buildCapabilitySnapshot } from "./aggregate";
+import type { RepoProfileSummary } from "./aggregate";
 import { computeEndpointFingerprint, endpointKey } from "./fingerprint";
 import type { ContextTaskResult } from "./service";
 
@@ -212,6 +213,84 @@ async function generateBatch(
   throw new Error("generateBatch: unreachable");
 }
 
+function buildRepoProfilePrompt(language: "auto" | "zh" | "en"): string {
+  const langRule =
+    language === "zh"
+      ? "全部用中文输出。"
+      : language === "en"
+        ? "Output everything in English."
+        : "输出语言跟随接口描述语言，未指定时默认中文。";
+  return `你是 Apigent 平台的仓库级业务分析师。${langRule}
+根据下列接口级业务上下文，总结整个仓库的业务画像：
+- capability_name：仓库业务领域名（如"订单与支付"）；
+- intent：一句话说明这个仓库整体提供什么能力（仓库定位）；
+- constraints：领域级通用约束（跨接口成立的规则，如"退款仅限支付后 7 天内"）；
+- side_effects：仓库级副作用（如"操作会写入审计日志"）；
+- usage_scenarios：典型业务流程（如"创建订单 → 支付 → 退款"）；
+- confidence：0-1 置信度，信息不足时降低并置 needs_review=true；
+- 只输出一个 JSON 对象，不要输出其他文字或代码块标记；
+- 格式：{"capabilityName":"...","intent":"...","constraints":[{"type":"...","rule":"..."}],"sideEffects":["..."],"usageScenarios":["..."],"confidence":0.8,"needsReview":false}`;
+}
+
+/**
+ * 生成仓库级业务画像（LLM 一次总结）。
+ * 无接口上下文时返回 null（跳过画像生成）。
+ */
+async function generateRepoProfile(
+  versionId: string,
+  language: "auto" | "zh" | "en",
+): Promise<z.infer<typeof BusinessContextSchema> | null> {
+  const db = getDB();
+  const rows = await db
+    .select({
+      capabilityName: businessContexts.capabilityName,
+      intent: businessContexts.intent,
+      constraints: businessContexts.constraints,
+      usageScenarios: businessContexts.usageScenarios,
+    })
+    .from(businessContexts)
+    .innerJoin(endpoints, eq(endpoints.id, businessContexts.endpointId))
+    .where(
+      and(
+        eq(businessContexts.entityType, "endpoint"),
+        eq(businessContexts.versionId, versionId),
+      ),
+    );
+  const usable = rows.filter(
+    (row) => row.capabilityName || row.intent,
+  );
+  if (usable.length === 0) return null;
+
+  const prompt = usable
+    .map((row) =>
+      JSON.stringify({
+        capabilityName: row.capabilityName,
+        intent: row.intent,
+        constraints: row.constraints,
+        usageScenarios: row.usageScenarios,
+      }),
+    )
+    .join("\n---\n");
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const { text } = await generateText({
+        model: createAIModel("business_context"),
+        system: buildRepoProfilePrompt(language),
+        prompt,
+      });
+      const parsed = BusinessContextSchema.safeParse(extractJson(text));
+      if (parsed.success) return parsed.data;
+      throw new Error(`Repo profile output did not match schema: ${text.slice(0, 400)}`);
+    } catch (err) {
+      if (attempt === 1) {
+        logError("business.context.repo_profile_failed", err, { versionId });
+      }
+    }
+  }
+  return null;
+}
+
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -304,7 +383,12 @@ export async function executeContextTask(taskId: string): Promise<void> {
       const prevRows = await db
         .select()
         .from(businessContexts)
-        .where(eq(businessContexts.versionId, prevVersion.id));
+        .where(
+          and(
+            eq(businessContexts.entityType, "endpoint"),
+            eq(businessContexts.versionId, prevVersion.id),
+          ),
+        );
       const byEndpointId = new Map(prevRows.map((row) => [row.endpointId, row]));
       for (const ep of prevEndpoints) {
         const context = byEndpointId.get(ep.id);
@@ -316,7 +400,12 @@ export async function executeContextTask(taskId: string): Promise<void> {
     const currentRows = await db
       .select()
       .from(businessContexts)
-      .where(eq(businessContexts.versionId, versionId));
+      .where(
+        and(
+          eq(businessContexts.entityType, "endpoint"),
+          eq(businessContexts.versionId, versionId),
+        ),
+      );
     const existingByEndpoint = new Map(currentRows.map((row) => [row.endpointId, row]));
 
     const config = loadConfig().businessContext;
@@ -349,6 +438,8 @@ export async function executeContextTask(taskId: string): Promise<void> {
       ) {
         await db.insert(businessContexts).values({
           id: generateId("context"),
+          entityType: "endpoint",
+          entityId: ep.id,
           endpointId: ep.id,
           versionId,
           capabilityName: prev.context.capabilityName,
@@ -401,6 +492,8 @@ export async function executeContextTask(taskId: string): Promise<void> {
             .insert(businessContexts)
             .values({
               id: generateId("context"),
+              entityType: "endpoint",
+              entityId: ep.id,
               endpointId: ep.id,
               versionId,
               capabilityName: item.context.capabilityName,
@@ -443,12 +536,62 @@ export async function executeContextTask(taskId: string): Promise<void> {
       throw new Error("All endpoints failed to generate context");
     }
 
+    // 仓库级业务画像：LLM 汇总接口级上下文，写入 entity_type='repo'
+    const repoProfile = await generateRepoProfile(versionId, language);
+    if (repoProfile) {
+      await db
+        .insert(businessContexts)
+        .values({
+          id: generateId("context"),
+          entityType: "repo",
+          entityId: task.repoId,
+          versionId,
+          capabilityName: repoProfile.capabilityName,
+          intent: repoProfile.intent,
+          constraints: repoProfile.constraints,
+          sideEffects: repoProfile.sideEffects,
+          usageScenarios: repoProfile.usageScenarios,
+          confidence: repoProfile.confidence,
+          needsReview:
+            repoProfile.needsReview || repoProfile.confidence < minConfidence,
+          generatedBy: "ai",
+        })
+        .onConflictDoUpdate({
+          target: [
+            businessContexts.entityType,
+            businessContexts.entityId,
+            businessContexts.versionId,
+          ],
+          set: {
+            capabilityName: repoProfile.capabilityName,
+            intent: repoProfile.intent,
+            constraints: repoProfile.constraints,
+            sideEffects: repoProfile.sideEffects,
+            usageScenarios: repoProfile.usageScenarios,
+            confidence: repoProfile.confidence,
+            needsReview:
+              repoProfile.needsReview ||
+              repoProfile.confidence < minConfidence,
+            updatedAt: new Date(),
+          },
+        });
+    }
+
+    const profileSummary: RepoProfileSummary | null = repoProfile
+      ? {
+          intent: repoProfile.intent,
+          constraints: repoProfile.constraints,
+          sideEffects: repoProfile.sideEffects,
+          usageScenarios: repoProfile.usageScenarios,
+        }
+      : null;
+
     await buildCapabilitySnapshot(task.repoId, versionId, {
       endpointCount: totalCount,
       generatedCount: generated,
       reusedCount: reused,
       failedCount: failed,
-    });
+    }, profileSummary);
 
     await updateTask(taskId, {
       status: "succeeded",

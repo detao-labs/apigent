@@ -15,20 +15,6 @@
       "when": 1786621100456,
       "tag": "0001_queue_jobs",
       "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1786640000000,
-      "tag": "0002_org_description",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1786640600000,
-      "tag": "0003_version_description",
-      "breakpoints": true
     }
   ]
 }
