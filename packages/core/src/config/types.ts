@@ -245,23 +245,39 @@ export interface KnowledgeGraphConfig {
   enabled: boolean;
 }
 
-export interface RAGConfig {
+export interface SearchStoreConfig {
+  /** Sparse / keyword retrieval backend (V0: PostgreSQL tsvector + GIN) */
+  provider: "pg-fts";
+}
+
+export interface RAGRetrievalConfig {
   /** Retrieval mode: hybrid combines dense+sparse (+KG when enabled) */
   retrievalMode: RetrievalMode;
   /** Fusion method for combining dense + sparse results */
   fusionMethod: FusionMethod;
   /** How many results to keep after coarse ranking, before fine reranking */
   coarseRankTopK: number;
-  /** Reranker configuration */
-  reranker: RerankerConfig;
   /** How many results to return after fine reranking */
   fineRankTopK: number;
+  /** Reranker configuration */
+  reranker: RerankerConfig;
+}
+
+export interface RAGConfig {
   /** Chunk strategy for document splitting */
   chunkStrategy: ChunkStrategy;
+  /** Embedding model — text → vector (shared by ingestion & retrieval) */
+  embedding: EmbeddingConfig;
+  /** Dense vector store backend */
+  vectorStore: VectorStoreConfig;
+  /** Sparse / full-text search backend */
+  searchStore: SearchStoreConfig;
   /** Whether to enable LLM query rewriting before retrieval */
   queryRewrite: boolean;
   /** Cache TTL for rewritten queries (seconds) */
   queryRewriteCacheTtl: number;
+  /** Retrieval & reranking pipeline parameters */
+  retrieval: RAGRetrievalConfig;
   /** Knowledge Graph enhancement (V1+, default disabled) */
   knowledgeGraph: KnowledgeGraphConfig;
 }
@@ -394,25 +410,23 @@ export interface MCPConfig {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// 10. Server
+// 10. Apps — application endpoints
 // ───────────────────────────────────────────────────────────────────
 
-export interface ServerConfig {
-  host: string;
-  port: number;
-  nodeEnv: "development" | "production" | "test";
+export interface AppEndpointConfig {
+  /** Public URL of the app */
+  url: string;
+  /** Runtime log level */
   logLevel: "debug" | "info" | "warn" | "error";
 }
 
-// ───────────────────────────────────────────────────────────────────
-// 11. Webapp URLs
-// ───────────────────────────────────────────────────────────────────
-
-export interface WebappConfig {
-  platformUrl: string;
-  adminUrl: string;
-  apiUrl: string;
+export interface AppsConfig {
+  platform: AppEndpointConfig;
+  admin: AppEndpointConfig;
+  open: AppEndpointConfig;
 }
+
+export type AppName = keyof AppsConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 12. Top-level Apigent Config
@@ -421,26 +435,20 @@ export interface WebappConfig {
 export interface ApigentConfig {
   /** Database configuration */
   database: DatabaseConfig;
-  /** Vector store configuration (which provider + connection) */
-  vectorStore: VectorStoreConfig;
   /** LLM provider + per-flow model selection */
   llm: LLMConfig;
-  /** Embedding provider + model */
-  embedding: EmbeddingConfig;
   /** RAG pipeline configuration */
   rag: RAGConfig;
   /** File / asset storage */
   storage: StorageConfig;
   /** Async task queue */
   queue: QueueConfig;
+  /** Business context generation */
+  businessContext: BusinessContextConfig;
   /** Authentication */
   auth: AuthConfig;
   /** MCP Gateway */
   mcp: MCPConfig;
-  /** Server / runtime */
-  server: ServerConfig;
-  /** Webapp URLs */
-  webapp: WebappConfig;
-  /** Business context generation */
-  businessContext: BusinessContextConfig;
+  /** Application endpoints (platform / admin / open) */
+  apps: AppsConfig;
 }

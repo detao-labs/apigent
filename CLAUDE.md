@@ -96,16 +96,16 @@ The config system is the first (and currently only) implemented module. It has t
 | File             | Role                                                                                            | Public?                                                 |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `types.ts`       | Discriminated unions for every infrastructure component                                         | Yes — all types re-exported                             |
-| `loader.ts`      | Reads `process.env` (with `APIGENT_` prefix), builds typed config objects, manages singleton    | Internal only (`_buildConfigFromEnv`, `setConfig`)      |
+| `loader.ts`      | Builds the base config from hardcoded defaults (no env reads), manages singleton                 | Internal only (`_buildConfigFromDefaults`, `setConfig`) |
 | `file-loader.ts` | Reads `apigent.config.yaml` + calls loader + injects secrets from `.env` → caches via singleton | **Yes — `loadConfig()` is the only public entry point** |
 | `schema.ts`      | Zod schemas mirroring `types.ts`; `loadConfig()` validates the merged config before caching    | Yes — `ApigentConfigSchema` re-exported                 |
-| `defaults.ts`    | Per-provider default model maps and dev defaults                                                | Yes                                                     |
+| `defaults.ts`    | Per-provider default model maps + default RAG/apps config                                        | Yes                                                     |
 
-**Resolution priority:** YAML file > env vars > hardcoded defaults. Secrets (API keys, passwords, URLs) are **never** in defaults or YAML — they come exclusively from `process.env` / `.env` via `injectSecrets()`.
+**Resolution priority:** `apigent.config.yaml` > hardcoded defaults. There are **no env-var scheme overrides** — providers, models, ports and strategies come exclusively from the YAML. Secrets (API keys, passwords, connection URLs) are **never** in defaults or YAML — they come exclusively from `.env` via `injectSecrets()`.
 
 **Notable:** `yaml` is a declared dependency (full YAML 1.2 parsing). `loadConfig()` loads `<rootDir>/.env` into `process.env` (shell env wins), then validates the fully-merged config with the zod `ApigentConfigSchema` — wrong-typed YAML values and unknown provider names fail at startup with a readable error.
 
-**Env var naming convention:** `APIGENT_<CATEGORY>_<KEY>` (e.g., `APIGENT_DATABASE_URL`, `APIGENT_LLM_PROVIDER`, `APIGENT_RAG_COARSE_RANK_TOP_K`). Third-party keys use their standard names (`DASHSCOPE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`).
+**Env var naming convention:** `.env` holds **secrets only** — `APIGENT_<CATEGORY>_<KEY>` (e.g., `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET`) and third-party keys using their standard names (`DASHSCOPE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). Provider/scheme choices live only in `apigent.config.yaml`.
 
 ## Available Commands
 

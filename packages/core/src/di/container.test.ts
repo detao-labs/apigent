@@ -8,7 +8,6 @@ import { MemoryQueueProvider } from "./providers/memory-queue";
 function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
   const base: ApigentConfig = {
     database: { provider: "postgresql", url: "postgresql://localhost:5432/apigent" },
-    vectorStore: { provider: "memory" },
     llm: {
       provider: "qwen",
       apiKey: "sk-test",
@@ -20,28 +19,24 @@ function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
         editing: "qwen3.7-plus",
       },
     },
-    embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
     rag: {
-      retrievalMode: "hybrid",
-      fusionMethod: "rrf",
-      coarseRankTopK: 20,
-      reranker: { provider: "qwen", apiKey: "sk-test", model: "qwen3-rerank" },
-      fineRankTopK: 10,
       chunkStrategy: "hierarchical",
+      embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
+      vectorStore: { provider: "memory" },
+      searchStore: { provider: "pg-fts" },
       queryRewrite: true,
       queryRewriteCacheTtl: 3600,
+      retrieval: {
+        retrievalMode: "hybrid",
+        fusionMethod: "rrf",
+        coarseRankTopK: 20,
+        fineRankTopK: 10,
+        reranker: { provider: "qwen", apiKey: "sk-test", model: "qwen3-rerank" },
+      },
       knowledgeGraph: { enabled: false },
     },
     storage: { provider: "local", basePath: "./data/uploads" },
     queue: { provider: "memory" },
-    auth: { secret: "s", providers: ["credentials"], sessionMaxAge: 604800 },
-    mcp: { path: "/mcp", transport: "streamable-http" },
-    server: { host: "0.0.0.0", port: 3002, nodeEnv: "development", logLevel: "info" },
-    webapp: {
-      platformUrl: "http://localhost:3000",
-      adminUrl: "http://localhost:3001",
-      apiUrl: "http://localhost:3002",
-    },
     businessContext: {
       autoGenerate: false,
       batchSize: 5,
@@ -49,6 +44,13 @@ function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
       minConfidence: 0.6,
       language: "auto",
       skipHumanEdited: true,
+    },
+    auth: { secret: "s", providers: ["credentials"], sessionMaxAge: 604800 },
+    mcp: { path: "/mcp", transport: "streamable-http" },
+    apps: {
+      platform: { url: "http://localhost:3000", logLevel: "info" },
+      admin: { url: "http://localhost:3001", logLevel: "info" },
+      open: { url: "http://localhost:3002", logLevel: "info" },
     },
   };
   return { ...base, ...overrides };
@@ -63,7 +65,9 @@ describe("Container", () => {
   });
 
   it("fails fast for vector store providers without an implementation", () => {
-    const container = new Container(makeConfig({ vectorStore: { provider: "pgvector", indexType: "hnsw" } }));
+    const config = makeConfig();
+    config.rag.vectorStore = { provider: "pgvector", indexType: "hnsw" };
+    const container = new Container(config);
     expect(() => container.getVectorStore()).toThrow(/not implemented/);
   });
 

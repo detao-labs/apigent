@@ -4,9 +4,9 @@
   "private": true,
   "description": "Apigent Platform Webapp — Next.js (SSR)",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
+    "dev": "tsx scripts/start.ts --dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "start": "tsx scripts/start.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "format": "prettier --write src/",

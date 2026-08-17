@@ -90,7 +90,7 @@ export class Container {
       const factory = this.resolve(
         "Vector store",
         this.vectorStoreFactories,
-        this.config.vectorStore.provider,
+        this.config.rag.vectorStore.provider,
         "Use 'provider: memory' for local development.",
       );
       this._vectorStore = factory(this.config);
@@ -110,7 +110,7 @@ export class Container {
   getEmbedding(): EmbeddingProvider {
     if (!this._embedding) {
       throw new Error(
-        `Embedding provider '${this.config.embedding.provider}' is not implemented yet.`,
+        `Embedding provider '${this.config.rag.embedding.provider}' is not implemented yet.`,
       );
     }
     return this._embedding;

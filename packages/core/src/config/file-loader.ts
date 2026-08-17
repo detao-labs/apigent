@@ -6,13 +6,11 @@
 // Merges them into a typed ApigentConfig.
 //
 // Priority:
-//   1. apigent.config.yaml  (if exists)
-//   2. apigent.config.yml   (if exists)
-//   3. Environment variables (as fallback for any missing field)
-//   4. Hardcoded defaults
+//   1. apigent.config.yaml / apigent.config.yml (scheme choices — providers, models, ports, strategies)
+//   2. Hardcoded defaults
 //
-// Secrets (API keys, passwords) ALWAYS come from process.env / .env
-// — the config file references them by name, never inlines them.
+// Secrets (API keys, passwords, connection URLs) ALWAYS come from .env
+// and are injected by name — the config file never inlines them.
 // ═══════════════════════════════════════════════════════════════════
 
 import * as fs from "node:fs";
@@ -20,7 +18,7 @@ import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { ApigentConfig } from "./types";
 import { ApigentConfigSchema } from "./schema";
-import { _buildConfigFromEnv, getConfig, resetConfig, setConfig } from "./loader";
+import { _buildConfigFromDefaults, getConfig, resetConfig, setConfig } from "./loader";
 
 // ───────────────────────────────────────────────────────────────────
 // Config file discovery
@@ -132,22 +130,23 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
     claude: "ANTHROPIC_API_KEY",
     openai: "OPENAI_API_KEY",
   };
-  const embEnvKey = embApiKeyMap[config.embedding.provider];
+  const embEnvKey = embApiKeyMap[config.rag.embedding.provider];
   if (embEnvKey && process.env[embEnvKey]) {
-    (config.embedding as unknown as Record<string, unknown>).apiKey = process.env[embEnvKey];
+    (config.rag.embedding as unknown as Record<string, unknown>).apiKey =
+      process.env[embEnvKey];
   }
-  if (config.embedding.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
-    (config.embedding as unknown as Record<string, unknown>).apiKey =
+  if (config.rag.embedding.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
+    (config.rag.embedding as unknown as Record<string, unknown>).apiKey =
       process.env.APIGENT_COHERE_API_KEY;
   }
 
   // Reranker — Cohere API key
-  if (config.rag.reranker.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
-    (config.rag.reranker as unknown as Record<string, unknown>).apiKey =
+  if (config.rag.retrieval.reranker.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
+    (config.rag.retrieval.reranker as unknown as Record<string, unknown>).apiKey =
       process.env.APIGENT_COHERE_API_KEY;
   }
-  if (config.rag.reranker.provider === "qwen" && process.env.DASHSCOPE_API_KEY) {
-    (config.rag.reranker as unknown as Record<string, unknown>).apiKey =
+  if (config.rag.retrieval.reranker.provider === "qwen" && process.env.DASHSCOPE_API_KEY) {
+    (config.rag.retrieval.reranker as unknown as Record<string, unknown>).apiKey =
       process.env.DASHSCOPE_API_KEY;
   }
 
@@ -182,24 +181,24 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   }
 
   // Vector store secrets
-  if (config.vectorStore.provider === "milvus") {
+  if (config.rag.vectorStore.provider === "milvus") {
     if (process.env.APIGENT_MILVUS_USER)
-      (config.vectorStore as unknown as Record<string, unknown>).user =
+      (config.rag.vectorStore as unknown as Record<string, unknown>).user =
         process.env.APIGENT_MILVUS_USER;
     if (process.env.APIGENT_MILVUS_PASSWORD)
-      (config.vectorStore as unknown as Record<string, unknown>).password =
+      (config.rag.vectorStore as unknown as Record<string, unknown>).password =
         process.env.APIGENT_MILVUS_PASSWORD;
   }
-  if (config.vectorStore.provider === "qdrant" && process.env.APIGENT_QDRANT_API_KEY) {
-    (config.vectorStore as unknown as Record<string, unknown>).apiKey =
+  if (config.rag.vectorStore.provider === "qdrant" && process.env.APIGENT_QDRANT_API_KEY) {
+    (config.rag.vectorStore as unknown as Record<string, unknown>).apiKey =
       process.env.APIGENT_QDRANT_API_KEY;
   }
-  if (config.vectorStore.provider === "weaviate" && process.env.APIGENT_WEAVIATE_API_KEY) {
-    (config.vectorStore as unknown as Record<string, unknown>).apiKey =
+  if (config.rag.vectorStore.provider === "weaviate" && process.env.APIGENT_WEAVIATE_API_KEY) {
+    (config.rag.vectorStore as unknown as Record<string, unknown>).apiKey =
       process.env.APIGENT_WEAVIATE_API_KEY;
   }
-  if (config.vectorStore.provider === "pinecone" && process.env.APIGENT_PINECONE_API_KEY) {
-    (config.vectorStore as unknown as Record<string, unknown>).apiKey =
+  if (config.rag.vectorStore.provider === "pinecone" && process.env.APIGENT_PINECONE_API_KEY) {
+    (config.rag.vectorStore as unknown as Record<string, unknown>).apiKey =
       process.env.APIGENT_PINECONE_API_KEY;
   }
 
@@ -310,8 +309,8 @@ export function loadConfig(rootDir?: string): ApigentConfig {
   // available even when the runtime didn't source them beforehand.
   loadDotEnv(rootDir);
 
-  // 1. Build base from env vars
-  const baseConfig = _buildConfigFromEnv();
+  // 1. Build base from hardcoded defaults
+  const baseConfig = _buildConfigFromDefaults();
 
   // 2. Try to read YAML config file
   const filePath = findConfigFile(rootDir);
@@ -327,11 +326,19 @@ export function loadConfig(rootDir?: string): ApigentConfig {
   // 3. Inject secrets from .env
   mergedConfig = injectSecrets(mergedConfig);
 
-  // 4. Validate the fully-merged config before caching — wrong-typed YAML
+  // 4. Required secrets — fail fast with a readable error
+  if (!mergedConfig.database.url) {
+    throw new Error("Missing required secret: APIGENT_DATABASE_URL — set it in .env");
+  }
+  if (!mergedConfig.auth.secret) {
+    throw new Error("Missing required secret: APIGENT_AUTH_SECRET — set it in .env");
+  }
+
+  // 5. Validate the fully-merged config before caching — wrong-typed YAML
   //    values and invalid provider names fail fast with a readable error.
   const validatedConfig = ApigentConfigSchema.parse(mergedConfig);
 
-  // 5. Cache via shared singleton
+  // 6. Cache via shared singleton
   setConfig(validatedConfig);
   return validatedConfig;
 }

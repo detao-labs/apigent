@@ -49,6 +49,8 @@ export type {
   NoRerankerConfig,
   RerankerConfig,
   KnowledgeGraphConfig,
+  SearchStoreConfig,
+  RAGRetrievalConfig,
   RAGConfig,
   // Storage
   StorageProviderType,
@@ -70,10 +72,10 @@ export type {
   // MCP
   MCPTransport,
   MCPConfig,
-  // Server
-  ServerConfig,
-  // Webapp
-  WebappConfig,
+  // Apps
+  AppEndpointConfig,
+  AppsConfig,
+  AppName,
   // Business Context
   BusinessContextConfig,
   // Top-level
@@ -89,10 +91,11 @@ export {
   DEFAULT_GEMINI_MODELS,
   DEFAULT_OLLAMA_MODELS,
   DEFAULT_RAG_CONFIG,
-  DEFAULT_SERVER_CONFIG,
-  DEV_DEFAULTS,
+  DEFAULT_APPS_CONFIG,
 } from "./defaults";
 
 // ── Public API — the only way to load config ──────────────────────
 
 export { loadConfig, findConfigFile, getConfig, resetConfig } from "./file-loader";
+export { getAppConfig } from "./apps";
+export type { ResolvedAppConfig } from "./apps";

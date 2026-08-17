@@ -1,77 +1,41 @@
 # ═══════════════════════════════════════════════════════════════════
-# Apigent — Configuration (SCHEME CHOICES)
+# Apigent — Configuration (SCHEME CHOICES) — EXAMPLE
 # ═══════════════════════════════════════════════════════════════════
 # Copy to apigent.config.yaml and customize:
 #   cp apigent.config.example.yaml apigent.config.yaml
 #
-# ℹ️  This file contains scheme choices — which provider, which model,
-#     which strategy to use. Secrets (API keys, passwords) go in .env
+# ℹ️  Scheme choices only — provider / model / port / strategy.
+#     Secrets (API keys, passwords, tokens, connection strings) go in .env.
 #
-# Priority: apigent.config.yaml > apigent.config.yml > env vars > defaults
+# Priority: apigent.config.yaml > hardcoded defaults
+#
+# Status legend:
+#   ✅ implemented & usable
+#   🟡 config slot defined — runtime wiring pending
+#   ⏳ planned / not implemented yet
+#
+# ⚠️  When switching provider, remove the fields of other providers in the same block
+#     (config validation is strict — extra keys are rejected).
 # ═══════════════════════════════════════════════════════════════════
 
 # ───────────────────────────────────────────────────────────────────
 # 1. Database — relational store (Drizzle ORM)
 # ───────────────────────────────────────────────────────────────────
 database:
-  # "postgresql" only — V0 schema is built on drizzle-orm/pg-core.
-  # MySQL / SQLite are not supported yet.
-  # Connection URL comes from .env: APIGENT_DATABASE_URL
+  # "postgresql" ✅ | "mysql" ⏳ (planned — needs standalone vector / full-text / queue services)
   provider: postgresql
 
 # ───────────────────────────────────────────────────────────────────
-# 2. Vector Store — semantic / embedding search
-# ───────────────────────────────────────────────────────────────────
-vectorStore:
-  # "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma" | "memory"
-  provider: pgvector
-
-  # --- Memory (local development / tests only) ---
-  # provider: memory
-
-  # --- pgvector --- (uses same PostgreSQL, no extra config needed)
-  # Index type: "ivfflat" | "hnsw"
-  indexType: ivfflat
-
-  # --- Milvus ---
-  # host: localhost
-  # port: 19530
-  # collection: apigent_embeddings
-  # user / password come from .env
-
-  # --- Qdrant ---
-  # url: http://localhost:6333
-  # collection: apigent_embeddings
-  # apiKey from .env: APIGENT_QDRANT_API_KEY
-
-  # --- Weaviate ---
-  # url: http://localhost:8080
-  # apiKey from .env: APIGENT_WEAVIATE_API_KEY
-
-  # --- Pinecone ---
-  # environment: us-east-1
-  # index: apigent-embeddings
-  # apiKey from .env: APIGENT_PINECONE_API_KEY
-
-  # --- Chroma ---
-  # url: http://localhost:8000
-  # collection: apigent_embeddings
-
-# ───────────────────────────────────────────────────────────────────
-# 3. LLM — large language model provider + per-flow model selection
+# 2. LLM — large language model provider + per-flow model selection
 # ───────────────────────────────────────────────────────────────────
 llm:
-  # "qwen" | "claude" | "openai" | "gemini" | "ollama"
-  # API key comes from .env (DASHSCOPE_API_KEY / ANTHROPIC_API_KEY / etc.)
+  # "qwen" ✅ | "openai" ✅ | "claude" ⏳（code also supports "ollama" ✅）
+  # Implemented via packages/server/src/ai/model.ts (AI SDK) — used by
+  # business-context generation and the agent runtime.
   provider: qwen
 
-  # --- Per-flow model selection ---
-  # Each flow can use a different model:
-  #   - default:            fallback for any flow not specified
-  #   - business_context:   analyze APIs → generate business descriptions
-  #   - query_rewrite:      rewrite user search queries (cheap/fast model ok)
-  #   - rag_answer:         generate final RAG answer from retrieved context
-  #   - editing:            AI-assisted description editing (user-triggered)
+  # Per-flow model selection (each flow can use a different model)
+  # ✅ business_context flow is actively used; other flows are ready via the adapter
   models:
     default: qwen3.7-plus
     business_context: qwen3.7-plus
@@ -79,7 +43,7 @@ llm:
     rag_answer: qwen3.7-plus
     editing: qwen3.7-plus
 
-  # --- Example: switch to Claude ---
+  # --- Switch to Claude (⏳ not implemented yet) ---
   # provider: claude
   # models:
   #   default: claude-sonnet-5
@@ -88,7 +52,7 @@ llm:
   #   rag_answer: claude-sonnet-5
   #   editing: claude-sonnet-5
 
-  # --- Example: switch to OpenAI ---
+  # --- Switch to OpenAI (⏳ not implemented yet) ---
   # provider: openai
   # models:
   #   default: gpt-4o
@@ -97,202 +61,125 @@ llm:
   #   rag_answer: gpt-4o
   #   editing: gpt-4o
 
-  # --- Example: switch to Ollama (local) ---
-  # provider: ollama
-  # baseUrl: http://localhost:11434
-  # models:
-  #   default: llama3.1
-  #   business_context: llama3.1
-  #   query_rewrite: llama3.1
-  #   rag_answer: llama3.1
-  #   editing: llama3.1
-
 # ───────────────────────────────────────────────────────────────────
-# 4. Embedding — text → vector for semantic search
-# ───────────────────────────────────────────────────────────────────
-embedding:
-  # "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed"
-  # API key comes from .env (uses same key as LLM for qwen/claude/openai)
-  provider: qwen
-  model: text-embedding-v4
-
-  # --- Claude ---
-  # provider: claude
-  # model: claude-embedding
-
-  # --- OpenAI ---
-  # provider: openai
-  # model: text-embedding-3-small
-  #   text-embedding-3-small  → dimension 1536
-  #   text-embedding-3-large  → dimension 3072
-
-  # --- Cohere ---
-  # provider: cohere
-  # model: embed-multilingual-v3.0
-  # API key from .env: APIGENT_COHERE_API_KEY
-
-  # --- Local BGE (Chinese/English bilingual) ---
-  # provider: local-bge
-  # model: BAAI/bge-m3         # dimension 1024
-  # device: cpu                # "cpu" | "cuda"
-
-  # --- Local FastEmbed ---
-  # provider: local-fastembed
-  # model: BAAI/bge-small-en-v1.5
-  # device: cpu
-
-# ───────────────────────────────────────────────────────────────────
-# 5. RAG — retrieval & ranking pipeline
+# 3. RAG — retrieval & ranking pipeline
 # ───────────────────────────────────────────────────────────────────
 rag:
-  # Retrieval mode: "hybrid" | "dense-only" | "sparse-only" | "kg-only"
-  retrievalMode: hybrid
+  # 3.1 Chunking — document splitting strategy
+  chunkStrategy: hierarchical # "hierarchical" | "fixed" — 🟡 config slot defined, chunking pipeline not wired yet
 
-  # Fusion method for hybrid retrieval: "rrf" | "linear"
-  fusionMethod: rrf
+  # 3.2 Vectorization & storage — dense / sparse backends
+  embedding:
+    # "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed" — ⏳ not implemented yet
+    provider: qwen
+    model: text-embedding-v4 # 🟡 effective once an embedding provider is implemented
 
-  # Coarse rank — how many results before reranking
-  coarseRankTopK: 20
+  vectorStore:
+    # "memory" ✅ (local dev / tests) | "pgvector" | "milvus" | "chroma" ⏳ not implemented yet
+    provider: pgvector
+    indexType: ivfflat # "ivfflat" | "hnsw"
 
-  # Fine rank — how many results returned to user
-  fineRankTopK: 10
+    # --- Milvus (standalone service, ⏳ not implemented yet) ---
+    # provider: milvus
+    # host: localhost
+    # port: 19530
+    # collection: apigent_embeddings
+    # user / password come from .env
 
-  # Chunk strategy: "hierarchical" | "fixed"
-  chunkStrategy: hierarchical
+    # --- Chroma (standalone service, ⏳ not implemented yet) ---
+    # provider: chroma
+    # url: http://localhost:8000
+    # collection: apigent_embeddings
 
-  # Query rewriting (LLM rewrites user query for better retrieval)
-  queryRewrite: true
+  searchStore:
+    # "pg-fts" 🟡 config slot defined — sparse retrieval not wired to this setting yet
+    provider: pg-fts
+
+  # 3.3 Query rewriting — LLM query rewriting
+  queryRewrite: true # 🟡 requires an LLM provider implementation
   queryRewriteCacheTtl: 3600 # seconds (1 hour)
 
-  # Knowledge Graph enhancement (V1+, default disabled)
-  # When enabled, hybrid retrieval adds graph-traversal recall
+  # 3.4 Retrieval & reranking
+  retrieval:
+    # 🟡 retrieval pipeline not implemented yet
+    retrievalMode: hybrid # "hybrid" | "dense-only" | "sparse-only" | "kg-only"
+    fusionMethod: rrf # "rrf" | "linear"
+    coarseRankTopK: 20
+    fineRankTopK: 10
+    reranker:
+      provider: qwen # "qwen" | "bge-reranker" | "cohere" | "none" — ⏳ not implemented yet
+      model: qwen3-rerank
+
+  # 3.5 Knowledge graph enhancement (default disabled)
   knowledgeGraph:
-    enabled: false
-
-  # Reranker: "qwen" | "bge-reranker" | "cohere" | "none"
-  reranker:
-    provider: qwen
-    model: qwen3-rerank
-    # API key from .env: DASHSCOPE_API_KEY
-
-  # --- Local BGE reranker (self-hosted) ---
-  # reranker:
-  #   provider: bge-reranker
-  #   model: BAAI/bge-reranker-v2-m3
-  #   device: cpu
-
-  # --- Cohere reranker ---
-  # reranker:
-  #   provider: cohere
-  #   model: rerank-multilingual-v3.0
-  #   API key from .env: APIGENT_COHERE_API_KEY
-
-  # --- No reranker ---
-  # reranker:
-  #   provider: none
+    enabled: false # ⏳ planned (V1+)
 
 # ───────────────────────────────────────────────────────────────────
-# 6. Storage — file / asset storage provider
+# 4. Storage — file / asset storage provider
 # ───────────────────────────────────────────────────────────────────
 storage:
-  # "local" | "s3" | "minio" | "gcs"
+  # "local" ✅ | "s3" ⏳ (MinIO is s3 + endpoint)
   provider: local
   basePath: ./data/uploads
 
-  # --- S3 ---
+  # --- S3 (⏳ not implemented yet) ---
   # provider: s3
   # bucket: apigent-uploads
   # region: us-east-1
-  # Credentials from .env: APIGENT_STORAGE_S3_ACCESS_KEY_ID / SECRET_ACCESS_KEY
-
-  # --- MinIO (S3-compatible) ---
-  # provider: minio
-  # bucket: apigent-uploads
-  # region: us-east-1
-  # endpoint: http://localhost:9000
-
-  # --- Google Cloud Storage ---
-  # provider: gcs
-  # bucket: apigent-uploads
-  # projectId: my-project
+  # accessKeyId / secretAccessKey come from .env
 
 # ───────────────────────────────────────────────────────────────────
-# 7. Queue — async task / job queue
+# 5. Queue — async task / job queue
 # ───────────────────────────────────────────────────────────────────
 queue:
-  # "postgres"（V0 默认，复用现有 PostgreSQL，无需 Redis）
-  # | "bullmq" | "rabbitmq" | "sqs" | "memory"（测试）
+  # "postgres" ✅ (V0 default, reuses the database connection) | "memory" ✅ (tests only) | "bullmq" ⏳ (Redis)
   provider: postgres
 
-  # --- Postgres --- (uses the same database connection as `database`)
-
-  # --- BullMQ (Redis) ---
+  # --- BullMQ (⏳ not implemented yet) ---
   # provider: bullmq
   # Redis URL from .env: APIGENT_REDIS_URL
 
-  # --- RabbitMQ ---
-  # provider: rabbitmq
-  # URL from .env: APIGENT_RABBITMQ_URL
-
-  # --- AWS SQS ---
-  # provider: sqs
-  # region: us-east-1
-  # queuePrefix: apigent-
-
-  # --- In-memory (dev / testing only) ---
-  # provider: memory
-
 # ───────────────────────────────────────────────────────────────────
-# 7.5 Business Context — 业务上下文生成
+# 6. Business Context — business context generation
 # ───────────────────────────────────────────────────────────────────
 businessContext:
-  # 导入成功后自动生成业务上下文（默认关闭；手动触发始终可用）
+  # ✅ end-to-end — generation calls createAIModel("business_context")
+  # (qwen works today with a valid DASHSCOPE_API_KEY in .env)
   autoGenerate: false
-  # 每批送 LLM 的接口数
   batchSize: 5
-  # 并行批数
   concurrency: 2
-  # 低于此置信度标记 needs_review
   minConfidence: 0.6
-  # 生成语言：auto（跟随 spec 描述语言）| zh | en
-  language: auto
-  # 重新生成时跳过人工编辑过的接口
+  language: auto # "auto" | "zh" | "en"
   skipHumanEdited: true
 
 # ───────────────────────────────────────────────────────────────────
-# 8. Auth — authentication & SSO
+# 7. Auth — authentication & SSO
 # ───────────────────────────────────────────────────────────────────
 auth:
-  # Enabled providers: [credentials, github, google]
+  # "credentials" ✅ | "github" ⏳ | "google" ⏳
   providers:
     - credentials
-    # - github
-    # - google
-
-  # Session max age in seconds (default 7 days)
-  sessionMaxAge: 604800
-
-  # Secrets from .env: APIGENT_AUTH_SECRET, APIGENT_AUTH_GITHUB_*, APIGENT_AUTH_GOOGLE_*
 
 # ───────────────────────────────────────────────────────────────────
-# 9. MCP Gateway
+# 8. MCP Gateway
 # ───────────────────────────────────────────────────────────────────
 mcp:
+  # 🟡 config slot defined — MCP endpoint not mounted in apps/open yet
   path: /mcp
   transport: streamable-http
 
 # ───────────────────────────────────────────────────────────────────
-# 10. Server
+# 9. Apps — organized by actual application (server is a shared module, not a standalone service)
 # ───────────────────────────────────────────────────────────────────
-server:
-  host: "0.0.0.0"
-  port: 3002 # API server port (webapp runs on 3000, admin on 3001)
-  logLevel: info # "debug" | "info" | "warn" | "error"
-
-# ───────────────────────────────────────────────────────────────────
-# 11. Webapp URLs (for CORS, redirects, internal calls)
-# ───────────────────────────────────────────────────────────────────
-webapp:
-  platformUrl: http://localhost:3000
-  adminUrl: http://localhost:3001
-  apiUrl: http://localhost:3002
+apps:
+  # ✅ ports are loaded from url by each app at startup;
+  #    logLevel drives request logging in apps/open
+  platform:
+    url: http://localhost:3000 # Next.js platform app
+    logLevel: info # "debug" | "info" | "warn" | "error"
+  admin:
+    url: http://localhost:3001 # Next.js admin app
+    logLevel: info
+  open:
+    url: http://localhost:3002 # Open API Gateway (Hono + MCP)
+    logLevel: info

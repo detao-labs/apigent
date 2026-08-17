@@ -1262,8 +1262,8 @@ Apigent 使用**双层配置系统**，方便开发环境和部署环境之间�
 
 | 层           | 文件                  | 放什么                                                                   | 示例                                                               |
 | ------------ | --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释）                 | `llm.provider: qwen`、`rag.retrievalMode: hybrid`                  |
-| **密钥**     | `.env`                | API key、密码、连接字符串（`APIGENT_` 前缀）                             | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
+| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释）                 | `llm.provider: qwen`、`rag.retrieval.retrievalMode: hybrid`        |
+| **密钥**     | `.env`                | 仅敏感数据：API key、密码、连接字符串。不再提供任何 provider/方案选择环境变量——方案选择一律在 `apigent.config.yaml` | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
 | **编程配置** | `apigent.config.ts`   | 自定义 provider 工厂、高级配置（**规划中，V0 未实现**；大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册 |
 
 **默认工作流 — apigent.config.yaml + .env（95% 用户）：**
@@ -1275,26 +1275,39 @@ llm:
   provider: qwen
   models:
     default: qwen3.7-plus
+    business_context: qwen3.7-plus
     query_rewrite: qwen3.7-flash
     rag_answer: qwen3.7-plus
-
-embedding:
-  provider: qwen
-  model: text-embedding-v4
+    editing: qwen3.7-plus
 
 rag:
-  retrievalMode: hybrid
-  reranker:
+  chunkStrategy: hierarchical
+  embedding:
     provider: qwen
-    model: qwen3-rerank
+    model: text-embedding-v4
+  vectorStore:
+    provider: pgvector
+    indexType: ivfflat
+  searchStore:
+    provider: pg-fts
+  queryRewrite: true
+  retrieval:
+    retrievalMode: hybrid
+    fusionMethod: rrf
+    coarseRankTopK: 20
+    fineRankTopK: 10
+    reranker:
+      provider: qwen
+      model: qwen3-rerank
+  knowledgeGraph:
+    enabled: false
 ```
 
 `.env`（仅密钥）：
 
 ```bash
 DASHSCOPE_API_KEY=sk-your-dashscope-key-here
-APIGENT_DATABASE_URL=postgresql://localhost:5432/apigent_dev
-APIGENT_REDIS_URL=redis://localhost:6379
+APIGENT_DATABASE_URL=postgresql://localhost:5433/apigent
 APIGENT_AUTH_SECRET=your-secret-here
 ```
 
@@ -1323,7 +1336,10 @@ const base = loadConfig();
 
 const config: ApigentConfig = {
   ...base,
-  vectorStore: () => new MyCustomVectorStore({/* ... */}),
+  rag: {
+    ...base.rag,
+    vectorStore: () => new MyCustomVectorStore({/* ... */}),
+  },
 };
 
 export default config;
@@ -1341,18 +1357,19 @@ llm:
     default: gpt-4o
     query_rewrite: gpt-4o-mini
 
-embedding:
-  provider: openai
-  model: text-embedding-3-small
-
-vectorStore:
-  provider: milvus
-  host: milvus-prod.internal
-  port: 19530
-
 rag:
-  reranker:
-    provider: cohere
+  embedding:
+    provider: openai
+    model: text-embedding-3-small
+  vectorStore:
+    provider: milvus
+    host: milvus-prod.internal
+    port: 19530
+  searchStore:
+    provider: pg-fts
+  retrieval:
+    reranker:
+      provider: cohere
 ```
 
 ```bash
@@ -1378,7 +1395,7 @@ export class Container {
 
   getVectorStore(): VectorStore {
     if (!this.instances.has("vectorStore")) {
-      this.instances.set("vectorStore", this.config.vectorStore());
+      this.instances.set("vectorStore", this.config.rag.vectorStore());
     }
     return this.instances.get("vectorStore") as VectorStore;
   }

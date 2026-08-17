@@ -221,16 +221,31 @@ export const RerankerConfigSchema = z.discriminatedUnion("provider", [
     .strict(),
 ]);
 
-export const RAGConfigSchema = z
+export const SearchStoreConfigSchema = z
+  .object({
+    provider: z.literal("pg-fts"),
+  })
+  .strict();
+
+export const RAGRetrievalConfigSchema = z
   .object({
     retrievalMode: z.enum(["hybrid", "dense-only", "sparse-only", "kg-only"]),
     fusionMethod: z.enum(["rrf", "linear"]),
     coarseRankTopK: z.number().int(),
-    reranker: RerankerConfigSchema,
     fineRankTopK: z.number().int(),
+    reranker: RerankerConfigSchema,
+  })
+  .strict();
+
+export const RAGConfigSchema = z
+  .object({
     chunkStrategy: z.enum(["hierarchical", "fixed"]),
+    embedding: EmbeddingConfigSchema,
+    vectorStore: VectorStoreConfigSchema,
+    searchStore: SearchStoreConfigSchema,
     queryRewrite: z.boolean(),
     queryRewriteCacheTtl: z.number().int(),
+    retrieval: RAGRetrievalConfigSchema,
     knowledgeGraph: z
       .object({
         enabled: z.boolean(),
@@ -343,27 +358,21 @@ export const MCPConfigSchema = z
   .strict();
 
 // ───────────────────────────────────────────────────────────────────
-// 10. Server
+// 10. Apps — application endpoints
 // ───────────────────────────────────────────────────────────────────
 
-export const ServerConfigSchema = z
+export const AppEndpointConfigSchema = z
   .object({
-    host: z.string(),
-    port: z.number().int(),
-    nodeEnv: z.enum(["development", "production", "test"]),
+    url: z.string(),
     logLevel: z.enum(["debug", "info", "warn", "error"]),
   })
   .strict();
 
-// ───────────────────────────────────────────────────────────────────
-// 11. Webapp URLs
-// ───────────────────────────────────────────────────────────────────
-
-export const WebappConfigSchema = z
+export const AppsConfigSchema = z
   .object({
-    platformUrl: z.string(),
-    adminUrl: z.string(),
-    apiUrl: z.string(),
+    platform: AppEndpointConfigSchema,
+    admin: AppEndpointConfigSchema,
+    open: AppEndpointConfigSchema,
   })
   .strict();
 
@@ -397,17 +406,14 @@ export const BusinessContextConfigSchema = z
 export const ApigentConfigSchema = z
   .object({
     database: DatabaseConfigSchema,
-    vectorStore: VectorStoreConfigSchema,
     llm: LLMConfigSchema,
-    embedding: EmbeddingConfigSchema,
     rag: RAGConfigSchema,
     storage: StorageConfigSchema,
     queue: QueueConfigSchema,
+    businessContext: BusinessContextConfigSchema,
     auth: AuthConfigSchema,
     mcp: MCPConfigSchema,
-    server: ServerConfigSchema,
-    webapp: WebappConfigSchema,
-    businessContext: BusinessContextConfigSchema,
+    apps: AppsConfigSchema,
   })
   .strict();
 

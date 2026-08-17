@@ -2,15 +2,14 @@
 // Apigent Config — Default Values (development environment)
 // ═══════════════════════════════════════════════════════════════════
 //
-// These defaults are designed for local development.
-// In production, most values are overridden via apigent.config.yaml,
-// environment variables (see .env.example), or apigent.config.ts.
+// These defaults are designed for local development. In production,
+// values are overridden via apigent.config.yaml.
 //
 // IMPORTANT: Defaults must NEVER contain secrets.
-// Secrets come exclusively from process.env / .env.
+// Secrets come exclusively from .env (see .env.example).
 // ═══════════════════════════════════════════════════════════════════
 
-import type { ApigentConfig, LLMFlowModelMap, RAGConfig, ServerConfig } from "./types";
+import type { AppsConfig, LLMFlowModelMap, RAGConfig } from "./types";
 
 // ───────────────────────────────────────────────────────────────────
 // LLM — per-flow model defaults (Claude)
@@ -77,39 +76,28 @@ export const DEFAULT_OLLAMA_MODELS: LLMFlowModelMap = {
 // ───────────────────────────────────────────────────────────────────
 
 export const DEFAULT_RAG_CONFIG: RAGConfig = {
-  retrievalMode: "hybrid",
-  fusionMethod: "rrf",
-  coarseRankTopK: 20,
-  reranker: { provider: "qwen", apiKey: "", model: "qwen3-rerank" },
-  fineRankTopK: 10,
   chunkStrategy: "hierarchical",
+  embedding: { provider: "qwen", apiKey: "", model: "text-embedding-v4" },
+  vectorStore: { provider: "pgvector", indexType: "ivfflat" },
+  searchStore: { provider: "pg-fts" },
   queryRewrite: true,
   queryRewriteCacheTtl: 3600,
+  retrieval: {
+    retrievalMode: "hybrid",
+    fusionMethod: "rrf",
+    coarseRankTopK: 20,
+    fineRankTopK: 10,
+    reranker: { provider: "qwen", apiKey: "", model: "qwen3-rerank" },
+  },
   knowledgeGraph: { enabled: false },
 };
 
 // ───────────────────────────────────────────────────────────────────
-// Server — default
+// Apps — default endpoints (server is a shared module, no standalone service)
 // ───────────────────────────────────────────────────────────────────
 
-/** API server port — must differ from Next.js webapp ports (3000, 3001) */
-export const DEFAULT_SERVER_CONFIG: ServerConfig = {
-  host: "0.0.0.0",
-  port: 3002,
-  nodeEnv: "development",
-  logLevel: "info",
-};
-
-// ───────────────────────────────────────────────────────────────────
-// Top-level defaults (dev environment)
-// ───────────────────────────────────────────────────────────────────
-
-/**
- * Minimal dev config. This is NOT a complete ApigentConfig —
- * the config loader fills in missing values from environment variables.
- * Use {@link loadConfig} to get a fully-resolved config.
- */
-export const DEV_DEFAULTS: Partial<ApigentConfig> = {
-  server: DEFAULT_SERVER_CONFIG,
-  rag: DEFAULT_RAG_CONFIG,
+export const DEFAULT_APPS_CONFIG: AppsConfig = {
+  platform: { url: "http://localhost:3000", logLevel: "info" },
+  admin: { url: "http://localhost:3001", logLevel: "info" },
+  open: { url: "http://localhost:3002", logLevel: "info" },
 };

@@ -76,10 +76,19 @@ describe("loadConfig — .env loading", () => {
     process.env.APIGENT_AUTH_SECRET = "shell-secret";
     fs.writeFileSync(
       path.join(dir, "apigent.config.yaml"),
-      "server:\n  port: \"not-a-number\"\n",
+      [
+        "apps:",
+        "  platform:",
+        "    url: 123",
+        "  admin:",
+        "    url: http://localhost:3001",
+        "  open:",
+        "    url: http://localhost:3002",
+        "",
+      ].join("\n"),
     );
 
-    expect(() => loadConfig(dir)).toThrow(/server/);
+    expect(() => loadConfig(dir)).toThrow(/apps/);
   });
 
   it("rejects unknown provider names coming from YAML", () => {
@@ -107,10 +116,15 @@ describe("loadConfig — .env loading", () => {
     process.env.APIGENT_AUTH_SECRET = "shell-secret";
     fs.writeFileSync(
       path.join(dir, "apigent.config.yaml"),
-      "webapp:\n  platformUrl: \"http://localhost:3000/#/apis\"\n",
+      [
+        "apps:",
+        "  platform:",
+        "    url: \"http://localhost:3000/#/apis\"",
+        "",
+      ].join("\n"),
     );
 
     const config = loadConfig(dir);
-    expect(config.webapp.platformUrl).toBe("http://localhost:3000/#/apis");
+    expect(config.apps.platform.url).toBe("http://localhost:3000/#/apis");
   });
 });

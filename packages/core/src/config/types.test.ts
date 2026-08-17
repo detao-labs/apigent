@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { DatabaseConfig, LLMConfig, EmbeddingConfig, RAGConfig, ServerConfig } from "./types";
+import type { AppsConfig, DatabaseConfig, LLMConfig, EmbeddingConfig, RAGConfig } from "./types";
 
 describe("Config Types", () => {
   it("DatabaseConfig — should accept postgresql provider", () => {
@@ -39,32 +39,32 @@ describe("Config Types", () => {
 
   it("RAGConfig — should accept hybrid retrieval with reranker", () => {
     const rag: RAGConfig = {
-      retrievalMode: "hybrid",
-      fusionMethod: "rrf",
-      coarseRankTopK: 20,
-      reranker: {
-        provider: "qwen",
-        apiKey: "sk-test-key",
-        model: "qwen3-rerank",
-      },
-      fineRankTopK: 10,
       chunkStrategy: "hierarchical",
+      embedding: { provider: "qwen", apiKey: "sk-test-key", model: "text-embedding-v4" },
+      vectorStore: { provider: "pgvector", indexType: "ivfflat" },
+      searchStore: { provider: "pg-fts" },
       queryRewrite: true,
       queryRewriteCacheTtl: 3600,
+      retrieval: {
+        retrievalMode: "hybrid",
+        fusionMethod: "rrf",
+        coarseRankTopK: 20,
+        fineRankTopK: 10,
+        reranker: { provider: "qwen", apiKey: "sk-test-key", model: "qwen3-rerank" },
+      },
       knowledgeGraph: { enabled: false },
     };
-    expect(rag.retrievalMode).toBe("hybrid");
-    expect(rag.reranker.provider).toBe("qwen");
+    expect(rag.retrieval.retrievalMode).toBe("hybrid");
+    expect(rag.retrieval.reranker.provider).toBe("qwen");
   });
 
-  it("ServerConfig — should accept development environment", () => {
-    const server: ServerConfig = {
-      host: "0.0.0.0",
-      port: 3002,
-      nodeEnv: "development",
-      logLevel: "info",
+  it("AppsConfig — should expose the three app endpoints", () => {
+    const apps: AppsConfig = {
+      platform: { url: "http://localhost:3000", logLevel: "info" },
+      admin: { url: "http://localhost:3001", logLevel: "info" },
+      open: { url: "http://localhost:3002", logLevel: "info" },
     };
-    expect(server.port).toBe(3002);
-    expect(server.nodeEnv).toBe("development");
+    expect(apps.open.url).toBe("http://localhost:3002");
+    expect(apps.platform.logLevel).toBe("info");
   });
 });

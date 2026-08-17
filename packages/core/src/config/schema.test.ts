@@ -3,9 +3,9 @@ import type { z } from "zod";
 import type { ApigentConfig } from "./types";
 import {
   ApigentConfigSchema,
+  AppsConfigSchema,
   DatabaseConfigSchema,
   QueueConfigSchema,
-  ServerConfigSchema,
 } from "./schema";
 
 /**
@@ -24,7 +24,6 @@ describe("ApigentConfigSchema", () => {
   it("accepts a valid fully-resolved config", () => {
     const config: ApigentConfig = {
       database: { provider: "postgresql", url: "postgresql://localhost:5432/apigent" },
-      vectorStore: { provider: "pgvector", indexType: "hnsw" },
       llm: {
         provider: "qwen",
         apiKey: "sk-test",
@@ -36,28 +35,24 @@ describe("ApigentConfigSchema", () => {
           editing: "qwen3.7-plus",
         },
       },
-      embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
       rag: {
-        retrievalMode: "hybrid",
-        fusionMethod: "rrf",
-        coarseRankTopK: 20,
-        reranker: { provider: "qwen", apiKey: "sk-test", model: "qwen3-rerank" },
-        fineRankTopK: 10,
         chunkStrategy: "hierarchical",
+        embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
+        vectorStore: { provider: "pgvector", indexType: "hnsw" },
+        searchStore: { provider: "pg-fts" },
         queryRewrite: true,
         queryRewriteCacheTtl: 3600,
+        retrieval: {
+          retrievalMode: "hybrid",
+          fusionMethod: "rrf",
+          coarseRankTopK: 20,
+          fineRankTopK: 10,
+          reranker: { provider: "qwen", apiKey: "sk-test", model: "qwen3-rerank" },
+        },
         knowledgeGraph: { enabled: false },
       },
       storage: { provider: "local", basePath: "./data/uploads" },
       queue: { provider: "memory" },
-      auth: { secret: "s", providers: ["credentials"], sessionMaxAge: 604800 },
-      mcp: { path: "/mcp", transport: "streamable-http" },
-      server: { host: "0.0.0.0", port: 3002, nodeEnv: "development", logLevel: "info" },
-      webapp: {
-        platformUrl: "http://localhost:3000",
-        adminUrl: "http://localhost:3001",
-        apiUrl: "http://localhost:3002",
-      },
       businessContext: {
         autoGenerate: false,
         batchSize: 5,
@@ -66,17 +61,23 @@ describe("ApigentConfigSchema", () => {
         language: "auto",
         skipHumanEdited: true,
       },
+      auth: { secret: "s", providers: ["credentials"], sessionMaxAge: 604800 },
+      mcp: { path: "/mcp", transport: "streamable-http" },
+      apps: {
+        platform: { url: "http://localhost:3000", logLevel: "info" },
+        admin: { url: "http://localhost:3001", logLevel: "info" },
+        open: { url: "http://localhost:3002", logLevel: "info" },
+      },
     };
 
     expect(ApigentConfigSchema.safeParse(config).success).toBe(true);
   });
 
-  it("rejects wrong-typed values (server.port as string)", () => {
-    const result = ServerConfigSchema.safeParse({
-      host: "0.0.0.0",
-      port: "3002",
-      nodeEnv: "development",
-      logLevel: "info",
+  it("rejects wrong-typed values (apps.logLevel as string)", () => {
+    const result = AppsConfigSchema.safeParse({
+      platform: { url: "http://localhost:3000", logLevel: "info" },
+      admin: { url: "http://localhost:3001", logLevel: "verbose" },
+      open: { url: "http://localhost:3002", logLevel: "info" },
     });
     expect(result.success).toBe(false);
   });
@@ -94,12 +95,10 @@ describe("ApigentConfigSchema", () => {
   });
 
   it("rejects unknown keys (typos)", () => {
-    const result = ServerConfigSchema.safeParse({
-      host: "0.0.0.0",
-      port: 3002,
-      nodeEnv: "development",
-      logLevel: "info",
-      hst: "typo",
+    const result = AppsConfigSchema.safeParse({
+      platform: { url: "http://localhost:3000", logLevel: "info", hst: "typo" },
+      admin: { url: "http://localhost:3001", logLevel: "info" },
+      open: { url: "http://localhost:3002", logLevel: "info" },
     });
     expect(result.success).toBe(false);
   });
