@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Avatar,
@@ -25,24 +25,27 @@ import {
   Moon,
   Search,
   Settings,
+  Sparkles,
   Sun,
   User,
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { NotificationBell } from "@/components/notification-bell";
+import { buildAssistantUrl } from "@/lib/assistant";
 
 const LOCALE_COOKIE = "NEXT_LOCALE";
 
-export function AppHeader({
-  user,
-}: {
-  user: { name: string; email: string };
-}) {
+export function AppHeader({ user }: { user: { name: string; email: string } }) {
   const t = useTranslations("topbar");
   const auth = useTranslations("auth");
   const router = useRouter();
+  const pathname = usePathname();
   const locale = useLocale();
   const { mode, setMode } = useTheme();
+
+  function openAssistant() {
+    router.replace(buildAssistantUrl(pathname, window.location.search, true));
+  }
 
   function setLocale(next: "zh" | "en") {
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; SameSite=Lax`;
@@ -75,6 +78,16 @@ export function AppHeader({
 
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={openAssistant}
+          aria-label={t("assistant")}
+          title={t("assistant")}
+        >
+          <Sparkles className="size-4" />
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -116,9 +129,7 @@ export function AppHeader({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <div className="px-2 py-1.5 text-xs text-muted-foreground">
-              {t("version")}
-            </div>
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("version")}</div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -135,9 +146,7 @@ export function AppHeader({
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <p className="text-sm font-medium">{user.name}</p>
-                <p className="truncate text-xs font-normal text-muted-foreground">
-                  {user.email}
-                </p>
+                <p className="truncate text-xs font-normal text-muted-foreground">{user.email}</p>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

@@ -24,7 +24,50 @@
     "version": "Apigent v0.1.0",
     "userMenu": "User menu",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "assistant": "AI Assistant"
+  },
+  "assistant": {
+    "title": "AI Assistant",
+    "description": "Chat with the platform agent to explore repositories and manage business context.",
+    "placeholder": "Ask about APIs, endpoints, or business context…",
+    "send": "Send",
+    "stop": "Stop",
+    "newChat": "New chat",
+    "close": "Close",
+    "thinking": "Thinking…",
+    "errorHint": "Something went wrong. Try again or start a new chat.",
+    "emptyTitle": "How can I help?",
+    "emptyHint": "I can explain endpoints, generate business context, and compare versions.",
+    "repoChip": "repo",
+    "endpointChip": "endpoint",
+    "suggest": {
+      "overview": "Summarize the APIs in this repository",
+      "context": "Generate business context for an endpoint",
+      "compare": "Explain how to use the MCP gateway"
+    }
+  },
+  "errors": {
+    "genericTitle": "Unexpected error",
+    "description": "An unexpected error occurred. Please try again, or go back to the home page.",
+    "retry": "Try again",
+    "backHome": "Back to home",
+    "databaseTitle": "Database unavailable",
+    "databaseDescription": "We couldn't connect to the database, so this page can't be loaded right now.",
+    "databaseHint": "How to fix this:",
+    "hints": {
+      "connection": [
+        "Make sure PostgreSQL is running (e.g. docker compose up -d or start the postgres container)",
+        "Check that the database port matches APIGENT_DATABASE_URL (default 5433)",
+        "Once the database is back, click \u201cTry again\u201d"
+      ],
+      "migrations": [
+        "The database is reachable but tables are missing \u2014 run the drizzle migrations first",
+        "Migration files live in packages/server/drizzle",
+        "After migrating, click \u201cTry again\u201d"
+      ]
+    },
+    "digest": "Error reference"
   },
   "notifications": {
     "title": "Notifications",
@@ -147,14 +190,14 @@
       "descriptionPlaceholder": "Brief description of this organization",
       "submit": "Create Organization",
       "cancel": "Cancel",
-    "errors": {
-      "invalid": "Please check the form fields",
-      "generic": "Something went wrong, please try again"
+      "errors": {
+        "invalid": "Please check the form fields",
+        "generic": "Something went wrong, please try again"
       }
     },
-  "table": {
-    "name": "Name",
-    "members": "Members",
+    "table": {
+      "name": "Name",
+      "members": "Members",
       "repos": "Repos",
       "actions": "Actions",
       "viewRepos": "View repos"
@@ -206,9 +249,9 @@
     "detail": {
       "back": "Back to repositories",
       "breadcrumbRepos": "Repositories",
-    "importVersion": "Import new version",
-    "importRunning": "Importing…",
-    "importFailedBadge": "Import failed",
+      "importVersion": "Import new version",
+      "importRunning": "Importing…",
+      "importFailedBadge": "Import failed",
       "more": "More",
       "editInfo": "Edit info",
       "editInfoTitle": "Edit repository info",
