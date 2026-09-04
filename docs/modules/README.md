@@ -72,6 +72,7 @@
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | [OpenAPI Parser Service](./openapi-parser.md)           | 解析 OpenAPI JSON/YAML，生成结构化 API Model                                                               | 规范有明确的 JSON Schema，纯解析+验证逻辑              |
 | [Knowledge Graph Service](./knowledge-graph.md)         | 构建 API 关联图谱（depends_on / follow_up 等）——**V1+ 可选增强，默认关闭**（`rag.knowledgeGraph.enabled`） | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
+| [RAG Observability](./rag-observability.md)             | RAG 管线可观测：采集检索 trace 与指标，经 OpenTelemetry 导出                       | 埋点、聚合、导出，不涉及理解或推理                  |
 | [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片                                                                  | SQL JOIN + 数据拼装，不涉及理解或推理                  |
 | [Project Context Service](./project-context.md)         | 提取项目级约定（base_url、分页、认证）                                                                     | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理        |
 | [MCP Gateway](./mcp-gateway.md)                         | MCP 协议服务器：路由、鉴权、限流                                                                           | 协议适配和请求路由，纯工程逻辑                         |
@@ -83,6 +84,7 @@
 | ----------------------------------------------------- | ---- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | [Business Context Agent](./business-context.agent.md) | V0   | 推断**能力上下文**（repo 级，V0）与**使用上下文**（project 级，V1+）；技术设计见 [business-context.md](./business-context.md) | 自然语言描述 → 结构化业务知识，需要语义理解                           |
 | [Semantic Search Agent](./semantic-search.agent.md)   | V0   | 理解自然语言查询意图，匹配最相关的 API                               | "查找退款相关的 API" → 需要理解"退款"对应哪些 API，语义而非关键词匹配 |
+| [RAG Evaluation Agent](./rag-eval.agent.md)           | V0   | 离线评测检索质量（hit@3 / MRR / nDCG）+ LLM-as-judge 给端到端答案打分（正确性 / 忠实度 / 相关性） | "检索好不好、答案有没有依据"需要语义理解来判定 |
 | Knowledge Assistant Agent                             | V1   | 对话式 API 知识问答                                                  | 多轮对话、模糊问题、需要推理                                          |
 | API Generation Agent                                  | V1   | 从需求描述生成 API 设计                                              | 自然语言 → OpenAPI Schema                                             |
 | Documentation Agent                                   | V1   | 生成/改进 API 文档                                                   | 需要理解 API 并生成人类可读的描述                                     |
@@ -94,12 +96,12 @@
 
 |                     | 之前（错误） | 之后（正确）                          |
 | ------------------- | ------------ | ------------------------------------- |
-| "Agent" 数量        | 7            | 2 (V0) + 4 (V1)                       |
+| "Agent" 数量        | 7            | 3 (V0，含离线评测工具) + 4 (V1)       |
 | Platform Service    | 0            | 6（其中 Knowledge Graph 为 V1+ 可选） |
 | MCP Gateway         | 归为 Agent   | 协议服务器                            |
-| 需要 LLM 调用的组件 | 7（夸大）    | 2（精确）                             |
+| 需要 LLM 调用的组件 | 7（夸大）    | 3（含离线评测的 Eval Agent，不在运行时） |
 
-> V0 实际落地的 Platform Service 为 5 个（不含 Knowledge Graph）；KG 启用后作为第 6 个。
+> V0 实际落地的 Platform Service 为 6 个（不含 Knowledge Graph，含 RAG Observability）；KG 启用后作为第 7 个。RAG Evaluation Agent 为离线评测工具，不在查询 / 导入运行时路径，故不影响运行时 LLM 调用次数。
 
 ---
 
@@ -211,6 +213,8 @@ docs/modules/
   business-context.md              ← Business Context 技术设计（任务/存储/API/UI）
   knowledge-graph.md               ← Knowledge Graph Service
   semantic-search.agent.md         ← Semantic Search Agent (LLM)
+  rag-observability.md             ← RAG Observability（无 LLM）
+  rag-eval.agent.md                ← RAG Evaluation Agent (LLM-judge)
   knowledge-retrieval.md           ← Knowledge Retrieval Service
   project-context.md               ← Project Context Service
   mcp-gateway.md                   ← MCP Gateway
