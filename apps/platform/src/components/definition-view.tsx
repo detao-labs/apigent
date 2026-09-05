@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { useParams, useRouter } from "next/navigation";
 import { Badge, Card, CardContent, Input } from "@apigent/ui";
 import {
   Boxes,
@@ -36,19 +37,42 @@ function cap(s: string) {
 }
 
 export function DefinitionView({
+  repoId,
   endpoints,
   models,
   components,
 }: {
+  repoId: string;
   endpoints: RepoEndpoint[];
   models: RepoDataModel[];
   components: RepoComponentDef[];
 }) {
   const t = useTranslations("repos.detail");
   const d = useTranslations("repos.detail.definitions");
-  const [selected, setSelected] = React.useState<string | null>(null);
+  const router = useRouter();
+  const params = useParams<{ endpointId?: string; schemaId?: string; componentId?: string }>();
+
+  const initialType = params.endpointId
+    ? "ep"
+    : params.schemaId
+      ? "model"
+      : params.componentId
+        ? "comp"
+        : null;
+  const initialId = params.endpointId ?? params.schemaId ?? params.componentId ?? null;
+  const selectedKey =
+    initialType && initialId ? `${initialType}:${initialId}` : null;
+
+  const [selected, setSelected] = React.useState<string | null>(selectedKey);
   const [query, setQuery] = React.useState("");
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    if (!selectedKey) return;
+    setSelected(selectedKey);
+    openGroupFor(selectedKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey]);
 
   const q = query.trim().toLowerCase();
   const filteredEndpoints = endpoints.filter(
@@ -100,11 +124,43 @@ export function DefinitionView({
 
   function select(key: string) {
     setSelected(key);
+    const [type, id] = key.split(":");
+    const segment =
+      type === "ep"
+        ? `endpoints/${id}`
+        : type === "model"
+          ? `schemas/${id}`
+          : `components/${id}`;
+    router.replace(`/repos/${repoId}/definition/${segment}`);
+  }
+
+  function openGroupFor(key: string) {
+    const [type, id] = key.split(":");
+    setCollapsed((prev) => {
+      const next = { ...prev };
+      if (type === "ep") {
+        const ep = endpoints.find((x) => x.id === id);
+        const module = ep?.modules[0] ?? d("ungrouped");
+        next["ep"] = false;
+        next[`ep-${module}`] = false;
+      } else if (type === "model") {
+        next["models"] = false;
+      } else if (type === "comp") {
+        const c = components.find((x) => x.id === id);
+        const kindLabel = c ? d(`kind${cap(c.kind)}`) : null;
+        next["components"] = false;
+        if (kindLabel) next[`comp-${kindLabel}`] = false;
+      }
+      return next;
+    });
   }
 
   function selectModelByName(name: string) {
     const m = models.find((x) => x.name === name);
-    if (m) setSelected(`model:${m.id}`);
+    if (m) {
+      setSelected(`model:${m.id}`);
+      router.replace(`/repos/${repoId}/definition/schemas/${m.id}`);
+    }
   }
 
   function renderDetail() {
@@ -118,14 +174,22 @@ export function DefinitionView({
     const [type, id] = selected.split(":");
     if (type === "ep") {
       const ep = endpoints.find((x) => x.id === id);
-      return ep ? <EndpointDetail ep={ep} onSelectModel={selectModelByName} /> : null;
+      return ep ? (
+        <EndpointDetail ep={ep} onSelectModel={selectModelByName} />
+      ) : (
+        <DetailMissing d={d} />
+      );
     }
     if (type === "model") {
       const m = models.find((x) => x.id === id);
-      return m ? <ModelDetail m={m} d={d} /> : null;
+      return m ? <ModelDetail m={m} d={d} /> : <DetailMissing d={d} />;
     }
     const c = components.find((x) => x.id === id);
-    return c ? <ComponentDetail c={c} d={d} onSelectModel={selectModelByName} /> : null;
+    return c ? (
+      <ComponentDetail c={c} d={d} onSelectModel={selectModelByName} />
+    ) : (
+      <DetailMissing d={d} />
+    );
   }
 
   return (
@@ -594,4 +658,12 @@ function SchemaRefView({
   }
   if (typeof any.schema !== "undefined") return <SchemaTree schema={any.schema} />;
   return <SchemaTree schema={any} />;
+}
+
+function DetailMissing({ d }: { d: (key: string) => string }) {
+  return (
+    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      {d("selectHint")}
+    </div>
+  );
 }

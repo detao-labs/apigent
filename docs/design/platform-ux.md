@@ -299,6 +299,17 @@ V1 条目增多（项目、语义搜索、知识图谱）后可扩为 3~4 组：
 
 **仓库级导航**：左侧 rail 在「概览」下新增**定义**分组，含单个子项「接口管理」（count = 接口 + 模型 + 组件，参考 Apifox 的入口命名），指向本页；接口、模型、组件不再分散成独立子路由。
 
+**深链 / 分享**（可选：独立子路径，便于复制 URL 恢复视图）：
+
+| 路径 | 状态 |
+| --- | --- |
+| `/repos/[id]/definition` | 定义页默认（无选中） |
+| `/repos/[id]/definition/endpoints/[endpointId]` | 定位到指定接口 |
+| `/repos/[id]/definition/schemas/[schemaId]` | 定位到指定数据模型 |
+| `/repos/[id]/definition/components/[componentId]` | 定位到指定组件 |
+
+上述子路径都渲染同一 `DefinitionView`，由路由参数决定初始选中并高亮左树对应节点；树中切换节点时更新 URL，保证可分享、可恢复。
+
 ## 4.6 新建仓库向导（/repos/new）
 
 **目标**：把「创建 + 导入」做成一个三步向导，避免新用户分不清先后。
