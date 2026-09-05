@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/services/auth";
 import { updateRepo } from "@/services/repos";
 import { repoUpdateBodySchema } from "@/lib/openapi-schemas";
+import { ForbiddenError } from "@apigent/server/authz";
 
 export async function PATCH(
   request: Request,
@@ -26,9 +27,12 @@ export async function PATCH(
   }
 
   try {
-    const repo = await updateRepo(id, parsed.data);
+    const repo = await updateRepo(id, parsed.data, user.id);
     return NextResponse.json({ repo });
   } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
     if (err instanceof Error && err.message.startsWith("Repository not found")) {
       return NextResponse.json({ error: "not-found" }, { status: 404 });
     }

@@ -1,6 +1,9 @@
 import { RepoRail } from "@/components/repo-rail";
 import { RepoMobileNav } from "@/components/repo-mobile-nav";
-import { getRepoDetail } from "@/services/repos";
+import { RepoForbidden } from "@/components/repo-forbidden";
+import { RepoNotFound } from "@/components/repo-not-found";
+import { requireUser } from "@/services/auth";
+import { loadRepoForPage } from "@/services/repos";
 
 export default async function RepoDetailLayout({
   children,
@@ -10,7 +13,10 @@ export default async function RepoDetailLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const repo = await getRepoDetail(id);
+  const user = await requireUser();
+  const { status, repo, owner } = await loadRepoForPage(id, user.id);
+  if (status === "forbidden") return <RepoForbidden owner={owner} />;
+  if (status === "not-found" || !repo) return <RepoNotFound />;
 
   return (
     <div className="flex min-h-full">

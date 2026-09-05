@@ -3,8 +3,10 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
 import { ContextManagement } from "@/components/context-management";
+import { RepoForbidden } from "@/components/repo-forbidden";
 import { RepoNotFound } from "@/components/repo-not-found";
-import { getRepoDetail } from "@/services/repos";
+import { requireUser } from "@/services/auth";
+import { loadRepoForPage } from "@/services/repos";
 
 export default async function RepoContextPage({
   params,
@@ -12,8 +14,10 @@ export default async function RepoContextPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const t = await getTranslations("repos.detail");
-  const repo = await getRepoDetail(id);
+  const { status, repo, owner } = await loadRepoForPage(id, user.id);
+  if (status === "forbidden") return <RepoForbidden owner={owner} />;
   if (!repo) return <RepoNotFound />;
 
   return (

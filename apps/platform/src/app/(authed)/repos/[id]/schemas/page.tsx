@@ -2,8 +2,10 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
 import { DataModelList } from "@/components/data-model-list";
+import { RepoForbidden } from "@/components/repo-forbidden";
 import { RepoNotFound } from "@/components/repo-not-found";
-import { getRepoDetail, getRepoDataModels } from "@/services/repos";
+import { requireUser } from "@/services/auth";
+import { getRepoDataModels, loadRepoForPage } from "@/services/repos";
 
 export default async function RepoSchemasPage({
   params,
@@ -11,11 +13,13 @@ export default async function RepoSchemasPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const t = await getTranslations("repos.detail");
   const reposT = await getTranslations("repos");
-  const repo = await getRepoDetail(id);
+  const { status, repo, owner } = await loadRepoForPage(id, user.id);
+  if (status === "forbidden") return <RepoForbidden owner={owner} />;
   if (!repo) return <RepoNotFound />;
-  const models = await getRepoDataModels(id);
+  const models = await getRepoDataModels(id, user.id);
 
   return (
     <div className="space-y-6">

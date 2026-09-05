@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/services/auth";
 import { OrgNotFoundError, createRepo, listRepos } from "@/services/repos";
 import { repoCreateBodySchema } from "@/lib/openapi-schemas";
+import { ForbiddenError } from "@apigent/server/authz";
 
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  return NextResponse.json({ repos: await listRepos() });
+  return NextResponse.json({ repos: await listRepos(user.id) });
 }
 
 export async function POST(request: Request) {
@@ -34,9 +35,12 @@ export async function POST(request: Request) {
       orgId: parsed.data.orgId,
       name: parsed.data.name,
       description: parsed.data.description,
-    });
+    }, user.id);
     return NextResponse.json({ repo }, { status: 201 });
   } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
     if (err instanceof OrgNotFoundError) {
       return NextResponse.json({ error: "org-not-found" }, { status: 400 });
     }

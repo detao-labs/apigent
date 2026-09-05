@@ -23,15 +23,20 @@ import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
 import { PageContainer } from "@/components/page-container";
 import { formatRelativeTime } from "@/lib/format";
+import { requireUser } from "@/services/auth";
 import { listRepos } from "@/services/repos";
 import { getDashboardStats } from "@/services/stats";
 
 const MCP_SERVICE_URL = "https://apigent.acme.dev/mcp";
 
 export default async function DashboardPage() {
+  const user = await requireUser();
   const t = await getTranslations("dashboard");
   const locale = await getLocale();
-  const [stats, repos] = await Promise.all([getDashboardStats(), listRepos()]);
+  const [stats, repos] = await Promise.all([
+    getDashboardStats(user.id),
+    listRepos(user.id),
+  ]);
 
   const steps = [
     {

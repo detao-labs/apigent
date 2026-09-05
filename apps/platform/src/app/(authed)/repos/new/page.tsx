@@ -1,11 +1,13 @@
 import { getTranslations } from "next-intl/server";
 import { PageContainer } from "@/components/page-container";
 import { RepoForm } from "@/components/repo-form";
+import { requireUser } from "@/services/auth";
 import { listOrgs } from "@/services/orgs";
 
 export default async function NewRepoPage() {
+  const user = await requireUser();
   const t = await getTranslations("repos.new");
-  const orgs = await listOrgs();
+  const orgs = await listOrgs(user.id);
 
   return (
     <PageContainer>

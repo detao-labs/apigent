@@ -6,13 +6,18 @@
 // operations, move this to packages/server verbatim.
 // ═══════════════════════════════════════════════════════════════════
 
-import { count, desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   getDB,
   organizationMembers,
   organizations,
   repositories,
 } from "@apigent/server/db";
+import {
+  ForbiddenError,
+  assertOrgRole,
+  listAccessibleOrgIds,
+} from "@apigent/server/authz";
 import { generateId } from "@apigent/server/id";
 
 export interface OrgSummary {
@@ -24,7 +29,10 @@ export interface OrgSummary {
   createdAt: Date;
 }
 
-export async function listOrgs(): Promise<OrgSummary[]> {
+export async function listOrgs(userId: string): Promise<OrgSummary[]> {
+  const accessible = await listAccessibleOrgIds(userId);
+  if (accessible.length === 0) return [];
+
   const rows = await getDB()
     .select({
       id: organizations.id,
@@ -40,6 +48,7 @@ export async function listOrgs(): Promise<OrgSummary[]> {
       eq(organizationMembers.orgId, organizations.id),
     )
     .leftJoin(repositories, eq(repositories.orgId, organizations.id))
+    .where(inArray(organizations.id, accessible))
     .groupBy(organizations.id)
     .orderBy(desc(organizations.createdAt));
 
@@ -62,7 +71,9 @@ export async function getOrgById(id: string) {
 export async function updateOrg(
   id: string,
   input: { name?: string; description?: string },
+  userId: string,
 ) {
+  await assertOrgRole(userId, id, "org_admin");
   const [org] = await getDB()
     .update(organizations)
     .set({
@@ -85,10 +96,12 @@ export async function createOrg(input: {
   ownerId: string;
   description?: string;
 }) {
-  const [org] = await getDB()
+  const db = getDB();
+  const orgId = generateId("org");
+  const [org] = await db
     .insert(organizations)
     .values({
-      id: generateId("org"),
+      id: orgId,
       name: input.name,
       ownerId: input.ownerId,
       description:
@@ -97,5 +110,11 @@ export async function createOrg(input: {
           : null,
     })
     .returning();
+  // 创建者即 org_owner，写入成员表，供 RBAC 生效
+  await db.insert(organizationMembers).values({
+    orgId,
+    userId: input.ownerId,
+    role: "org_owner",
+  });
   return org;
 }

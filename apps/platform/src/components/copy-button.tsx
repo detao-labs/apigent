@@ -45,3 +45,46 @@ export function CopyButton({
     </Button>
   );
 }
+
+export function CopyIconButton({
+  text,
+  title,
+}: {
+  text: string;
+  title?: string;
+}) {
+  const [copied, setCopied] = React.useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      title={title}
+      aria-label={title}
+      className="size-6 shrink-0 p-0"
+      onClick={copy}
+    >
+      {copied ? (
+        <Check className="size-3 text-green-600" />
+      ) : (
+        <Copy className="size-3" />
+      )}
+    </Button>
+  );
+}

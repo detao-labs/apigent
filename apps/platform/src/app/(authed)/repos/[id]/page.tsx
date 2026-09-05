@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ChevronRight } from "lucide-react";
+import { RepoForbidden } from "@/components/repo-forbidden";
 import { RepoNotFound } from "@/components/repo-not-found";
 import { RepoOverview } from "@/components/repo-overview";
-import { getRepoDetail } from "@/services/repos";
+import { requireUser } from "@/services/auth";
+import { loadRepoForPage } from "@/services/repos";
 import { getLatestImportTask } from "@apigent/server/imports";
 import { getLatestContextTask } from "@apigent/server/contexts";
 
@@ -13,9 +15,11 @@ export default async function RepoDetailOverviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const locale = await getLocale();
   const t = await getTranslations("repos");
-  const repo = await getRepoDetail(id);
+  const { status, repo, owner } = await loadRepoForPage(id, user.id);
+  if (status === "forbidden") return <RepoForbidden owner={owner} />;
 
   if (!repo) return <RepoNotFound />;
 

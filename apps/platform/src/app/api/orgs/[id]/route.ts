@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/services/auth";
 import { updateOrg } from "@/services/orgs";
 import { orgUpdateBodySchema } from "@/lib/openapi-schemas";
+import { ForbiddenError } from "@apigent/server/authz";
 
 export async function PATCH(
   request: Request,
@@ -25,9 +26,16 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid-input" }, { status: 400 });
   }
 
-  const org = await updateOrg(id, parsed.data);
-  if (!org) {
-    return NextResponse.json({ error: "not-found" }, { status: 404 });
+  try {
+    const org = await updateOrg(id, parsed.data, user.id);
+    if (!org) {
+      return NextResponse.json({ error: "not-found" }, { status: 404 });
+    }
+    return NextResponse.json({ org });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-  return NextResponse.json({ org });
 }

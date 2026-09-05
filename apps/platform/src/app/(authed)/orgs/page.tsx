@@ -4,11 +4,13 @@ import { Building2, Plus } from "lucide-react";
 import Link from "next/link";
 import { OrgsTable } from "@/components/orgs-table";
 import { PageContainer } from "@/components/page-container";
+import { requireUser } from "@/services/auth";
 import { listOrgs } from "@/services/orgs";
 
 export default async function OrgsPage() {
+  const user = await requireUser();
   const t = await getTranslations("orgs");
-  const orgs = await listOrgs();
+  const orgs = await listOrgs(user.id);
 
   return (
     <PageContainer className="space-y-6">

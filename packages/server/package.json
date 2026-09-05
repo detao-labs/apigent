@@ -10,6 +10,7 @@
     "./db": "./src/db/index.ts",
     "./id": "./src/id.ts",
     "./auth": "./src/auth/index.ts",
+    "./authz": "./src/authz/index.ts",
     "./openapi": "./src/openapi/index.ts",
     "./queue": "./src/queue/index.ts",
     "./imports": "./src/imports/index.ts",

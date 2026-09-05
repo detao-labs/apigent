@@ -2,7 +2,7 @@
 // Platform Repos Service — list / detail for API repositories
 // ═══════════════════════════════════════════════════════════════════
 
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   dataModels,
   endpointModules,
@@ -13,7 +13,14 @@ import {
   organizations,
   repositories,
   repoVersions,
+  users,
 } from "@apigent/server/db";
+import {
+  ForbiddenError,
+  assertOrgRole,
+  assertRepoAccess,
+  listAccessibleRepoIds,
+} from "@apigent/server/authz";
 import { generateId } from "@apigent/server/id";
 import { getOrgById } from "@/services/orgs";
 
@@ -50,7 +57,8 @@ export async function createRepo(input: {
   orgId: string;
   name: string;
   description?: string;
-}): Promise<CreatedRepo> {
+}, userId: string): Promise<CreatedRepo> {
+  await assertOrgRole(userId, input.orgId, "org_member");
   const org = await getOrgById(input.orgId);
   if (!org) throw new OrgNotFoundError(input.orgId);
 
@@ -87,7 +95,9 @@ export async function createRepo(input: {
 export async function updateRepo(
   repoId: string,
   input: { name?: string; description?: string },
+  userId: string,
 ) {
+  await assertRepoAccess(userId, repoId, "repo_editor");
   const db = getDB();
   const [repo] = await db
     .update(repositories)
@@ -114,7 +124,9 @@ export async function updateRepo(
   return { ...repo, mcpEnabled: Boolean(repo.mcpEnabled ?? false) };
 }
 
-export async function listRepos(): Promise<RepoSummary[]> {
+export async function listRepos(userId: string): Promise<RepoSummary[]> {
+  const accessible = await listAccessibleRepoIds(userId);
+  if (accessible.length === 0) return [];
   const db = getDB();
   const rows = await db
     .select({
@@ -136,6 +148,7 @@ export async function listRepos(): Promise<RepoSummary[]> {
     .from(repositories)
     .leftJoin(organizations, eq(repositories.orgId, organizations.id))
     .leftJoin(endpoints, eq(endpoints.repoId, repositories.id))
+    .where(inArray(repositories.id, accessible))
     .groupBy(repositories.id, organizations.name, organizations.id)
     .orderBy(desc(repositories.updatedAt));
 
@@ -171,7 +184,11 @@ export interface RepoDetail {
   versions: RepoVersionSummary[];
 }
 
-export async function getRepoDetail(id: string): Promise<RepoDetail | null> {
+export async function getRepoDetail(
+  id: string,
+  userId: string,
+): Promise<RepoDetail | null> {
+  await assertRepoAccess(userId, id, "repo_viewer");
   const db = getDB();
   const [repo] = await db
     .select({
@@ -240,6 +257,57 @@ export async function getRepoDetail(id: string): Promise<RepoDetail | null> {
   };
 }
 
+export interface RepoLoadOwner {
+  name: string;
+  email: string;
+}
+
+export type RepoLoadResult =
+  | { status: "ok"; repo: RepoDetail; owner: RepoLoadOwner | null }
+  | { status: "forbidden"; repo: null; owner: RepoLoadOwner | null }
+  | { status: "not-found"; repo: null; owner: RepoLoadOwner | null };
+
+/** 面向页面：区分 无权限(403) / 不存在(404) / 正常，避免让错误冒泡成 500。 */
+export async function loadRepoForPage(
+  id: string,
+  userId: string,
+): Promise<RepoLoadResult> {
+  try {
+    const repo = await getRepoDetail(id, userId);
+    return repo
+      ? { status: "ok", repo, owner: null }
+      : { status: "not-found", repo: null, owner: null };
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { status: "forbidden", repo: null, owner: await getRepoOwnerContact(id) };
+    }
+    throw err;
+  }
+}
+
+/** 仓库所属组织的 owner 联系方式，用于 403 页指引。 */
+async function getRepoOwnerContact(repoId: string): Promise<RepoLoadOwner | null> {
+  const db = getDB();
+  const [repo] = await db
+    .select({ orgId: repositories.orgId })
+    .from(repositories)
+    .where(eq(repositories.id, repoId))
+    .limit(1);
+  if (!repo) return null;
+  const [org] = await db
+    .select({ ownerId: organizations.ownerId })
+    .from(organizations)
+    .where(eq(organizations.id, repo.orgId))
+    .limit(1);
+  if (!org) return null;
+  const [owner] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, org.ownerId))
+    .limit(1);
+  return owner ? { name: owner.name, email: owner.email } : null;
+}
+
 export interface RepoEndpointResponse {
   statusCode: string;
   description: string | null;
@@ -266,7 +334,9 @@ export interface RepoEndpoint {
 /** 当前版本快照下的接口列表（含模块、参数、响应），供接口页展示。 */
 export async function getRepoEndpoints(
   repoId: string,
+  userId: string,
 ): Promise<RepoEndpoint[]> {
+  await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
   const [repo] = await db
     .select({ currentVersionId: repositories.currentVersionId })
@@ -362,7 +432,9 @@ export interface RepoDataModel {
 /** 当前版本快照下的数据模型列表，供数据模型页展示。 */
 export async function getRepoDataModels(
   repoId: string,
+  userId: string,
 ): Promise<RepoDataModel[]> {
+  await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
   const [repo] = await db
     .select({ currentVersionId: repositories.currentVersionId })

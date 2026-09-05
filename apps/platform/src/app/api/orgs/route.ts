@@ -6,7 +6,7 @@ import { orgCreateBodySchema } from "@/lib/openapi-schemas";
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return NextResponse.json({ orgs: await listOrgs() });
+  return NextResponse.json({ orgs: await listOrgs(user.id) });
 }
 
 export async function POST(request: Request) {

@@ -44,8 +44,9 @@ const SYSTEM_PROMPT = `你是 Apigent 平台的 API 业务上下文助手，帮�
 /** server 工具注册表（进程级单例；V0 只注册已实现执行器的工具） */
 const registry = new AgentToolRegistry();
 
-registry.register(getEndpointSpecTool, async (_ctx, input) => {
-  const endpoints = await getRepoEndpoints(input.repoId);
+registry.register(getEndpointSpecTool, async (ctx, input) => {
+  if (!ctx.userId) throw new Error("unauthorized");
+  const endpoints = await getRepoEndpoints(input.repoId, ctx.userId);
   const endpoint = endpoints.find((ep) => ep.id === input.endpointId);
   if (!endpoint) {
     throw new Error(`Endpoint not found: ${input.endpointId}`);
