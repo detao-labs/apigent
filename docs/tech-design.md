@@ -1504,11 +1504,11 @@ Consolidating from the blueprint roadmap, V0 covers the minimal usable product:
 | **Repository**   | Create repo, import OpenAPI (file/URL), version list                                                                             |
 | **Browsing**     | Endpoint list (grouped by tag), model list, semantic search (natural language)                                                   |
 | **Core Engine**  | OpenAPI Parser → Business Context Agent (capability context; Knowledge Graph is a V1+ optional enhancement, disabled by default) |
-| **MCP**          | Basic MCP Gateway with `search_apis` + `get_api_detail` (`get_project_context` ships with Project in V1+)                        |
 | **Secret Keys**  | Generate, list, delete keys                                                                                                      |
 | **Dashboard**    | Simple repo list + recent activity                                                                                               |
-| **Admin**        | Basic user list, platform stats                                                                                                  |
 | **Project**      | Model defined in the domain model only; no features in V0                                                                        |
+
+> **Scope note:** MCP Gateway 挂载与 **Admin Webapp 完整功能**均移至 **V1**（V0 聚焦 Platform Webapp）：外部 Agent 接入（`search_apis` / `get_api_detail`）随 V1 提供，`get_project_context` 仍随 Project 在 V1+；Admin 在 V0 仅保留壳。
 
 ---
 

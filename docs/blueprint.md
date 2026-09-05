@@ -325,7 +325,6 @@ Features:
 - API management
 - OpenAPI import/export
 - Business context
-- MCP Server
 - Semantic search
 - Basic AI assistance
 
@@ -343,6 +342,7 @@ Features:
 - API change analysis
 - Smart Mock generation
 - API knowledge assistant
+- MCP Server（基础网关：search_apis / get_api_detail）
 
 ---
 

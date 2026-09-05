@@ -1,6 +1,7 @@
 # MCP Gateway
 
 > **类型：协议服务器**（非 Agent，非普通 Service——MCP 协议适配层）
+> **版本：V1**（V0 聚焦 Platform Webapp，不挂载 MCP；本文档为设计稿）
 
 ## 定位
 
