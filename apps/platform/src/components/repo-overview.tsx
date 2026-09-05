@@ -47,8 +47,7 @@ import { EditEntityDialog } from "@/components/edit-entity-dialog";
 import { formatRelativeTime } from "@/lib/format";
 import type { RepoDetail } from "@/services/repos";
 import type { ContextTaskSummary } from "@apigent/server/contexts";
-
-const MCP_SERVICE_URL = "https://apigent.acme.dev/mcp";
+import { mcpConfigSnippet, useMcpServiceUrl } from "@/hooks/use-mcp-service-url";
 
 interface LatestImportTask {
   taskId: string;
@@ -61,14 +60,19 @@ export function RepoOverview({
   locale,
   latestTask,
   latestContextTask,
+  mcpPath,
+  mcpPublicUrl,
 }: {
   repo: RepoDetail;
   locale: string;
   latestTask?: LatestImportTask | null;
   latestContextTask?: ContextTaskSummary | null;
+  mcpPath: string;
+  mcpPublicUrl: string;
 }) {
   const t = useTranslations("repos.detail");
   const common = useTranslations("common");
+  const mcpUrl = useMcpServiceUrl(mcpPath, mcpPublicUrl);
   const router = useRouter();
   const [mcp, setMcp] = React.useState(repo.mcpEnabled);
   const [mcpConfirmOpen, setMcpConfirmOpen] = React.useState(false);
@@ -431,12 +435,12 @@ export function RepoOverview({
           </CardHeader>
           <CardContent className="space-y-2">
             <code className="block truncate rounded-md bg-background px-2 py-1 text-xs ring-1 ring-border">
-              {MCP_SERVICE_URL}
+              {mcpUrl}
             </code>
             <div className="flex flex-wrap gap-2">
-              <CopyButton text={mcpConfigSnippet()} label={t("mcpPanel.copyConfig")} />
+              <CopyButton text={mcpConfigSnippet(mcpUrl)} label={t("mcpPanel.copyConfig")} />
               <Link
-                href="/settings?section=keys"
+                href="/settings/keys"
                 className={buttonVariants({ variant: "ghost", size: "sm" })}
               >
                 <KeyRound className="size-3.5" />
@@ -546,15 +550,4 @@ function contextText(value: unknown): string {
   if (Array.isArray(value)) return value.join("；");
   if (typeof value === "string") return value;
   return JSON.stringify(value);
-}
-
-function mcpConfigSnippet() {
-  return `{
-  "mcpServers": {
-    "apigent": {
-      "url": "${MCP_SERVICE_URL}",
-      "headers": { "Authorization": "Bearer <your-key>" }
-    }
-  }
-}`;
 }

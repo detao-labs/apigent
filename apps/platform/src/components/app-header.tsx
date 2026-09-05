@@ -38,6 +38,7 @@ const LOCALE_COOKIE = "NEXT_LOCALE";
 export function AppHeader({ user }: { user: { name: string; email: string } }) {
   const t = useTranslations("topbar");
   const auth = useTranslations("auth");
+  const settingsT = useTranslations("settings");
   const router = useRouter();
   const pathname = usePathname();
   const locale = useLocale();
@@ -152,11 +153,7 @@ export function AppHeader({ user }: { user: { name: string; email: string } }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem render={<Link href="/settings" />}>
               <User className="size-4" />
-              {t("profile")}
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/settings" />}>
-              <Settings className="size-4" />
-              {t("settings")}
+              {settingsT("sections.account")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={logout}>

@@ -460,7 +460,7 @@ export function OrgDetailView({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="teammate@acme.dev"
+                placeholder="teammate@example.com"
               />
             </div>
             <div className="space-y-1.5">

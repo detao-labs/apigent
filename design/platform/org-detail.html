@@ -126,9 +126,9 @@
             <button class="btn btn-ghost btn-sm">管理成员 →</button>
           </div>
           <div class="card-pad stack">
-            <div class="user-chip" style="padding:0"><span class="avatar">张</span><div><div class="user-name">张伟 <span class="badge badge-indigo" style="margin-left:6px">owner</span></div><div class="user-mail">zhangwei@acme.dev</div></div></div>
-            <div class="user-chip" style="padding:0"><span class="avatar">李</span><div><div class="user-name">李娜 <span class="badge badge-blue" style="margin-left:6px">admin</span></div><div class="user-mail">lina@acme.dev</div></div></div>
-            <div class="user-chip" style="padding:0"><span class="avatar">王</span><div><div class="user-name">王强 <span class="badge badge-gray" style="margin-left:6px">member</span></div><div class="user-mail">wangqiang@acme.dev</div></div></div>
+            <div class="user-chip" style="padding:0"><span class="avatar">张</span><div><div class="user-name">张伟 <span class="badge badge-indigo" style="margin-left:6px">owner</span></div><div class="user-mail">zhangwei@example.com</div></div></div>
+            <div class="user-chip" style="padding:0"><span class="avatar">李</span><div><div class="user-name">李娜 <span class="badge badge-blue" style="margin-left:6px">admin</span></div><div class="user-mail">lina@example.com</div></div></div>
+            <div class="user-chip" style="padding:0"><span class="avatar">王</span><div><div class="user-name">王强 <span class="badge badge-gray" style="margin-left:6px">member</span></div><div class="user-mail">wangqiang@example.com</div></div></div>
           </div>
         </div>
       </div>
@@ -144,9 +144,9 @@
         <table class="tbl" id="memberTable">
           <thead><tr><th>成员</th><th>邮箱</th><th>角色</th><th class="right">操作</th></tr></thead>
           <tbody>
-            <tr><td class="row-title">张伟</td><td class="mono">zhangwei@acme.dev</td><td><span class="badge badge-indigo">owner</span></td><td class="actions"><span style="color:var(--muted);font-size:12px">所有者 · 请在设置转移所有权</span></td></tr>
-            <tr><td class="row-title">李娜</td><td class="mono">lina@acme.dev</td><td><span class="badge badge-blue">admin</span></td><td class="actions"><select class="role-select" data-role="admin" aria-label="变更角色"><option value="owner">owner</option><option value="admin" selected>admin</option><option value="member">member</option></select> <button class="btn btn-ghost btn-sm js-remove-member">移除</button></td></tr>
-            <tr><td class="row-title">王强</td><td class="mono">wangqiang@acme.dev</td><td><span class="badge badge-gray">member</span></td><td class="actions"><select class="role-select" data-role="member" aria-label="变更角色"><option value="owner">owner</option><option value="admin">admin</option><option value="member" selected>member</option></select> <button class="btn btn-ghost btn-sm js-remove-member">移除</button></td></tr>
+            <tr><td class="row-title">张伟</td><td class="mono">zhangwei@example.com</td><td><span class="badge badge-indigo">owner</span></td><td class="actions"><span style="color:var(--muted);font-size:12px">所有者 · 请在设置转移所有权</span></td></tr>
+            <tr><td class="row-title">李娜</td><td class="mono">lina@example.com</td><td><span class="badge badge-blue">admin</span></td><td class="actions"><select class="role-select" data-role="admin" aria-label="变更角色"><option value="owner">owner</option><option value="admin" selected>admin</option><option value="member">member</option></select> <button class="btn btn-ghost btn-sm js-remove-member">移除</button></td></tr>
+            <tr><td class="row-title">王强</td><td class="mono">wangqiang@example.com</td><td><span class="badge badge-gray">member</span></td><td class="actions"><select class="role-select" data-role="member" aria-label="变更角色"><option value="owner">owner</option><option value="admin">admin</option><option value="member" selected>member</option></select> <button class="btn btn-ghost btn-sm js-remove-member">移除</button></td></tr>
           </tbody>
         </table>
       </div>
@@ -187,8 +187,8 @@
         <div class="field">
           <label>新所有者</label>
           <select id="transferOwner" aria-label="新所有者">
-            <option value="lina">李娜 — lina@acme.dev（admin）</option>
-            <option value="wang">王强 — wangqiang@acme.dev（member）</option>
+            <option value="lina">李娜 — lina@example.com（admin）</option>
+            <option value="wang">王强 — wangqiang@example.com（member）</option>
           </select>
         </div>
         <div class="notice notice-warn" style="margin-bottom:0">
@@ -206,7 +206,7 @@
   <div class="dialog">
     <div class="dialog-head"><h2>邀请成员</h2></div>
     <div class="dialog-body">
-      <div class="field"><label>邮箱</label><input type="email" id="inviteEmail" placeholder="teammate@acme.dev" /></div>
+      <div class="field"><label>邮箱</label><input type="email" id="inviteEmail" placeholder="teammate@example.com" /></div>
       <div class="field">
         <label>角色</label>
         <select id="inviteRole" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:14px">

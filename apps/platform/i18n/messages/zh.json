@@ -532,7 +532,7 @@
   },
   "settings": {
     "title": "设置",
-    "description": "账号、API 密钥与偏好",
+    "description": "账号、API 密钥、偏好与通知",
     "backToDashboard": "返回仪表盘",
     "groups": {
       "userInfo": "用户信息",
@@ -541,8 +541,8 @@
     "sections": {
       "account": "账号",
       "keys": "API 密钥",
-      "prefs": "偏好",
-      "more": "更多"
+      "preferences": "偏好",
+      "notifications": "通知"
     },
     "profile": {
       "title": "个人资料",
@@ -573,7 +573,7 @@
         "mismatch": "两次输入的密码不一致"
       }
     },
-    "prefs": {
+    "preferences": {
       "languageTitle": "界面语言",
       "languageDescription": "与顶栏快捷切换同步",
       "language": "语言",
@@ -582,7 +582,7 @@
       "themeDescription": "与顶栏快捷设置同步",
       "appearance": "外观"
     },
-    "more": {
+    "notifications": {
       "title": "更多设置",
       "description": "设置类信息统一放在本页，后续按需扩展为新分区",
       "notifications": "通知偏好",

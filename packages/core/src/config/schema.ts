@@ -354,6 +354,7 @@ export const MCPConfigSchema = z
   .object({
     path: z.string(),
     transport: z.literal("streamable-http"),
+    publicUrl: z.string().optional(),
   })
   .strict();
 

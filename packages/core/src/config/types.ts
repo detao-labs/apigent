@@ -407,6 +407,8 @@ export interface MCPConfig {
   path: string;
   /** Transport protocol */
   transport: MCPTransport;
+  /** Optional external/public base URL for MCP (scheme://host[:port])。为空则前端用当前 origin 兜底。 */
+  publicUrl?: string;
 }
 
 // ───────────────────────────────────────────────────────────────────

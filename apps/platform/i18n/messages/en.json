@@ -532,7 +532,7 @@
   },
   "settings": {
     "title": "Settings",
-    "description": "Account, API keys and preferences",
+    "description": "Account, API keys, preferences and notifications",
     "backToDashboard": "Back to dashboard",
     "groups": {
       "userInfo": "User",
@@ -541,8 +541,8 @@
     "sections": {
       "account": "Account",
       "keys": "API keys",
-      "prefs": "Preferences",
-      "more": "More"
+      "preferences": "Preferences",
+      "notifications": "Notifications"
     },
     "profile": {
       "title": "Profile",
@@ -573,7 +573,7 @@
         "mismatch": "Passwords do not match"
       }
     },
-    "prefs": {
+    "preferences": {
       "languageTitle": "Interface language",
       "languageDescription": "Synced with the top bar quick switch",
       "language": "Language",
@@ -582,7 +582,7 @@
       "themeDescription": "Synced with the top bar settings",
       "appearance": "Appearance"
     },
-    "more": {
+    "notifications": {
       "title": "More settings",
       "description": "Settings live on this page and can be extended with new sections",
       "notifications": "Notification preferences",

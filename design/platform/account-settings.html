@@ -67,8 +67,8 @@
     <button class="nav-item active" data-tab-group="settings" data-tab="account"><span class="ico">👤</span>账号</button>
     <button class="nav-item" data-tab-group="settings" data-tab="keys"><span class="ico">⚿</span>API 密钥</button>
     <div class="section-label">偏好设置</div>
-    <button class="nav-item" data-tab-group="settings" data-tab="prefs"><span class="ico">🌐</span>偏好</button>
-    <button class="nav-item" data-tab-group="settings" data-tab="more"><span class="ico">＋</span>更多</button>
+    <button class="nav-item" data-tab-group="settings" data-tab="preferences"><span class="ico">🌐</span>偏好</button>
+    <button class="nav-item" data-tab-group="settings" data-tab="notifications"><span class="ico">＋</span>通知</button>
     <div class="sidebar-footer">
       <a class="back-item" href="dashboard.html"><span class="ico">←</span>返回仪表盘</a>
     </div>
@@ -78,7 +78,7 @@
     <div class="page-header">
       <div>
         <h1>设置</h1>
-        <p class="sub">账号、API 密钥与偏好</p>
+        <p class="sub">账号、API 密钥、偏好与通知</p>
       </div>
     </div>
 
@@ -101,7 +101,7 @@
           </div>
           <div class="field">
             <label>邮箱</label>
-            <input id="profileEmail" type="email" value="zhangwei@acme.dev" />
+            <input id="profileEmail" type="email" value="zhangwei@example.com" />
             <div class="hint">用于登录与接收通知</div>
           </div>
           <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" id="saveProfile">保存</button></div>
@@ -180,7 +180,7 @@
             <pre class="snippet" id="mcpSnippet">{
   "mcpServers": {
     "apigent": {
-      "url": "https://apigent.acme.dev/mcp",
+      "url": "https://apigent.example.com/mcp",
       "headers": { "Authorization": "Bearer <span class="dim">&lt;你的密钥&gt;</span>" }
     }
   }
@@ -189,7 +189,7 @@
               <div style="font-size:13px;font-weight:600">REST 调用</div>
               <button class="btn btn-ghost btn-sm" data-copy-from="#curlSnippet">⧉ 复制</button>
             </div>
-            <pre class="snippet" id="curlSnippet">curl https://apigent.acme.dev/v1/apis/search \
+            <pre class="snippet" id="curlSnippet">curl https://apigent.example.com/v1/apis/search \
   -H "Authorization: Bearer <span class="dim">&lt;你的密钥&gt;</span>" \
   -H "Content-Type: application/json"</pre>
           </div>
@@ -198,7 +198,7 @@
     </div>
 
     <!-- 偏好 -->
-    <div class="panel" data-panel-group="settings" data-panel="prefs">
+    <div class="panel" data-panel-group="settings" data-panel="preferences">
       <div class="stack">
         <div class="card card-pad">
           <div class="card-title" style="font-size:15px">界面语言</div>
@@ -226,8 +226,8 @@
       </div>
     </div>
 
-    <!-- 更多 -->
-    <div class="panel" data-panel-group="settings" data-panel="more">
+    <!-- 通知 -->
+    <div class="panel" data-panel-group="settings" data-panel="notifications">
       <div class="stack">
         <div class="card card-pad">
           <div class="card-title" style="font-size:15px">通知偏好</div>
@@ -240,14 +240,7 @@
             <span class="k">业务上下文</span>
             <span class="v"><label class="switch"><input type="checkbox" checked data-msg="业务上下文通知已启用" /><span class="slider"></span></label> <span style="color:var(--muted);font-size:12.5px">生成完成 / 失败</span></span>
           </div>
-          <div class="kv">
-            <span class="k">API 密钥</span>
-            <span class="v"><label class="switch"><input type="checkbox" checked data-msg="密钥通知已启用" /><span class="slider"></span></label></span>
-          </div>
-          <div class="kv" style="border-bottom:0">
-            <span class="k">平台公告</span>
-            <span class="v"><label class="switch"><input type="checkbox" data-msg="平台公告已启用" /><span class="slider"></span></label></span>
-          </div>
+          <div class="kv" style="border-bottom:0"><span class="k">说明</span><span class="v" style="color:var(--muted);font-size:12.5px">密钥 / MCP / 平台公告通知预留（当前仅导入与业务上下文）</span></div>
         </div>
         <div class="card card-pad">
           <div class="card-title" style="font-size:15px">更多 <span class="badge badge-gray">V1 规划</span></div>

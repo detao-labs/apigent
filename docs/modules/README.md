@@ -220,4 +220,7 @@ docs/modules/
   mcp-gateway.md                   ← MCP Gateway
   async-queue.md                   ← Async Queue Service（异步任务 + 消息通知）
   agent-runtime.md                 ← Agent Runtime（AI SDK 流式对话 + client/server tools）
+  observability.md                 ← Observability 技术债记录（日志/指标/追踪）
 ```
+
+> **技术债记录：** 当前仅最小结构化日志（`console` JSON lines），**metrics 与 tracing 未实现**；排查单次失败可用 `event` + `context` 本地 grep。详见 [observability.md](./observability.md)。

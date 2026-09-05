@@ -21,13 +21,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
+import { McpConnectCard } from "@/components/mcp-connect-card";
 import { PageContainer } from "@/components/page-container";
 import { formatRelativeTime } from "@/lib/format";
+import { getMcpConfig } from "@/lib/mcp";
 import { requireUser } from "@/services/auth";
 import { listRepos } from "@/services/repos";
 import { getDashboardStats } from "@/services/stats";
-
-const MCP_SERVICE_URL = "https://apigent.acme.dev/mcp";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -37,6 +37,7 @@ export default async function DashboardPage() {
     getDashboardStats(user.id),
     listRepos(user.id),
   ]);
+  const mcpConfig = getMcpConfig();
 
   const steps = [
     {
@@ -217,60 +218,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <KeyRound className="size-4 text-muted-foreground" />
-              {t("connectAgent.title")}
-            </CardTitle>
-            <CardDescription>{t("connectAgent.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-muted-foreground">{t("connectAgent.serviceUrl")}</p>
-                <code className="mt-1 block truncate rounded-md bg-muted px-2 py-1 text-xs">
-                  {MCP_SERVICE_URL}
-                </code>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{t("connectAgent.auth")}</p>
-                <p className="mt-1 text-sm">{t("connectAgent.authValue")}</p>
-              </div>
-            </div>
-            <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
-{`{
-  "mcpServers": {
-    "apigent": {
-      "url": "${MCP_SERVICE_URL}",
-      "headers": { "Authorization": "Bearer <你的密钥>" }
-    }
-  }
-}`}
-            </pre>
-            <div className="flex gap-2">
-              <CopyButton text={mcpConfigSnippet()} label={t("connectAgent.copy")} />
-              <Link
-                href="/settings"
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
-              >
-                {t("connectAgent.guide")}
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <McpConnectCard mcpPath={mcpConfig.path} mcpPublicUrl={mcpConfig.publicUrl} />
       </div>
     </PageContainer>
   );
-}
-
-function mcpConfigSnippet() {
-  return `{
-  "mcpServers": {
-    "apigent": {
-      "url": "${MCP_SERVICE_URL}",
-      "headers": { "Authorization": "Bearer <your-key>" }
-    }
-  }
-}`;
 }

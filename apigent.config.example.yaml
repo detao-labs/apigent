@@ -167,6 +167,8 @@ mcp:
   # 🟡 config slot defined — MCP endpoint not mounted in apps/open yet
   path: /mcp
   transport: streamable-http
+  # 可选：对外 MCP 服务地址（scheme://host[:port]）。留空则平台前端用当前 origin 兜底。
+  # publicUrl: https://mcp.example.com
 
 # ───────────────────────────────────────────────────────────────────
 # 9. Apps — organized by actual application (server is a shared module, not a standalone service)

@@ -39,33 +39,39 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { useTheme } from "@/hooks/use-theme";
 import { formatRelativeTime } from "@/lib/format";
+import {
+  curlSnippet,
+  mcpConfigSnippet,
+  useMcpServiceUrl,
+} from "@/hooks/use-mcp-service-url";
 import type { ApiKeySummary } from "@/services/keys";
 
-const SECTIONS = ["account", "keys", "prefs", "more"] as const;
+const SECTIONS = ["account", "keys", "preferences", "notifications"] as const;
 type Section = (typeof SECTIONS)[number];
 
 const SECTION_ICONS: Record<Section, typeof User> = {
   account: User,
   keys: KeyRound,
-  prefs: Palette,
-  more: SlidersHorizontal,
+  preferences: Palette,
+  notifications: SlidersHorizontal,
 };
 
 export function SettingsView({
   user,
-  initialSection,
+  section,
   keys,
+  mcpPath,
+  mcpPublicUrl,
 }: {
   user: { name: string; email: string };
-  initialSection?: string;
+  section: Section;
   keys: ApiKeySummary[];
+  mcpPath: string;
+  mcpPublicUrl: string;
 }) {
   const t = useTranslations("settings");
-  const [section, setSection] = React.useState<Section>(
-    SECTIONS.includes(initialSection as Section)
-      ? (initialSection as Section)
-      : "account",
-  );
+  const mcpUrl = useMcpServiceUrl(mcpPath, mcpPublicUrl);
+  const router = useRouter();
 
   return (
     <div className="flex min-h-full">
@@ -85,18 +91,18 @@ export function SettingsView({
               icon={SECTION_ICONS[s]}
               label={t(`sections.${s}`)}
               active={section === s}
-              onClick={() => setSection(s)}
+              href={`/settings/${s}`}
             />
           ))}
         </RailGroup>
         <RailGroup label={t("groups.prefs")}>
-          {SECTIONS.filter((s) => s === "prefs" || s === "more").map((s) => (
+          {SECTIONS.filter((s) => s === "preferences" || s === "notifications").map((s) => (
             <RailItem
               key={s}
               icon={SECTION_ICONS[s]}
               label={t(`sections.${s}`)}
               active={section === s}
-              onClick={() => setSection(s)}
+              href={`/settings/${s}`}
             />
           ))}
         </RailGroup>
@@ -125,7 +131,7 @@ export function SettingsView({
               type="button"
               variant={section === s ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => setSection(s)}
+              onClick={() => router.push(`/settings/${s}`)}
             >
               {t(`sections.${s}`)}
             </Button>
@@ -133,9 +139,9 @@ export function SettingsView({
         </div>
 
         {section === "account" && <AccountPanel user={user} />}
-        {section === "keys" && <KeysPanel keys={keys} />}
-        {section === "prefs" && <PrefsPanel />}
-        {section === "more" && <MorePanel />}
+        {section === "keys" && <KeysPanel keys={keys} mcpUrl={mcpUrl} />}
+        {section === "preferences" && <PrefsPanel />}
+        {section === "notifications" && <MorePanel />}
       </div>
     </div>
   );
@@ -162,17 +168,16 @@ function RailItem({
   icon: Icon,
   label,
   active,
-  onClick,
+  href,
 }: {
   icon: typeof User;
   label: string;
   active: boolean;
-  onClick: () => void;
+  href: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Link
+      href={href}
       className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
         active
           ? "bg-accent font-medium text-accent-foreground"
@@ -181,7 +186,7 @@ function RailItem({
     >
       <Icon className="size-4 shrink-0" />
       <span className="truncate">{label}</span>
-    </button>
+    </Link>
   );
 }
 
@@ -350,7 +355,7 @@ function AccountPanel({ user }: { user: { name: string; email: string } }) {
   );
 }
 
-function KeysPanel({ keys }: { keys: ApiKeySummary[] }) {
+function KeysPanel({ keys, mcpUrl }: { keys: ApiKeySummary[]; mcpUrl: string }) {
   const keysT = useTranslations("keys");
   const common = useTranslations("common");
   const locale = useLocale();
@@ -448,19 +453,19 @@ function KeysPanel({ keys }: { keys: ApiKeySummary[] }) {
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-sm font-medium">{keysT("examples.mcp")}</p>
-              <CopyButton text={MCP_SNIPPET} label={keysT("examples.copy")} />
+              <CopyButton text={mcpConfigSnippet(mcpUrl)} label={keysT("examples.copy")} />
             </div>
             <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
-              {MCP_SNIPPET}
+              {mcpConfigSnippet(mcpUrl)}
             </pre>
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-sm font-medium">{keysT("examples.rest")}</p>
-              <CopyButton text={CURL_SNIPPET} label={keysT("examples.copy")} />
+              <CopyButton text={curlSnippet(mcpUrl)} label={keysT("examples.copy")} />
             </div>
             <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
-              {CURL_SNIPPET}
+              {curlSnippet(mcpUrl)}
             </pre>
           </div>
         </CardContent>
@@ -470,7 +475,7 @@ function KeysPanel({ keys }: { keys: ApiKeySummary[] }) {
 }
 
 function PrefsPanel() {
-  const t = useTranslations("settings.prefs");
+  const t = useTranslations("settings.preferences");
   const topbar = useTranslations("topbar");
   const router = useRouter();
   const locale = useLocale();
@@ -561,7 +566,7 @@ function PrefsPanel() {
 }
 
 function MorePanel() {
-  const t = useTranslations("settings.more");
+  const t = useTranslations("settings.notifications");
   const common = useTranslations("common");
   const [prefs, setPrefs] = React.useState<Record<string, boolean> | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -670,18 +675,3 @@ function PrefSwitch({
     </button>
   );
 }
-
-const MCP_SERVICE_URL = "https://apigent.acme.dev/mcp";
-
-const MCP_SNIPPET = `{
-  "mcpServers": {
-    "apigent": {
-      "url": "${MCP_SERVICE_URL}",
-      "headers": { "Authorization": "Bearer <your-key>" }
-    }
-  }
-}`;
-
-const CURL_SNIPPET = `curl ${MCP_SERVICE_URL}/v1/apis/search \\
-  -H "Authorization: Bearer <your-key>" \\
-  -H "Content-Type: application/json"`;

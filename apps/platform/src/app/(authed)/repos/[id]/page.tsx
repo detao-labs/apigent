@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { RepoForbidden } from "@/components/repo-forbidden";
 import { RepoNotFound } from "@/components/repo-not-found";
 import { RepoOverview } from "@/components/repo-overview";
+import { getMcpConfig } from "@/lib/mcp";
 import { requireUser } from "@/services/auth";
 import { loadRepoForPage } from "@/services/repos";
 import { getLatestImportTask } from "@apigent/server/imports";
@@ -23,6 +24,7 @@ export default async function RepoDetailOverviewPage({
 
   if (!repo) return <RepoNotFound />;
 
+  const mcpConfig = getMcpConfig();
   const latestTask = await getLatestImportTask(id);
   const latestContextTask = await getLatestContextTask(id);
 
@@ -40,6 +42,8 @@ export default async function RepoDetailOverviewPage({
         locale={locale}
         latestTask={latestTask}
         latestContextTask={latestContextTask}
+        mcpPath={mcpConfig.path}
+        mcpPublicUrl={mcpConfig.publicUrl}
       />
     </div>
   );
