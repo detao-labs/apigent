@@ -179,13 +179,13 @@ export function RepoOverview({
     {
       label: t("stats.endpoints"),
       value: repo.endpointCount,
-      href: `/repos/${repo.id}/endpoints`,
+      href: `/repos/${repo.id}/definition`,
       icon: ListTree,
     },
     {
       label: t("stats.models"),
       value: repo.modelCount,
-      href: `/repos/${repo.id}/schemas`,
+      href: `/repos/${repo.id}/definition`,
       icon: Boxes,
     },
     {

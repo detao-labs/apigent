@@ -473,3 +473,73 @@ describe("parseOpenAPI", () => {
     });
   });
 });
+
+describe("component extraction (components.responses / securitySchemes)", () => {
+  const spec = JSON.stringify({
+    openapi: "3.0.3",
+    info: { title: "T", version: "1" },
+    paths: {},
+    components: {
+      responses: {
+        ErrorResponse: {
+          description: "Error",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { code: { type: "integer" } },
+              },
+            },
+          },
+        },
+      },
+      securitySchemes: {
+        bearer_token: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+        api_key: { type: "apiKey", in: "header", name: "X-API-Key" },
+      },
+      links: {
+        OrderItemsLink: {
+          operationId: "getOrderItems",
+          parameters: { orderId: "$response.body#/id" },
+        },
+      },
+      callbacks: {
+        OrderStatusCallback: {
+          "{$request.body#/callbackUrl}": {
+            post: { responses: { "200": { description: "ack" } } },
+          },
+        },
+      },
+    },
+  });
+
+  it("extracts responses and securitySchemes as componentDefs", () => {
+    const result = parseOpenAPI({
+      source: "text",
+      content: spec,
+      repoId: "repo_0000000000",
+    });
+    const responses = result.componentDefs.filter((c) => c.kind === "response");
+    const security = result.componentDefs.filter(
+      (c) => c.kind === "securityScheme",
+    );
+
+    expect(responses).toHaveLength(1);
+    expect(responses[0].name).toBe("ErrorResponse");
+    expect(responses[0].payload.contentType).toBe("application/json");
+    expect(responses[0].payload.schema).toBeDefined();
+
+    expect(security).toHaveLength(2);
+    expect(security.find((s) => s.name === "bearer_token")?.defType).toBe("http");
+    expect(security.find((s) => s.name === "api_key")?.payload.in).toBe("header");
+
+    const links = result.componentDefs.filter((c) => c.kind === "link");
+    expect(links).toHaveLength(1);
+    expect(links[0].name).toBe("OrderItemsLink");
+    expect(links[0].payload.operationId).toBe("getOrderItems");
+
+    const callbacks = result.componentDefs.filter((c) => c.kind === "callback");
+    expect(callbacks).toHaveLength(1);
+    expect(callbacks[0].name).toBe("OrderStatusCallback");
+  });
+});

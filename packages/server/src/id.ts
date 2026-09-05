@@ -29,6 +29,7 @@ export const ID_PREFIXES = {
   member: "mem_",
   permission: "perm_",
   response: "rsp_",
+  component: "comp_",
   context: "ctx_",
   relationship: "rel_",
   chunk: "chunk_",

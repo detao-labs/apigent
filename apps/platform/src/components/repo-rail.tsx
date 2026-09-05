@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@apigent/ui";
 import {
   ArrowLeft,
-  Boxes,
   History,
   LayoutDashboard,
   ListTree,
@@ -30,8 +29,7 @@ export function RepoRail({
 
   const items = [
     { key: "overview", label: nav("overview"), url: base, icon: LayoutDashboard },
-    { key: "endpoints", label: nav("endpoints"), url: `${base}/endpoints`, icon: ListTree },
-    { key: "schemas", label: nav("schemas"), url: `${base}/schemas`, icon: Boxes },
+    { key: "definitions", label: nav("definitions"), url: `${base}/definition`, icon: ListTree },
     { key: "context", label: nav("context"), url: `${base}/context`, icon: Sparkles },
     { key: "versions", label: nav("versions"), url: `${base}/versions`, icon: History },
     { key: "settings", label: nav("settings"), url: `${base}/settings`, icon: Settings },

@@ -17,6 +17,8 @@ import type {
   ParsedAPIModel,
   APIEntry,
   SchemaEntry,
+  ComponentDef,
+  ComponentKind,
   ParseIssue,
   ParseInput,
   ParseMeta,
@@ -101,10 +103,14 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
   // Step 6: Extract data models from components/schemas
   const schemas = extractSchemas(resolved, issues);
 
+  // Step 7: Extract reusable components (responses / securitySchemes / …)
+  const componentDefs = extractComponentDefs(resolved, issues);
+
   return {
     repoId: input.repoId,
     apis,
     schemas,
+    componentDefs,
     parseIssues: issues,
     meta,
     tagDescriptions,
@@ -120,7 +126,7 @@ function emptyModel(
   issues: ParseIssue[],
   meta: ParseMeta,
 ): ParsedAPIModel {
-  return { repoId, apis: [], schemas: [], parseIssues: issues, meta };
+  return { repoId, apis: [], schemas: [], componentDefs: [], parseIssues: issues, meta };
 }
 
 function parseContent(
@@ -412,6 +418,73 @@ function extractSchemas(
   }
 
   return schemas;
+}
+
+/**
+ * Extract reusable component definitions (components.responses / securitySchemes /
+ * parameters / requestBodies / headers / examples) into ComponentDef entries,
+ * mirroring extractSchemas so components can be managed like data models.
+ */
+function extractComponentDefs(
+  doc: Record<string, unknown>,
+  issues: ParseIssue[],
+): ComponentDef[] {
+  const out: ComponentDef[] = [];
+  const components = doc.components as Record<string, unknown> | undefined;
+  if (!components || typeof components !== "object") return out;
+
+  const categories: Array<{ kind: ComponentKind; key: string }> = [
+    { kind: "response", key: "responses" },
+    { kind: "securityScheme", key: "securitySchemes" },
+    { kind: "parameter", key: "parameters" },
+    { kind: "requestBody", key: "requestBodies" },
+    { kind: "header", key: "headers" },
+    { kind: "example", key: "examples" },
+    { kind: "link", key: "links" },
+    { kind: "callback", key: "callbacks" },
+  ];
+
+  for (const { kind, key } of categories) {
+    const objs = components[key] as Record<string, unknown> | undefined;
+    if (!objs || typeof objs !== "object") continue;
+
+    for (const [name, obj] of Object.entries(objs)) {
+      if (!obj || typeof obj !== "object") continue;
+      const o = obj as Record<string, unknown>;
+      const payload: Record<string, unknown> = { ...o };
+      const description =
+        typeof o.description === "string" ? o.description : undefined;
+
+      if (kind === "response") {
+        // 取第一个带 schema 的 content 媒体类型，便于右栏展示
+        const content = o.content as Record<string, unknown> | undefined;
+        const mediaType =
+          content && typeof content === "object" ? Object.keys(content)[0] : undefined;
+        if (mediaType) {
+          payload.contentType = mediaType;
+          const media = (content as Record<string, unknown>)[mediaType] as
+            | Record<string, unknown>
+            | undefined;
+          const schema = media?.schema as Record<string, unknown> | undefined;
+          if (schema) {
+            payload.schema = toSchemaRef(schema);
+          }
+        }
+      } else if (kind === "securityScheme") {
+        payload.type = typeof o.type === "string" ? o.type : "http";
+      }
+
+      out.push({
+        kind,
+        name,
+        defType: typeof o.type === "string" ? o.type : undefined,
+        description,
+        payload,
+      });
+    }
+  }
+
+  return out;
 }
 
 function toSchemaRef(schema: Record<string, unknown>): SchemaRef {

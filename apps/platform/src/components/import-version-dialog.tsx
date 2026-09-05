@@ -402,7 +402,7 @@ export function ImportVersionDialog({
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Link
-                href={`/repos/${repoId}/endpoints`}
+                href={`/repos/${repoId}/definition`}
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <ListTree className="size-4" />

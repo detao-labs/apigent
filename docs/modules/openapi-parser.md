@@ -52,7 +52,15 @@ interface APIEntry {
 }
 
 interface ComponentDef {
-  kind: "response" | "securityScheme" | "parameter" | "requestBody" | "header" | "example";
+  kind:
+    | "response"
+    | "securityScheme"
+    | "parameter"
+    | "requestBody"
+    | "header"
+    | "example"
+    | "link"
+    | "callback";
   name: string;
   def_type?: string; // 展示型类型提示，如 securityScheme → http / apiKey / oauth2
   description?: string;
@@ -96,8 +104,9 @@ interface ComponentDef {
 | 响应组件 | `components.responses` | `name`、`description`、`content` 首个媒体类型、`schema`（作为 `SchemaRef`） |
 | 鉴权组件 | `components.securitySchemes` | `name`、`type`（http / apiKey / oauth2 / openIdConnect）、`in`、`scheme`、`bearerFormat`、`flows` |
 | 参数 / 请求体等 | `components.parameters` / `requestBodies` / `headers` / `examples` | `name` + 原始定义（`payload`） |
+| 关系 / 回调 | `components.links`（操作间关系、HATEOAS 提示）、`components.callbacks`（服务器 → 客户端 webhook） | `name` + 原始定义（`payload`） |
 
-统一建模为 `ComponentDef { kind, name, def_type, description, payload }`：`payload` 保留原始定义，`def_type` 为展示型类型提示（如 securityScheme → http / apiKey / oauth2）。落库时与 `data_models` 同构（`version_id` + `repo_id` + `kind` + `name` + JSON payload），随版本快照写入，供「模型 / 组件」页按 `kind` 分组浏览与后续管理——不内嵌到接口详情，避免与接口级响应 / 鉴权混杂。
+统一建模为 `ComponentDef { kind, name, def_type, description, payload }`：`payload` 保留原始定义，`def_type` 为展示型类型提示（如 securityScheme → http / apiKey / oauth2）。落库时与 `data_models` 同构（`version_id` + `repo_id` + `kind` + `name` + JSON payload，表名 **`components`**，对应 OpenAPI 的 `components` 对象），随版本快照写入，供「接口管理」页按 `kind` 分组浏览与后续管理——不内嵌到接口详情，避免与接口级响应 / 鉴权混杂。
 
 ## 行为规范
 

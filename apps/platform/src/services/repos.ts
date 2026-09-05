@@ -4,6 +4,7 @@
 
 import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import {
+  components,
   dataModels,
   endpointModules,
   endpointResponses,
@@ -463,5 +464,65 @@ export async function getRepoDataModels(
   return rows.map((row) => ({
     ...row,
     schemaRaw: (row.schemaRaw ?? null) as RepoDataModel["schemaRaw"],
+  }));
+}
+
+export type ComponentKind =
+  | "response"
+  | "securityScheme"
+  | "parameter"
+  | "requestBody"
+  | "header"
+  | "example"
+  | "link"
+  | "callback";
+
+export interface RepoComponentDef {
+  id: string;
+  kind: ComponentKind;
+  name: string;
+  defType: string | null;
+  description: string | null;
+  payload: Record<string, unknown>;
+}
+
+/** 当前版本快照下的可复用组件定义（responses / securitySchemes …）。 */
+export async function getRepoComponentDefs(
+  repoId: string,
+  userId: string,
+  kind?: ComponentKind,
+): Promise<RepoComponentDef[]> {
+  await assertRepoAccess(userId, repoId, "repo_viewer");
+  const db = getDB();
+  const [repo] = await db
+    .select({ currentVersionId: repositories.currentVersionId })
+    .from(repositories)
+    .where(eq(repositories.id, repoId))
+    .limit(1);
+  if (!repo?.currentVersionId) return [];
+
+  const conditions = [
+    eq(components.repoId, repoId),
+    eq(components.versionId, repo.currentVersionId),
+  ];
+  if (kind) conditions.push(eq(components.kind, kind));
+
+  const rows = await db
+    .select({
+      id: components.id,
+      kind: components.kind,
+      name: components.name,
+      defType: components.defType,
+      description: components.description,
+      payload: components.payload,
+    })
+    .from(components)
+    .where(and(...conditions))
+    .orderBy(components.kind, components.name);
+
+  return rows.map((row) => ({
+    ...row,
+    kind: row.kind as ComponentKind,
+    payload: (row.payload ?? {}) as Record<string, unknown>,
   }));
 }

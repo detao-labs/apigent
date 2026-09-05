@@ -15,6 +15,7 @@ export {
 export { secretKeys } from "./secret";
 export { operationLogs, operationLogDetails } from "./audit";
 export { knowledgeChunks } from "./knowledge";
+export { components } from "./component";
 export { implQueueJobs } from "./queue";
 export { notifications } from "./notification";
 export { repoTasks } from "./repo-task";

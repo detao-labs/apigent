@@ -106,6 +106,30 @@ export interface SchemaEntry {
   required: string[];
 }
 
+/** Kinds of reusable OpenAPI components (components.*) managed like schemas */
+export type ComponentKind =
+  | "response"
+  | "securityScheme"
+  | "parameter"
+  | "requestBody"
+  | "header"
+  | "example"
+  | "link"
+  | "callback";
+
+/**
+ * A reusable component definition. `payload` holds the raw definition for
+ * later management; `defType` is a display hint (e.g. securityScheme → http /
+ * apiKey / oauth2 / openIdConnect).
+ */
+export interface ComponentDef {
+  kind: ComponentKind;
+  name: string;
+  defType?: string;
+  description?: string;
+  payload: Record<string, unknown>;
+}
+
 /** Metadata about the parsed spec */
 export interface ParseMeta {
   openapiVersion: string;
@@ -121,6 +145,7 @@ export interface ParsedAPIModel {
   repoId: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
+  componentDefs: ComponentDef[];
   parseIssues: ParseIssue[];
   meta: ParseMeta;
   /** 顶层 tags[].description（tag 名 → 描述），供 modules.description 落库 */

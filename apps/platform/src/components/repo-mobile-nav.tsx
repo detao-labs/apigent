@@ -11,8 +11,7 @@ export function RepoMobileNav({ repoId }: { repoId: string }) {
 
   const items = [
     { key: "overview", label: t("overview"), url: base },
-    { key: "endpoints", label: t("endpoints"), url: `${base}/endpoints` },
-    { key: "schemas", label: t("schemas"), url: `${base}/schemas` },
+    { key: "definitions", label: t("definitions"), url: `${base}/definition` },
     { key: "context", label: t("context"), url: `${base}/context` },
     { key: "versions", label: t("versions"), url: `${base}/versions` },
     { key: "settings", label: t("settings"), url: `${base}/settings` },

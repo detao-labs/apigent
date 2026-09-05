@@ -1,11 +1,4 @@
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { ChevronRight } from "lucide-react";
-import { DataModelList } from "@/components/data-model-list";
-import { RepoForbidden } from "@/components/repo-forbidden";
-import { RepoNotFound } from "@/components/repo-not-found";
-import { requireUser } from "@/services/auth";
-import { getRepoDataModels, loadRepoForPage } from "@/services/repos";
+import { redirect } from "next/navigation";
 
 export default async function RepoSchemasPage({
   params,
@@ -13,34 +6,5 @@ export default async function RepoSchemasPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await requireUser();
-  const t = await getTranslations("repos.detail");
-  const reposT = await getTranslations("repos");
-  const { status, repo, owner } = await loadRepoForPage(id, user.id);
-  if (status === "forbidden") return <RepoForbidden owner={owner} />;
-  if (!repo) return <RepoNotFound />;
-  const models = await getRepoDataModels(id, user.id);
-
-  return (
-    <div className="space-y-6">
-      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/repos" className="hover:text-foreground">
-          {reposT("title")}
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <Link href={`/repos/${repo.id}`} className="hover:text-foreground">
-          {repo.name}
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <span className="text-foreground">{t("nav.schemas")}</span>
-      </nav>
-
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{repo.name}</h1>
-        <p className="text-muted-foreground">{t("schemasSub")}</p>
-      </div>
-
-      <DataModelList models={models} />
-    </div>
-  );
+  redirect(`/repos/${id}/definition`);
 }

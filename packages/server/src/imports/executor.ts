@@ -14,6 +14,7 @@ import { loadConfig } from "@apigent/core/config";
 import { parseOpenAPI } from "../openapi";
 import { generateId } from "../id";
 import {
+  components,
   dataModels,
   endpointModules,
   endpointResponses,
@@ -217,6 +218,22 @@ export async function executeImportTask(taskId: string): Promise<void> {
       }
       txTimer.mark("models");
 
+      if (model.componentDefs.length > 0) {
+        await tx.insert(components).values(
+          model.componentDefs.map((c) => ({
+            id: generateId("component"),
+            versionId,
+            repoId: task.repoId,
+            kind: c.kind,
+            name: c.name,
+            defType: c.defType ?? null,
+            description: c.description ?? null,
+            payload: c.payload,
+          })),
+        );
+      }
+      txTimer.mark("componentDefs");
+
       await tx
         .update(repositories)
         .set({ currentVersionId: versionId })
@@ -226,6 +243,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
       return {
         endpoints: model.apis.length,
         models: model.schemas.length,
+        components: model.componentDefs.length,
         modules: moduleCount(model.apis),
       };
     });
