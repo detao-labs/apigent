@@ -18,4 +18,5 @@ export { knowledgeChunks } from "./knowledge";
 export { components } from "./component";
 export { implQueueJobs } from "./queue";
 export { notifications } from "./notification";
+export { notificationPreferences } from "./notification";
 export { repoTasks } from "./repo-task";

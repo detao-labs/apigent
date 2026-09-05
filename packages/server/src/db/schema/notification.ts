@@ -3,8 +3,10 @@ import {
   text,
   varchar,
   jsonb,
+  boolean,
   timestamp,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
@@ -52,5 +54,28 @@ export const notifications = pgTable(
       table.category,
       table.createdAt.desc(),
     ),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// Notification Preferences — 用户级通知偏好（按业务分类开关）
+// ═══════════════════════════════════════════════════════════════════
+
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    /** import | context | key | mcp | system */
+    category: varchar("category", { length: 30 }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.category] }),
   ],
 );

@@ -10,7 +10,7 @@
 
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { generateId } from "../id";
-import { getDB, notifications } from "../db";
+import { getDB, notifications, notificationPreferences } from "../db";
 import { logError } from "../logger";
 
 export type NotificationCategory = "import" | "context" | "key" | "mcp" | "system";
@@ -28,6 +28,14 @@ export interface NotificationInput {
   expiresAt?: Date;
 }
 
+export const NOTIFICATION_CATEGORIES = [
+  "import",
+  "context",
+  "key",
+  "mcp",
+  "system",
+] as const satisfies NotificationCategory[];
+
 export interface NotificationSummary {
   id: string;
   category: NotificationCategory;
@@ -41,6 +49,19 @@ export interface NotificationSummary {
 }
 
 export async function createNotification(input: NotificationInput): Promise<string> {
+  // 尊重用户通知偏好：该分类被显式关闭则跳过
+  const [pref] = await getDB()
+    .select({ enabled: notificationPreferences.enabled })
+    .from(notificationPreferences)
+    .where(
+      and(
+        eq(notificationPreferences.userId, input.userId),
+        eq(notificationPreferences.category, input.category),
+      ),
+    )
+    .limit(1);
+  if (pref && !pref.enabled) return "";
+
   const id = generateId("notification");
   await getDB().insert(notifications).values({
     id,
@@ -55,6 +76,38 @@ export async function createNotification(input: NotificationInput): Promise<stri
     expiresAt: input.expiresAt ?? null,
   });
   return id;
+}
+
+/** 全部通知分类的启用状态（无记录默认开启）。 */
+export async function listNotificationPreferences(
+  userId: string,
+): Promise<Record<NotificationCategory, boolean>> {
+  const rows = await getDB()
+    .select({
+      category: notificationPreferences.category,
+      enabled: notificationPreferences.enabled,
+    })
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, userId));
+  const map = new Map(rows.map((r) => [r.category, r.enabled ?? true]));
+  return Object.fromEntries(
+    NOTIFICATION_CATEGORIES.map((c) => [c, map.get(c) ?? true]),
+  ) as Record<NotificationCategory, boolean>;
+}
+
+/** 设置某分类通知开关。 */
+export async function setNotificationPreference(
+  userId: string,
+  category: NotificationCategory,
+  enabled: boolean,
+): Promise<void> {
+  await getDB()
+    .insert(notificationPreferences)
+    .values({ userId, category, enabled })
+    .onConflictDoUpdate({
+      target: [notificationPreferences.userId, notificationPreferences.category],
+      set: { enabled, updatedAt: new Date() },
+    });
 }
 
 export interface ListNotificationsOptions {

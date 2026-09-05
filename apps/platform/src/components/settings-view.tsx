@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   Avatar,
   AvatarFallback,
@@ -562,31 +563,111 @@ function PrefsPanel() {
 function MorePanel() {
   const t = useTranslations("settings.more");
   const common = useTranslations("common");
+  const [prefs, setPrefs] = React.useState<Record<string, boolean> | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
-  const rows = [
-    { label: t("notifications") },
-    { label: t("sessions") },
-    { label: t("apiPrefs") },
+  React.useEffect(() => {
+    fetch("/api/settings/notification-preferences")
+      .then((r) => r.json())
+      .then((d) => setPrefs(d.prefs ?? {}))
+      .catch(() => setPrefs({}));
+  }, []);
+
+  const items = [
+    { key: "import", label: t("prefImport") },
+    { key: "context", label: t("prefContext") },
   ];
 
+  async function toggle(cat: string, enabled: boolean) {
+    setSaving(true);
+    const res = await fetch("/api/settings/notification-preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: cat, enabled }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error(t("saveFailed"));
+      return;
+    }
+    setPrefs((p) => ({ ...(p ?? {}), [cat]: enabled }));
+    toast.success(t("saved"));
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="divide-y">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between py-3 text-sm"
-          >
-            <span>{row.label}</span>
-            <Badge variant="secondary">{common("comingSoon")}</Badge>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("notifications")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="divide-y">
+          {items.map((item) => (
+            <div
+              key={item.key}
+              className="flex items-center justify-between py-3 text-sm"
+            >
+              <span>{item.label}</span>
+              <PrefSwitch
+                checked={prefs?.[item.key] ?? true}
+                disabled={saving || prefs === null}
+                onChange={(v) => toggle(item.key, v)}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("title")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="divide-y">
+          {[
+            { label: t("sessions") },
+            { label: t("apiPrefs") },
+          ].map((row) => (
+            <div
+              key={row.label}
+              className="flex items-center justify-between py-3 text-sm"
+            >
+              <span>{row.label}</span>
+              <Badge variant="secondary">{common("comingSoon")}</Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PrefSwitch({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+        checked ? "bg-green-600" : "bg-muted"
+      } ${disabled ? "opacity-50" : ""}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      />
+    </button>
   );
 }
 

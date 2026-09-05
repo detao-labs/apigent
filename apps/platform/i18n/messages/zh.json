@@ -588,7 +588,13 @@
       "notifications": "通知偏好",
       "sessions": "会话管理",
       "apiPrefs": "API 偏好",
-      "comingSoon": "即将开放"
+      "comingSoon": "即将开放",
+      "prefImport": "导入结果",
+      "prefContext": "业务上下文",
+      "prefKey": "API 密钥",
+      "prefSystem": "平台公告",
+      "saved": "已保存",
+      "saveFailed": "保存失败"
     }
   },
   "common": {

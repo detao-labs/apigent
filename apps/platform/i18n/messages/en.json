@@ -588,7 +588,13 @@
       "notifications": "Notification preferences",
       "sessions": "Session management",
       "apiPrefs": "API preferences",
-      "comingSoon": "Coming soon"
+      "comingSoon": "Coming soon",
+      "prefImport": "Import results",
+      "prefContext": "Business context",
+      "prefKey": "API keys",
+      "prefSystem": "Platform announcements",
+      "saved": "Saved",
+      "saveFailed": "Save failed"
     }
   },
   "common": {
