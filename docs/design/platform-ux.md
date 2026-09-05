@@ -98,7 +98,7 @@ flowchart LR
 | `/repos/[id]` | 仓库详情（独立布局） | `repo-detail.html` | P0 | 已实现（总览 / 导入 / 密钥 / MCP 开关）；definition/context 为独立分区 |
 | `/repos/[id]/definition` | 定义（接口 / 模型 / 组件） | `repo-defs.html` | P0 | 设计稿已定（Apifox 式单页）；待实现并收敛 endpoints / schemas |
 | `/repos/[id]/context` | 业务上下文 | `repo-context.html` | P1 | 已实现（查看 / 生成 / 编辑） |
-| `/repos/[id]/versions` | 版本历史与对比 | `repo-versions.html` | P1 | 占位（空态壳）；版本列表 / 对比 / 回滚未实现 |
+| `/repos/[id]/versions` | 版本历史与对比 | `repo-versions.html` | P1 | 设计稿已定（Phase 4，见 4.4.4）；版本列表 / 对比 / 回滚 / 导出待实现 |
 | `/repos/[id]/settings` | 仓库设置 | `repo-settings.html` | P1 | 占位（空态壳）；仓库级设置未实现 |
 | `/orgs`、`/orgs/new` | 组织列表/新建 | `orgs.html` | P0 | 已实现 |
 | `/orgs/[id]` | 组织详情（成员/仓库） | `org-detail.html` | P1 | 设计稿已定（见 4.8.2），待实现 |
@@ -242,6 +242,43 @@ V1 条目增多（项目、语义搜索、知识图谱）后可扩为 3~4 组：
 │ v2.1 · 3 天前                   │               │
 └────────────────────────────────┴───────────────┘
 ```
+
+### 4.4.4 版本管理（/repos/[id]/versions，Phase 4）
+
+**入口**：仓库 rail「版本」（计数徽章，`repo-versions.html` 线框已定）。
+
+**版本历史表**：版本｜导入时间｜来源｜接口数｜数据模型数｜操作。
+
+- 统计列（接口数 / 数据模型数）**实时 count，不落库**（V0 数据量小）。
+- 操作列：
+  - **当前版本**：`当前` 徽章 ＋ 「对比上一版本」＋「导出」。
+  - **非当前版本**：「设为当前」（**二次确认**）＋「对比上一版本」＋「导出」。
+  - 所有行可点击进入该版本（深链 URL 可分享）。
+
+**版本对比（纯规则，不依赖 LLM）**：
+
+- 支持**任意两版本对比**，URL 用 `?from=<versionId>&to=<versionId>` 可分享 / 恢复；默认提供「对比上一版本」快捷按钮。
+- Diff 引擎做结构对比（`paths` / `components.schemas` / `components.*`），计算 **新增 / 修改 / 删除**，并按语义判定 **兼容 / 非破坏 / 破坏性**。
+- 展示：顶部摘要徽章（新增 n / 修改 n / 删除 n / 破坏性 n）＋ 变更表（方法｜路径｜变更说明｜影响徽章）。
+- 变更明细可沉淀到 `operation_log_details`，供版本对比与审计复用。
+
+**设为当前（即回滚）**：
+
+- 只切换 `repositories.current_version_id` 指针，版本快照**不可变**；不复制 / 不修改旧快照。
+- 必须**二次确认**，弹窗提示：`切换后，外部 Agent 将读取该版本的接口定义。确定设为当前版本吗？`
+- 成功后：版本表重新标记当前版本 ＋ 顶栏通知 ＋ 各页面读取到新 `current_version_id`。
+
+**导出**：
+
+- 按**数据库结构化内容**重新合成 OpenAPI JSON / YAML 下载（非原始导入文件），确保反映库中当前定义。
+
+**权限（RBAC）**：
+
+| 操作 | 最低角色 |
+| --- | --- |
+| 浏览 / 对比 / 导出 | `repo_viewer` |
+| 导入新版本 | `repo_editor` |
+| 设为当前（回滚） | `repo_admin` ＋ 二次确认 |
 
 ## 4.5 接口列表与详情（/repos/[id]/endpoints）
 

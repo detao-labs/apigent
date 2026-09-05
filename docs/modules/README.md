@@ -221,6 +221,9 @@ docs/modules/
   async-queue.md                   ← Async Queue Service（异步任务 + 消息通知）
   agent-runtime.md                 ← Agent Runtime（AI SDK 流式对话 + client/server tools）
   observability.md                 ← Observability 技术债记录（日志/指标/追踪）
+  audit-log.md                     ← Audit Log 技术债记录（操作日志写/查/展示）
 ```
 
 > **技术债记录：** 当前仅最小结构化日志（`console` JSON lines），**metrics 与 tracing 未实现**；排查单次失败可用 `event` + `context` 本地 grep。详见 [observability.md](./observability.md)。
+>
+> **操作日志：** `operation_logs` / `operation_log_details` 表已定义但**未接线**（无写入 / 无 API / 无前端展示）；仓库、接口、数据模型、组织等变更暂不可审计。详见 [audit-log.md](./audit-log.md)。
