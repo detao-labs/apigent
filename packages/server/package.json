@@ -16,7 +16,8 @@
     "./imports": "./src/imports/index.ts",
     "./notifications": "./src/notifications/index.ts",
     "./contexts": "./src/contexts/index.ts",
-    "./ai": "./src/ai/model.ts"
+    "./ai": "./src/ai/model.ts",
+    "./versions": "./src/versions/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

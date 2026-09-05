@@ -98,7 +98,7 @@ flowchart LR
 | `/repos/[id]` | 仓库详情（独立布局） | `repo-detail.html` | P0 | 已实现（总览 / 导入 / 密钥 / MCP 开关）；definition/context 为独立分区 |
 | `/repos/[id]/definition` | 定义（接口 / 模型 / 组件） | `repo-defs.html` | P0 | 设计稿已定（Apifox 式单页）；待实现并收敛 endpoints / schemas |
 | `/repos/[id]/context` | 业务上下文 | `repo-context.html` | P1 | 已实现（查看 / 生成 / 编辑） |
-| `/repos/[id]/versions` | 版本历史与对比 | `repo-versions.html` | P1 | 设计稿已定（Phase 4，见 4.4.4）；版本列表 / 对比 / 回滚 / 导出待实现 |
+| `/repos/[id]/versions` | 版本历史与对比 | `repo-versions.html` | P1 | 已实现（版本列表 / 纯规则对比 / 设为当前，见 4.4.4）；导出后置单独实现 |
 | `/repos/[id]/settings` | 仓库设置 | `repo-settings.html` | P1 | 占位（空态壳）；仓库级设置未实现 |
 | `/orgs`、`/orgs/new` | 组织列表/新建 | `orgs.html` | P0 | 已实现 |
 | `/orgs/[id]` | 组织详情（成员/仓库） | `org-detail.html` | P1 | 设计稿已定（见 4.8.2），待实现 |
@@ -270,7 +270,7 @@ V1 条目增多（项目、语义搜索、知识图谱）后可扩为 3~4 组：
 
 **导出**：
 
-- 按**数据库结构化内容**重新合成 OpenAPI JSON / YAML 下载（非原始导入文件），确保反映库中当前定义。
+- **后置单独实现**（Phase 4 先做：列表 / 对比 / 设为当前）。届时按**数据库结构化内容**重新合成 OpenAPI JSON / YAML 下载（非原始导入文件），确保反映库中当前定义。
 
 **权限（RBAC）**：
 
