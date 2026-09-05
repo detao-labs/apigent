@@ -24,6 +24,10 @@
     <span>💡</span>
     <span>本组文件为纯静态线框（无构建依赖，双击即可打开）。侧边栏与按钮可点击，用于模拟「登录 → 仪表盘 → 仓库 → 接口 → 密钥」的页面流。详细设计说明见 <a href="../../docs/design/platform-ux.md" style="text-decoration:underline">docs/design/platform-ux.md</a>。</span>
   </div>
+  <div class="notice notice-warn">
+    <span>📦</span>
+    <span><b>已下线页面：</b>「接口」「数据模型」合并为「接口管理」单页（repo-defs.html）。原 repo-endpoints.html / data-models.html 已移入 _archive/，存档备查，待功能开发完成后删除。</span>
+  </div>
 
   <div class="gallery">
     <a class="g-card" href="login.html">
@@ -46,13 +50,9 @@
       <div class="thumb">🏠</div>
       <div class="body"><h3>仓库详情 · 概览</h3><p>独立左侧导航：仓库分区菜单；概览含能力上下文、统计、MCP 接入面板。</p></div>
     </a>
-    <a class="g-card" href="repo-endpoints.html">
-      <div class="thumb">🔌</div>
-      <div class="body"><h3>接口列表 + 详情抽屉</h3><p>方法色标、筛选、抽屉展示 Schema 与业务上下文。</p></div>
-    </a>
-    <a class="g-card" href="data-models.html">
-      <div class="thumb">🧩</div>
-      <div class="body"><h3>数据模型</h3><p>模型卡片网格，点击查看字段与类型。</p></div>
+    <a class="g-card" href="repo-defs.html">
+      <div class="thumb">🧭</div>
+      <div class="body"><h3>接口管理</h3><p>预览 `/repos/[id]/definition`：Apifox 式单页，接口、数据模型与组件库同树浏览，右侧内联详情。</p></div>
     </a>
     <a class="g-card" href="repo-context.html">
       <div class="thumb">🧠</div>
@@ -95,7 +95,7 @@
     </div>
     <div class="card card-pad">
       <div class="card-title">待确认</div>
-      <div class="card-desc">1. 仓库详情用 Tab 页还是独立子路由？<br />2. 接口详情用抽屉还是独立页？<br />3. 组织之上是否需要 Workspace？</div>
+      <div class="card-desc">1. 仓库详情用 Tab 页还是独立子路由？（已定：独立子路由）<br />2. 接口详情用抽屉还是独立页？（已定：内嵌分栏页，与真实实现一致）<br />3. 组织之上是否需要 Workspace？</div>
       <div class="card-title">实现顺序建议</div>
       <div class="card-desc" style="margin-bottom:0">先仓库列表/详情数据闭环 → 再新建向导与密钥流程 → 最后仪表盘引导与组织详情。</div>
     </div>

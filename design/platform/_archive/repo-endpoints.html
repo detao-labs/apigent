@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 接口 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="../assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/definition/endpoints</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：支付服务 v2.1 解析成功</button>
+        <button class="notice-item">能力上下文已生成：支付服务 API</button>
+        <button class="notice-item warn">退款接口业务上下文生成失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">支付服务 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v2.1</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <div class="section-label">定义</div>
+    <a class="nav-item" href="repo-defs.html"><span class="ico">⇄</span>接口管理 <span class="cnt">36</span></a>
+    <div class="section-label">其它</div>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">6</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">商店 API</a><span class="sep">/</span><span>定义</span><span class="sep">/</span><span>接口</span></div>
+    <div class="page-header" style="margin-bottom:14px">
+      <div><h1>支付服务 API</h1><p class="sub">接口共 42 个，按模块分组</p></div>
+    </div>
+
+    <div class="ep-split">
+      <aside class="ep-tree">
+        <div class="ep-tree-head">
+          <input class="input" id="epSearch" placeholder="搜索路径 / 摘要 / operationId…" style="width:100%" />
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px">左侧选择接口，右侧展示详情</div>
+        </div>
+        <div class="ep-tree-list" id="epTree"></div>
+      </aside>
+      <section class="ep-detail" id="epDetail">
+        <div class="ep-empty">← 请从左侧选择一个接口查看详情</div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- 业务上下文对话框（点击详情「业务上下文」打开） -->
+<div class="overlay center" id="contextDialog">
+  <div class="dialog">
+    <div class="dialog-head"><h2>业务上下文</h2></div>
+    <div class="dialog-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <span class="mono" id="ctxEndpoint">POST /v1/orders/{id}/refund</span>
+        <span class="badge badge-green" id="ctxBadge">已生成</span>
+      </div>
+      <div class="kv"><span class="k">能力名称</span><span class="v" id="ctxName">订单退款</span></div>
+      <div class="kv"><span class="k">意图</span><span class="v" id="ctxIntent">对已支付订单发起退款</span></div>
+      <div class="kv"><span class="k">约束</span><span class="v" id="ctxRules">仅支付后 7 天内可申请</span></div>
+      <div class="kv"><span class="k">副作用</span><span class="v" id="ctxSide">原路退回资金</span></div>
+      <div class="kv" style="border-bottom:0"><span class="k">使用场景</span><span class="v" id="ctxScene">订单详情页「申请退款」</span></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="#contextDialog">关闭</button>
+      <button class="btn btn-primary" data-toast="（演示）进入编辑表单">生成 / 编辑</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/mockup.js"></script>
+<script>
+// 复刻真实实现 endpoint-list：左树（按模块分组、可折叠、可搜索）+ 右内联详情
+var EPS = [
+  { id:"e1", method:"POST", path:"/v1/orders/{id}/refund", summary:"申请订单退款", module:"退款", operationId:"orderRefund", context:true,
+    description:"对已支付订单发起退款申请。", contentType:"application/json",
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"订单 ID" }, { name:"reason", in:"query", required:false, type:"string", desc:"退款原因" } ],
+    request:[ ["order_id","string · 必填"],["amount","number · 必填"],["reason","string · 选填"] ],
+    responses:[ { code:"200", desc:"退款受理成功", schema:"RefundResult" }, { code:"400", desc:"参数错误" }, { code:"404", desc:"订单不存在" }, { code:"409", desc:"退款冲突" } ] },
+  { id:"e2", method:"GET", path:"/v1/orders/{id}", summary:"查询订单详情", module:"订单", operationId:"getOrder", context:true,
+    description:"按订单 ID 查询订单详情。", contentType:null,
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"订单 ID" }, { name:"expand", in:"query", required:false, type:"string", desc:"展开字段" } ],
+    request:null,
+    responses:[ { code:"200", desc:"订单详情", schema:"OrderDetail" }, { code:"404", desc:"订单不存在" } ] },
+  { id:"e3", method:"POST", path:"/v1/payments/refund", summary:"支付渠道退款", module:"退款", operationId:"paymentRefund", context:false,
+    description:"通过支付渠道发起退款。", contentType:"application/json",
+    params:[ { name:"transactionId", in:"query", required:true, type:"string", desc:"支付流水号" } ],
+    request:[ ["transactionId","string · 必填"],["amount","number · 必填"] ],
+    responses:[ { code:"200", desc:"退款受理成功", schema:"PaymentRefundResult" }, { code:"400", desc:"金额校验失败" } ] },
+  { id:"e4", method:"GET", path:"/v1/reconciliation/daily", summary:"每日对账流水", module:"对账", operationId:"dailyReconciliation", context:true,
+    description:"获取指定日期的对账流水。", contentType:null,
+    params:[ { name:"date", in:"query", required:true, type:"string", desc:"日期 yyyy-MM-dd" } ],
+    request:null,
+    responses:[ { code:"200", desc:"对账流水", schema:"ReconciliationRow[]" } ] },
+  { id:"e5", method:"PUT", path:"/v1/orders/{id}/status", summary:"更新订单状态", module:"订单", operationId:"updateOrderStatus", context:false,
+    description:"更新订单的业务状态。", contentType:"application/json",
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"订单 ID" } ],
+    request:[ ["status","enum(待支付/已支付/已发货)"],["remark","string · 选填"] ],
+    responses:[ { code:"200", desc:"更新成功", schema:"OrderStatus" }, { code:"409", desc:"状态冲突" } ] },
+  { id:"e6", method:"DELETE", path:"/v1/carts/{id}/items/{itemId}", summary:"移除购物车商品", module:"购物车", operationId:"removeCartItem", context:true,
+    description:"移除购物车中的一件商品。", contentType:null,
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"购物车 ID" }, { name:"itemId", in:"path", required:true, type:"string", desc:"商品项 ID" } ],
+    request:null,
+    responses:[ { code:"204", desc:"删除成功" } ] }
+];
+
+var state = { active: null, search: "", collapsed: {} };
+var tree = document.getElementById("epTree");
+var detail = document.getElementById("epDetail");
+
+function methodClass(m) { return "m-" + m.toLowerCase(); }
+function match(ep, q) {
+  return ep.path.toLowerCase().indexOf(q) !== -1 ||
+         ep.summary.toLowerCase().indexOf(q) !== -1 ||
+         (ep.operationId || "").toLowerCase().indexOf(q) !== -1;
+}
+
+function renderTree() {
+  var q = state.search;
+  var list = EPS.filter(function (ep) { return !q || match(ep, q); });
+  var groups = {};
+  list.forEach(function (ep) {
+    var key = ep.module || "未分组";
+    (groups[key] = groups[key] || []).push(ep);
+  });
+  var html = "";
+  Object.keys(groups).sort().forEach(function (name) {
+    var eps = groups[name];
+    var open = !state.collapsed[name];
+    html += '<button class="ep-group' + (open ? " open" : "") + '" data-group="' + name + '">' +
+            '<span><span class="chev">▸</span> ' + name + '</span>' +
+            '<span class="cnt">' + eps.length + '</span></button>';
+    html += '<div class="ep-items' + (open ? "" : " collapsed") + '">';
+    eps.forEach(function (ep) {
+      html += '<button class="ep-item' + (state.active === ep.id ? " active" : "") + '" data-id="' + ep.id + '">' +
+              '<span class="method ' + methodClass(ep.method) + '">' + ep.method + '</span>' +
+              '<span class="ep-body"><span class="ep-summary">' + ep.summary + '</span>' +
+              '<span class="ep-path">' + ep.path + '</span></span></button>';
+    });
+    html += '</div>';
+  });
+  if (!list.length) html = '<p style="padding:24px;text-align:center;color:var(--muted);font-size:13px">无匹配接口</p>';
+  tree.innerHTML = html;
+}
+
+function renderDetail(ep) {
+  var html = "";
+  html += '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span class="method ' + methodClass(ep.method) + '">' + ep.method + '</span>' +
+          '<span class="mono" style="font-weight:600">' + ep.path + '</span></div>';
+  html += '<h2>' + ep.summary + '</h2>';
+  html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px;color:var(--muted);font-size:12.5px">' +
+          (ep.operationId ? '<span>operationId：<b class="mono">' + ep.operationId + '</b></span>' : '') +
+          '<span class="badge badge-blue">' + ep.module + '</span></div>';
+  html += '<div style="margin-top:12px"><button class="btn btn-secondary btn-sm" data-open="#contextDialog" data-ctx="' + ep.id + '">✦ 业务上下文</button></div>';
+
+  if (ep.description) {
+    html += '<h3>描述</h3><p style="margin:0;color:var(--muted)">' + ep.description + '</p>';
+  }
+
+  // 参数
+  html += '<h3>参数</h3>';
+  if (!ep.params.length) {
+    html += '<p style="margin:0;color:var(--muted);font-size:13px">无参数</p>';
+  } else {
+    html += '<table class="ep-param-tbl"><thead><tr><th>名称</th><th>位置</th><th>类型</th><th>必填</th><th>描述</th></tr></thead><tbody>';
+    ep.params.forEach(function (p) {
+      html += '<tr><td class="mono">' + p.name + '</td><td style="color:var(--muted)">' + p.in + '</td>' +
+              '<td class="mono" style="color:var(--muted)">' + p.type + '</td>' +
+              '<td>' + (p.required ? '<span class="badge badge-red">必填</span>' : '<span style="color:var(--muted)">—</span>') + '</td>' +
+              '<td style="color:var(--muted)">' + (p.desc || "—") + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  // 请求体
+  html += '<h3>请求体' + (ep.contentType ? ' <span class="badge badge-gray mono">' + ep.contentType + '</span>' : '') + '</h3>';
+  if (!ep.request) {
+    html += '<p style="margin:0;color:var(--muted);font-size:13px">无请求体</p>';
+  } else {
+    html += '<div class="card card-pad" style="padding:14px 16px"><div class="stack">';
+    ep.request.forEach(function (r) {
+      html += '<div class="kv"><span class="k" style="width:150px">' + r[0] + '</span><span class="v mono" style="color:var(--muted)">' + r[1] + '</span></div>';
+    });
+    html += '</div></div>';
+  }
+
+  // 响应
+  html += '<h3>响应</h3>';
+  if (!ep.responses.length) {
+    html += '<p style="margin:0;color:var(--muted);font-size:13px">无响应</p>';
+  } else {
+    ep.responses.forEach(function (r) {
+      var err = /^4\d\d|^5\d\d/.test(r.code);
+      html += '<div class="ep-resp">' +
+              '<span class="badge ' + (err ? "badge-red" : "badge-green") + ' mono">' + r.code + '</span>' +
+              '<span class="resp-body" style="color:var(--muted)">' + r.desc + (r.schema ? ' <span class="mono" style="color:var(--text)">' + r.schema + '</span>' : '') + '</span></div>';
+    });
+  }
+
+  detail.innerHTML = html;
+  var ctxBtn = detail.querySelector("[data-ctx]");
+  if (ctxBtn) {
+    ctxBtn.addEventListener("click", function () {
+      document.getElementById("ctxEndpoint").textContent = ep.method + " " + ep.path;
+      document.getElementById("ctxBadge").className = "badge " + (ep.context ? "badge-green" : "badge-gray");
+      document.getElementById("ctxBadge").textContent = ep.context ? "已生成" : "待生成";
+      if (!ep.context) {
+        document.getElementById("ctxName").textContent = "—";
+        document.getElementById("ctxIntent").textContent = "尚未生成，点击「生成 / 编辑」开始";
+        document.getElementById("ctxRules").textContent = "—";
+        document.getElementById("ctxSide").textContent = "—";
+        document.getElementById("ctxScene").textContent = "—";
+      }
+    });
+  }
+}
+
+tree.addEventListener("click", function (e) {
+  var g = e.target.closest(".ep-group");
+  if (g) {
+    var name = g.getAttribute("data-group");
+    state.collapsed[name] = !state.collapsed[name];
+    renderTree();
+    return;
+  }
+  var item = e.target.closest(".ep-item");
+  if (item) {
+    state.active = item.getAttribute("data-id");
+    var ep = EPS.filter(function (x) { return x.id === state.active; })[0];
+    renderTree();
+    renderDetail(ep);
+  }
+});
+
+document.getElementById("epSearch").addEventListener("input", function (e) {
+  state.search = e.target.value.trim().toLowerCase();
+  renderTree();
+});
+
+renderTree();
+</script>
+</body>
+</html>

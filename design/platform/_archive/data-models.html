@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 模型 / 组件 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="../assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/definition/schemas</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：商店 API v1.0.0 解析成功</button>
+        <button class="notice-item">响应组件已解析：商店 API</button>
+        <button class="notice-item warn">鉴权组件解析失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">商店 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v1.0.0</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <div class="section-label">定义</div>
+    <a class="nav-item" href="repo-defs.html"><span class="ico">⇄</span>接口管理 <span class="cnt">36</span></a>
+    <div class="section-label">其它</div>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">2</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">商店 API</a><span class="sep">/</span><span>定义</span><span class="sep">/</span><span>模型 / 组件</span></div>
+    <div class="page-header" style="margin-bottom:14px">
+      <div>
+        <h1>商店 API</h1>
+        <p class="sub">数据模型 · 组件库（响应 / 鉴权 / 参数 / 模板）统一浏览</p>
+      </div>
+    </div>
+
+    <div class="ep-split">
+      <aside class="ep-tree" style="width:340px">
+        <div class="ep-tree-head">
+          <input class="input" id="dmSearch" placeholder="搜索模型 / 组件…" style="width:100%" />
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px">数据模型与组件库同树浏览（参考 Apifox）</div>
+        </div>
+        <div class="ep-tree-list" id="dmTree"></div>
+      </aside>
+      <section class="ep-detail" id="dmDetail">
+        <div class="ep-empty">← 请从左侧选择一个模型 / 组件查看详情</div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/mockup.js"></script>
+<script>
+// 复刻真实实现 + Apifox 布局：数据模型 + 组件库（responses / securitySchemes / parameters …）同树浏览
+var MODELS = [
+  { ref:"m1", kind:"model", name:"Pet", defType:"object", description:"宠物信息", schema:{ type:"object", required:["id","name"], properties:{
+      id:{type:"string",required:true,desc:"宠物ID"}, name:{type:"string",required:true,desc:"名称"}, status:{type:"string",desc:"状态",nullable:true},
+      category:{type:"object",desc:"分类",properties:{ id:{type:"string",desc:"分类ID"}, name:{type:"string",desc:"分类名"} } },
+      tags:{type:"array",of:{type:"object",properties:{ id:{type:"string",desc:"标签ID"}, name:{type:"string",desc:"标签名"} }},desc:"标签"}
+  } } },
+  { ref:"m2", kind:"model", name:"Order", defType:"object", description:"订单信息", schema:{ type:"object", required:["id","total"], properties:{
+      id:{type:"string",required:true,desc:"订单ID"}, total:{type:"number",required:true,desc:"总额"}, status:{type:"string",desc:"状态"},
+      items:{type:"array",of:{type:"object",properties:{ sku_id:{type:"string",desc:"商品ID"}, qty:{type:"number",desc:"数量"} }},desc:"明细"}
+  } } },
+  { ref:"m3", kind:"model", name:"User", defType:"object", description:"用户信息", schema:{ type:"object", required:["id","username"], properties:{
+      id:{type:"string",required:true,desc:"用户ID"}, username:{type:"string",required:true,desc:"用户名"}, email:{type:"string",desc:"邮箱"}
+  } } },
+  { ref:"m4", kind:"model", name:"Error", defType:"object", description:"错误响应", schema:{ type:"object", properties:{
+      code:{type:"integer",desc:"错误码"}, message:{type:"string",desc:"错误信息"}
+  } } }
+];
+var RESPONSES = [
+  { ref:"r1", kind:"response", name:"SuccessResponse", defType:"200", description:"通用成功响应", contentType:"application/json",
+    schema:{ type:"object", properties:{ code:{type:"integer",desc:"状态码"}, data:{type:"object",desc:"数据"}, message:{type:"string",desc:"消息"} } } },
+  { ref:"r2", kind:"response", name:"ErrorResponse", defType:"4XX", description:"通用错误响应", contentType:"application/json",
+    schema:{ type:"object", properties:{ code:{type:"integer",desc:"错误码"}, message:{type:"string",desc:"错误信息"} } } }
+];
+var SECURITY = [
+  { ref:"s1", kind:"securityScheme", name:"bearer_token", defType:"http", description:"HTTP Bearer Token 鉴权", scheme:"bearer", bearerFormat:"JWT" },
+  { ref:"s2", kind:"securityScheme", name:"petstore_auth", defType:"oauth2", description:"OAuth2 授权码流程", flows:"authorizationCode", scopes:"write:pets / read:pets" },
+  { ref:"s3", kind:"securityScheme", name:"api_key", defType:"apiKey", description:"API Key 鉴权", inName:"X-API-Key" }
+];
+var PARAMS = [
+  { ref:"p1", kind:"parameter", name:"PageParam", defType:"query", description:"分页参数", schema:"page / pageSize" },
+  { ref:"p2", kind:"parameter", name:"SortParam", defType:"query", description:"排序参数", schema:"sortBy / order" }
+];
+var TEMPLATES = [
+  { ref:"t1", kind:"template", name:"默认分页模板", defType:"template", description:"分页参数与返回结构模板", params:"page / pageSize / total" }
+];
+
+var NODES = [
+  { key:"grp-schema", type:"group", label:"数据模型", icon:"▦", children:[
+    {type:"leaf",ref:"m1"},{type:"leaf",ref:"m2"},{type:"leaf",ref:"m3"},{type:"leaf",ref:"m4"}
+  ] },
+  { key:"grp-components", type:"group", label:"组件库", icon:"▤", children:[
+    { key:"folder-resp", type:"folder", label:"响应组件", children:[{type:"leaf",ref:"r1"},{type:"leaf",ref:"r2"}] },
+    { key:"folder-sec", type:"folder", label:"鉴权组件", children:[{type:"leaf",ref:"s1"},{type:"leaf",ref:"s2"},{type:"leaf",ref:"s3"}] },
+    { key:"folder-param", type:"folder", label:"参数组件", children:[{type:"leaf",ref:"p1"},{type:"leaf",ref:"p2"}] },
+    { key:"folder-tmpl", type:"folder", label:"默认模板", children:[{type:"leaf",ref:"t1"}] }
+  ] }
+];
+
+var state = { active: null, search: "", open: { "grp-schema":true, "grp-components":true, "folder-resp":false, "folder-sec":true, "folder-param":false, "folder-tmpl":false } };
+var treeEl = document.getElementById("dmTree");
+var detailEl = document.getElementById("dmDetail");
+var TYPE_CLASS = { string:"type-string", number:"type-number", integer:"type-integer", boolean:"type-boolean", object:"type-object", array:"type-array" };
+
+function all() { return MODELS.concat(RESPONSES, SECURITY, PARAMS, TEMPLATES); }
+function findRef(ref) { return all().filter(function (x) { return x.ref === ref; })[0] || null; }
+function countProps(s) { return s && s.properties ? Object.keys(s.properties).length : 0; }
+
+function matchesLeaf(leaf) {
+  var item = findRef(leaf.ref);
+  if (!item) return true;
+  var q = state.search;
+  if (!q) return true;
+  return (item.name + " " + (item.description || "")).toLowerCase().indexOf(q) !== -1;
+}
+
+function render(node, depth) {
+  var open = state.open[node.key] !== false;
+  if (node.type === "group" || node.type === "folder") {
+    var kids = node.children.filter(function (c) { return c.type === "leaf" ? matchesLeaf(c) : true; });
+    var sub = kids.map(function (c) { return render(c, depth + 1); }).join("");
+    return '<div class="def-row" data-toggle="' + node.key + '" style="padding-left:' + (8 + depth * 14) + 'px">' +
+      '<span class="tw">' + (open ? "▾" : "▸") + '</span><span class="ico">' + (node.type === "group" ? (node.icon || "▤") : "▤") + '</span>' +
+      '<span class="lbl">' + node.label + '</span><span class="cnt">' + node.children.length + '</span></div>' +
+      '<div class="def-children' + (open ? "" : " hidden") + '">' + sub + '</div>';
+  }
+  var item = findRef(node.ref);
+  if (!item) return "";
+  var ico = item.kind === "securityScheme" ? '<span class="ico">🔐</span>' : '<span class="ico">▤</span>';
+  var meta = item.kind === "securityScheme" ? item.defType : (item.description || "");
+  return '<button class="def-row' + (state.active === node.ref ? " active" : "") + '" data-ref="' + node.ref + '" style="padding-left:' + (8 + depth * 14) + 'px">' +
+    '<span class="tw">·</span>' + ico + '<span class="lbl">' + item.name + '</span><span class="meta">' + meta + '</span></button>';
+}
+
+function renderTree() {
+  treeEl.innerHTML = NODES.map(function (n) { return render(n, 0); }).join("");
+}
+
+function schemaTreeHTML(schema, depth) {
+  var html = "";
+  var props = (schema && schema.properties) || {};
+  Object.keys(props).forEach(function (key) {
+    var p = props[key];
+    var has = (p.type === "object" && p.properties) || (p.type === "array" && p.of && p.of.properties);
+    var child = p.type === "array" ? p.of : p;
+    var open = depth <= 2;
+    html += '<div class="schema-row"><span class="toggle' + (has ? "" : " spacer-slot") + '" data-toggle-key="' + key + '">' + (has ? (open ? "▾" : "▸") : "·") + '</span>' +
+      '<span class="key">' + key + '</span><span class="type ' + (TYPE_CLASS[p.type] || "type-object") + '">' + (p.type === "array" ? "array" : p.type) + '</span>' +
+      (p.required ? '<span class="req">*</span>' : '') + (p.nullable ? '<span class="nullable">nullable</span>' : '') +
+      '<span class="desc">' + (p.desc || "") + '</span></div>';
+    if (has) html += '<div class="schema-children' + (open ? "" : " hidden") + '" data-children-key="' + key + '">' + schemaTreeHTML(child, depth + 1) + '</div>';
+  });
+  return html;
+}
+
+function titleHtml(item, badgeText) {
+  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">' + item.name + '</h2>' +
+    '<span class="model-type">' + item.defType + '</span><span class="badge badge-purple">' + badgeText + '</span></div>';
+}
+
+function renderModel(m) {
+  detailEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">' + m.name + '</h2>' +
+    '<span class="model-type">' + m.defType + '</span><span style="color:var(--muted);font-size:12px">字段数 ' + countProps(m.schema) + '</span></div>' +
+    (m.description ? '<p style="margin:8px 0 0;color:var(--muted)">' + m.description + '</p>' : '') +
+    '<div class="schema-tree">' + schemaTreeHTML(m.schema, 1) + '</div>';
+  bindSchemaToggles();
+}
+function renderResponse(r) {
+  detailEl.innerHTML = titleHtml(r, "响应组件") +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + r.description + '</p>' +
+    '<div class="kv"><span class="k">状态码</span><span class="v mono">' + r.defType + '</span></div>' +
+    '<div class="kv" style="border-bottom:0"><span class="k">媒体类型</span><span class="v mono" style="color:var(--muted)">' + r.contentType + '</span></div>' +
+    '<div style="margin-top:14px"><div class="schema-tree">' + schemaTreeHTML(r.schema, 1) + '</div></div>';
+  bindSchemaToggles();
+}
+function renderSecurity(s) {
+  var extra = "";
+  if (s.defType === "http") {
+    extra = '<h3>HTTP</h3><div class="kv"><span class="k">Scheme</span><span class="v mono">' + s.scheme + '</span></div><div class="kv" style="border-bottom:0"><span class="k">Bearer Format</span><span class="v mono" style="color:var(--muted)">' + (s.bearerFormat || "—") + '</span></div>';
+  } else if (s.defType === "oauth2") {
+    extra = '<h3>OAuth2</h3><div class="kv"><span class="k">流程</span><span class="v">' + s.flows + '</span></div><div class="kv" style="border-bottom:0"><span class="k">Scopes</span><span class="v mono" style="color:var(--muted)">' + s.scopes + '</span></div>';
+  } else {
+    extra = '<h3>API Key</h3><div class="kv" style="border-bottom:0"><span class="k">Header</span><span class="v mono">' + s.inName + '</span></div>';
+  }
+  detailEl.innerHTML = titleHtml(s, "鉴权组件") + '<span class="badge badge-gray">已解析</span>' +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + s.description + '</p>' + extra +
+    '<div class="notice notice-info" style="margin-top:16px"><span>ℹ️</span><span>鉴权组件源自 OpenAPI `components.securitySchemes`，与数据模型同构落库，可供后续管理。</span></div>';
+}
+function renderParameter(p) {
+  detailEl.innerHTML = titleHtml(p, "参数组件") +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + p.description + '</p>' +
+    '<div class="kv"><span class="k">位置</span><span class="v mono">' + p.defType + '</span></div>' +
+    '<div class="kv" style="border-bottom:0"><span class="k">Schema</span><span class="v mono" style="color:var(--muted)">' + p.schema + '</span></div>';
+}
+function renderTemplate(t) {
+  detailEl.innerHTML = titleHtml(t, "默认模板") +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + t.description + '</p>' +
+    '<div class="kv" style="border-bottom:0"><span class="k">参数</span><span class="v mono" style="color:var(--muted)">' + t.params + '</span></div>';
+}
+
+function renderDetail(ref) {
+  var item = findRef(ref);
+  if (!item) return;
+  if (item.kind === "model") return renderModel(item);
+  if (item.kind === "response") return renderResponse(item);
+  if (item.kind === "securityScheme") return renderSecurity(item);
+  if (item.kind === "parameter") return renderParameter(item);
+  return renderTemplate(item);
+}
+
+function bindSchemaToggles() {
+  detailEl.querySelectorAll(".schema-row [data-toggle-key]").forEach(function (t) {
+    t.addEventListener("click", function () {
+      var key = t.getAttribute("data-toggle-key");
+      var children = detailEl.querySelector('[data-children-key="' + key + '"]');
+      if (!children) return;
+      var hidden = !children.classList.contains("hidden");
+      children.classList.toggle("hidden", hidden);
+      t.textContent = hidden ? "▸" : "▾";
+    });
+  });
+}
+
+treeEl.addEventListener("click", function (e) {
+  var toggle = e.target.closest("[data-toggle]");
+  if (toggle) {
+    var key = toggle.getAttribute("data-toggle");
+    state.open[key] = state.open[key] === false;
+    renderTree();
+    return;
+  }
+  var leaf = e.target.closest("[data-ref]");
+  if (leaf) {
+    state.active = leaf.getAttribute("data-ref");
+    renderTree();
+    renderDetail(state.active);
+  }
+});
+
+document.getElementById("dmSearch").addEventListener("input", function (e) {
+  state.search = e.target.value.trim().toLowerCase();
+  renderTree();
+});
+
+renderTree();
+</script>
+</body>
+</html>

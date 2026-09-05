@@ -68,7 +68,7 @@
     <button class="nav-item" data-tab-group="settings" data-tab="keys"><span class="ico">⚿</span>API 密钥</button>
     <div class="section-label">偏好设置</div>
     <button class="nav-item" data-tab-group="settings" data-tab="prefs"><span class="ico">🌐</span>偏好</button>
-    <button class="nav-item" data-tab-group="settings" data-tab="more"><span class="ico">＋</span>更多 <span class="cnt">V1</span></button>
+    <button class="nav-item" data-tab-group="settings" data-tab="more"><span class="ico">＋</span>更多</button>
     <div class="sidebar-footer">
       <a class="back-item" href="dashboard.html"><span class="ico">←</span>返回仪表盘</a>
     </div>
@@ -226,15 +226,34 @@
       </div>
     </div>
 
-    <!-- 更多（V1 规划） -->
+    <!-- 更多 -->
     <div class="panel" data-panel-group="settings" data-panel="more">
       <div class="stack">
         <div class="card card-pad">
-          <div class="card-title" style="font-size:15px">更多设置 <span class="badge badge-gray">V1 规划</span></div>
+          <div class="card-title" style="font-size:15px">通知偏好</div>
+          <div class="card-desc">控制站内通知的接收，类别与顶栏铃铛分组一致</div>
+          <div class="kv">
+            <span class="k">导入结果</span>
+            <span class="v"><label class="switch"><input type="checkbox" checked data-msg="导入通知已启用" /><span class="slider"></span></label> <span style="color:var(--muted);font-size:12.5px">完成 / 失败 / 可重试</span></span>
+          </div>
+          <div class="kv">
+            <span class="k">业务上下文</span>
+            <span class="v"><label class="switch"><input type="checkbox" checked data-msg="业务上下文通知已启用" /><span class="slider"></span></label> <span style="color:var(--muted);font-size:12.5px">生成完成 / 失败</span></span>
+          </div>
+          <div class="kv">
+            <span class="k">API 密钥</span>
+            <span class="v"><label class="switch"><input type="checkbox" checked data-msg="密钥通知已启用" /><span class="slider"></span></label></span>
+          </div>
+          <div class="kv" style="border-bottom:0">
+            <span class="k">平台公告</span>
+            <span class="v"><label class="switch"><input type="checkbox" data-msg="平台公告已启用" /><span class="slider"></span></label></span>
+          </div>
+        </div>
+        <div class="card card-pad">
+          <div class="card-title" style="font-size:15px">更多 <span class="badge badge-gray">V1 规划</span></div>
           <div class="card-desc">设置类信息统一放在本页，后续按需扩展为新分区</div>
-          <div class="kv"><span class="k">通知偏好</span><span class="v" style="color:var(--muted)">即将开放</span></div>
           <div class="kv"><span class="k">会话管理</span><span class="v" style="color:var(--muted)">即将开放</span></div>
-          <div class="kv"><span class="k">API 偏好</span><span class="v" style="color:var(--muted)">即将开放</span></div>
+          <div class="kv" style="border-bottom:0"><span class="k">API 偏好</span><span class="v" style="color:var(--muted)">即将开放</span></div>
         </div>
       </div>
     </div>

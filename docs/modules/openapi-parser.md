@@ -23,6 +23,7 @@ interface ParsedAPIModel {
   repo_id: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
+  componentDefs: ComponentDef[]; // 可复用组件定义（responses / securitySchemes …）
   parse_issues: ParseIssue[]; // 校验问题：warning 不阻塞，error 跳过该 API
   meta: {
     openapi_version: string;
@@ -48,6 +49,14 @@ interface APIEntry {
   responses: Record<string, ResponseDef>;
   tags: string[];
   security: SecurityRequirement[];
+}
+
+interface ComponentDef {
+  kind: "response" | "securityScheme" | "parameter" | "requestBody" | "header" | "example";
+  name: string;
+  def_type?: string; // 展示型类型提示，如 securityScheme → http / apiKey / oauth2
+  description?: string;
+  payload: Record<string, unknown>; // 原始定义
 }
 ```
 
@@ -77,6 +86,18 @@ interface APIEntry {
 - Schema 完整性检查（必填字段、类型一致性）
 - 不合规项生成 `ParseIssue`，不阻塞解析
 - 错误分级：`warning`（可继续，计入 `parse_issues`）/ `error`（该 API 被跳过并计入 `parse_issues`）
+
+### 5. 组件提取（components.*）
+
+与 `components.schemas` 同构，解析器同时提取可复用组件定义，作为独立于接口的定义资产：
+
+| 组件 | OpenAPI 键 | 提取内容 |
+| --- | --- | --- |
+| 响应组件 | `components.responses` | `name`、`description`、`content` 首个媒体类型、`schema`（作为 `SchemaRef`） |
+| 鉴权组件 | `components.securitySchemes` | `name`、`type`（http / apiKey / oauth2 / openIdConnect）、`in`、`scheme`、`bearerFormat`、`flows` |
+| 参数 / 请求体等 | `components.parameters` / `requestBodies` / `headers` / `examples` | `name` + 原始定义（`payload`） |
+
+统一建模为 `ComponentDef { kind, name, def_type, description, payload }`：`payload` 保留原始定义，`def_type` 为展示型类型提示（如 securityScheme → http / apiKey / oauth2）。落库时与 `data_models` 同构（`version_id` + `repo_id` + `kind` + `name` + JSON payload），随版本快照写入，供「模型 / 组件」页按 `kind` 分组浏览与后续管理——不内嵌到接口详情，避免与接口级响应 / 鉴权混杂。
 
 ## 行为规范
 

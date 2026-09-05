@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>仓库详情 · 定义 — Apigent UX Mockup</title>
+<link rel="stylesheet" href="assets/mockup.css" />
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 返回目录</a>
+  <span>Apigent Platform · UX 线框稿</span>
+  <span class="spacer"></span>
+  <span class="page-tag">/repos/[id]/definition</span>
+</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">Apigent</span>
+    <div class="topbar-search">
+      <input type="text" id="globalSearch" placeholder="全局搜索：API / 仓库 / 模型…" />
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="消息通知">🔔<span class="dot"></span></button>
+      <div class="dropdown-menu notice-menu">
+        <div class="notice-head">消息通知 <span class="badge badge-red">3 未读</span></div>
+        <button class="notice-item">OpenAPI 导入完成：商店 API v1.0.0 解析成功</button>
+        <button class="notice-item">能力上下文已生成：宠物接口</button>
+        <button class="notice-item warn">鉴权组件解析失败，可重试</button>
+        <button class="notice-all">查看全部 →</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn" data-dropdown aria-label="系统设置">⚙</button>
+      <div class="dropdown-menu">
+        <div class="menu-label">主题</div>
+        <button data-theme="light">浅色</button>
+        <button data-theme="dark">深色</button>
+        <div class="menu-sep"></div>
+        <div class="menu-label">语言</div>
+        <button data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <div class="menu-sep"></div>
+        <button data-toast="Apigent v0.1.0">关于 Apigent</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="icon-btn user-btn" data-dropdown>张 <span class="caret">▾</span></button>
+      <div class="dropdown-menu">
+        <a href="account-settings.html">个人信息</a>
+        <a href="account-settings.html">设置</a>
+        <div class="menu-sep"></div>
+        <a class="danger" href="login.html" data-toast="已退出登录">退出登录</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar repo-rail">
+    <a class="brand" href="repos.html">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">Apigent <small>为Agent而生</small></span>
+    </a>
+    <div class="repo-meta">
+      <div class="repo-name">商店 API</div>
+      <div class="repo-sub">
+        <span class="badge badge-indigo">ecommerce-team</span>
+        <span class="badge badge-gray mono">v1.0.0</span>
+      </div>
+    </div>
+    <div class="section-label">仓库</div>
+    <a class="nav-item" href="repo-detail.html"><span class="ico">▦</span>概览</a>
+    <div class="section-label">定义</div>
+    <a class="nav-item active" href="repo-defs.html"><span class="ico">⇄</span>接口管理 <span class="cnt">36</span></a>
+    <div class="section-label">其它</div>
+    <a class="nav-item" href="repo-context.html"><span class="ico">✦</span>业务上下文</a>
+    <a class="nav-item" href="repo-versions.html"><span class="ico">↻</span>版本 <span class="cnt">2</span></a>
+    <a class="nav-item" href="repo-settings.html"><span class="ico">⚙</span>设置</a>
+    <div class="sidebar-footer">
+      <a class="back-item" href="repos.html"><span class="ico">←</span>返回仓库列表</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="breadcrumb"><a href="repos.html">仓库</a><span class="sep">/</span><a href="repo-detail.html">商店 API</a><span class="sep">/</span><span>定义</span></div>
+    <div class="page-header" style="margin-bottom:14px">
+      <div>
+        <h1>商店 API</h1>
+        <p class="sub">接口 · 数据模型 · 组件库（响应 / 鉴权 / 参数 / 模板）统一浏览</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-primary btn-sm" data-toast="（演示）已触发全量生成">✦ 生成业务上下文</button>
+      </div>
+    </div>
+
+    <div class="ep-split">
+      <aside class="ep-tree" style="width:340px">
+        <div class="ep-tree-head">
+          <input class="input" id="defSearch" placeholder="搜索接口 / 模型 / 组件…" style="width:100%" />
+          <div style="font-size:11.5px;color:var(--muted);margin-top:8px">参考 Apifox：接口、数据模型与组件库同树浏览</div>
+        </div>
+        <div class="ep-tree-list" id="defTree"></div>
+      </aside>
+      <section class="ep-detail" id="defDetail">
+        <div class="ep-empty">← 请从左侧选择一个接口 / 模型 / 组件查看详情</div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- 业务上下文对话框（点击接口详情「业务上下文」打开） -->
+<div class="overlay center" id="contextDialog">
+  <div class="dialog">
+    <div class="dialog-head"><h2>业务上下文</h2></div>
+    <div class="dialog-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <span class="mono" id="ctxEndpoint">GET /pets/{id}</span>
+        <span class="badge badge-green" id="ctxBadge">已生成</span>
+      </div>
+      <div class="kv"><span class="k">能力名称</span><span class="v" id="ctxName">查询宠物详情</span></div>
+      <div class="kv"><span class="k">意图</span><span class="v" id="ctxIntent">按 ID 查询宠物信息</span></div>
+      <div class="kv"><span class="k">约束</span><span class="v" id="ctxRules">需管理员权限</span></div>
+      <div class="kv"><span class="k">副作用</span><span class="v" id="ctxSide">无</span></div>
+      <div class="kv" style="border-bottom:0"><span class="k">使用场景</span><span class="v" id="ctxScene">宠物列表详情页</span></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-secondary" data-close="#contextDialog">关闭</button>
+      <button class="btn btn-primary" data-toast="（演示）进入编辑表单">生成 / 编辑</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/mockup.js"></script>
+<script>
+// 复刻真实实现 + Apifox 布局：左侧一棵树（接口 / 数据模型 / 组件库），右侧内联详情
+var EPS = [
+  { ref:"e1", method:"GET", path:"/pets/{id}", summary:"获取宠物", module:"宠物", operationId:"getPet", context:true,
+    description:"按 ID 查询宠物信息。", contentType:null, security:["bearer_token"],
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"宠物 ID" } ],
+    request:null,
+    responses:[ { code:"200", desc:"宠物信息", schema:"Pet" }, { code:"404", desc:"宠物不存在" } ] },
+  { ref:"e2", method:"PUT", path:"/pets/{id}", summary:"更新宠物", module:"宠物", operationId:"updatePet", context:false,
+    description:"更新宠物信息。", contentType:"application/json", security:["bearer_token"],
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"宠物 ID" } ],
+    request:[ ["name","string · 必填"],["status","enum(available/pending/sold)"] ],
+    responses:[ { code:"200", desc:"更新成功", schema:"Pet" }, { code:"400", desc:"参数错误" } ] },
+  { ref:"e3", method:"DELETE", path:"/pets/{id}", summary:"删除宠物", module:"宠物", operationId:"deletePet", context:true,
+    description:"删除指定宠物。", contentType:null, security:["bearer_token"],
+    params:[ { name:"id", in:"path", required:true, type:"string", desc:"宠物 ID" } ],
+    request:null,
+    responses:[ { code:"204", desc:"删除成功" } ] },
+  { ref:"e4", method:"POST", path:"/pets", summary:"创建宠物", module:"宠物", operationId:"createPet", context:true,
+    description:"创建宠物。", contentType:"application/json", security:["bearer_token"],
+    params:[],
+    request:[ ["name","string · 必填"],["category","object · 选填"] ],
+    responses:[ { code:"201", desc:"创建成功", schema:"Pet" }, { code:"400", desc:"参数错误" } ] },
+  { ref:"e5", method:"GET", path:"/pets", summary:"列出宠物", module:"宠物", operationId:"listPets", context:false,
+    description:"分页列出宠物。", contentType:null, security:[],
+    params:[ { name:"limit", in:"query", required:false, type:"number", desc:"每页数量" }, { name:"status", in:"query", required:false, type:"string", desc:"状态筛选" } ],
+    request:null,
+    responses:[ { code:"200", desc:"宠物列表", schema:"Pet[]" } ] },
+  { ref:"e6", method:"GET", path:"/store/orders", summary:"订单列表", module:"店铺", operationId:"listStoreOrders", context:true,
+    description:"查询店铺订单。", contentType:null, security:["petstore_auth"],
+    params:[ { name:"page", in:"query", required:false, type:"number", desc:"页码" } ],
+    request:null,
+    responses:[ { code:"200", desc:"订单列表", schema:"Order[]" } ] },
+  { ref:"e7", method:"POST", path:"/users/{username}/orders", summary:"创建用户订单", module:"用户", operationId:"createUserOrder", context:false,
+    description:"为用户创建订单。", contentType:"application/json", security:["bearer_token"],
+    params:[ { name:"username", in:"path", required:true, type:"string", desc:"用户名" } ],
+    request:[ ["items","array<object> · 必填"],["total","number · 必填"] ],
+    responses:[ { code:"201", desc:"创建成功", schema:"Order" } ] }
+];
+var SCHEMAS = [
+  { ref:"m1", name:"Pet", defType:"object", description:"宠物信息", schema:{ type:"object", required:["id","name"], properties:{
+      id:{type:"string",required:true,desc:"宠物ID"}, name:{type:"string",required:true,desc:"名称"}, status:{type:"string",desc:"状态",nullable:true},
+      category:{type:"object",desc:"分类",properties:{ id:{type:"string",desc:"分类ID"}, name:{type:"string",desc:"分类名"} } },
+      tags:{type:"array",of:{type:"object",properties:{ id:{type:"string",desc:"标签ID"}, name:{type:"string",desc:"标签名"} }},desc:"标签"}
+  } } },
+  { ref:"m2", name:"Order", defType:"object", description:"订单信息", schema:{ type:"object", required:["id","total"], properties:{
+      id:{type:"string",required:true,desc:"订单ID"}, total:{type:"number",required:true,desc:"总额"}, status:{type:"string",desc:"状态"},
+      items:{type:"array",of:{type:"object",properties:{ sku_id:{type:"string",desc:"商品ID"}, qty:{type:"number",desc:"数量"} }},desc:"明细"}
+  } } },
+  { ref:"m3", name:"User", defType:"object", description:"用户信息", schema:{ type:"object", required:["id","username"], properties:{
+      id:{type:"string",required:true,desc:"用户ID"}, username:{type:"string",required:true,desc:"用户名"}, email:{type:"string",desc:"邮箱"}
+  } } },
+  { ref:"m4", name:"Error", defType:"object", description:"错误响应", schema:{ type:"object", properties:{
+      code:{type:"integer",desc:"错误码"}, message:{type:"string",desc:"错误信息"}
+  } } }
+];
+var RESPONSES = [
+  { ref:"r1", name:"SuccessResponse", defType:"200", description:"通用成功响应", contentType:"application/json",
+    schema:{ type:"object", properties:{ code:{type:"integer",desc:"状态码"}, data:{type:"object",desc:"数据"}, message:{type:"string",desc:"消息"} } } },
+  { ref:"r2", name:"ErrorResponse", defType:"4XX", description:"通用错误响应", contentType:"application/json",
+    schema:{ type:"object", properties:{ code:{type:"integer",desc:"错误码"}, message:{type:"string",desc:"错误信息"} } } }
+];
+var SECURITY = [
+  { ref:"s1", name:"bearer_token", defType:"http", description:"HTTP Bearer Token 鉴权", scheme:"bearer", bearerFormat:"JWT" },
+  { ref:"s2", name:"petstore_auth", defType:"oauth2", description:"OAuth2 授权码流程", flows:"authorizationCode", scopes:"write:pets / read:pets" },
+  { ref:"s3", name:"api_key", defType:"apiKey", description:"API Key 鉴权", inName:"X-API-Key" }
+];
+var PARAMS = [
+  { ref:"p1", name:"PageParam", defType:"query", description:"分页参数", schema:"page / pageSize" },
+  { ref:"p2", name:"SortParam", defType:"query", description:"排序参数", schema:"sortBy / order" }
+];
+var TEMPLATES = [
+  { ref:"t1", name:"默认分页模板", defType:"template", description:"分页参数与返回结构模板", params:"page / pageSize / total" }
+];
+
+var NODES = [
+  { key:"grp-ep", type:"group", label:"接口", icon:"⇄", children:[
+    { key:"folder-pet", type:"folder", label:"宠物", children:[{type:"leaf",ref:"e1"},{type:"leaf",ref:"e2"},{type:"leaf",ref:"e3"},{type:"leaf",ref:"e4"},{type:"leaf",ref:"e5"}] },
+    { key:"folder-store", type:"folder", label:"店铺", children:[{type:"leaf",ref:"e6"}] },
+    { key:"folder-user", type:"folder", label:"用户", children:[{type:"leaf",ref:"e7"}] }
+  ] },
+  { key:"grp-schema", type:"group", label:"数据模型", icon:"▦", children:[
+    {type:"leaf",ref:"m1"},{type:"leaf",ref:"m2"},{type:"leaf",ref:"m3"},{type:"leaf",ref:"m4"}
+  ] },
+  { key:"grp-components", type:"group", label:"组件库", icon:"▤", children:[
+    { key:"folder-resp", type:"folder", label:"响应组件", children:[{type:"leaf",ref:"r1"},{type:"leaf",ref:"r2"}] },
+    { key:"folder-sec", type:"folder", label:"鉴权组件", children:[{type:"leaf",ref:"s1"},{type:"leaf",ref:"s2"},{type:"leaf",ref:"s3"}] },
+    { key:"folder-param", type:"folder", label:"参数组件", children:[{type:"leaf",ref:"p1"},{type:"leaf",ref:"p2"}] },
+    { key:"folder-tmpl", type:"folder", label:"默认模板", children:[{type:"leaf",ref:"t1"}] }
+  ] }
+];
+
+var state = { active: null, search: "", open: { "grp-ep":true, "grp-schema":true, "grp-components":true, "folder-pet":true, "folder-store":false, "folder-user":false, "folder-resp":false, "folder-sec":true, "folder-param":false, "folder-tmpl":false } };
+var treeEl = document.getElementById("defTree");
+var detailEl = document.getElementById("defDetail");
+var TYPE_CLASS = { string:"type-string", number:"type-number", integer:"type-integer", boolean:"type-boolean", object:"type-object", array:"type-array" };
+
+function all() { return EPS.concat(SCHEMAS, RESPONSES, SECURITY, PARAMS, TEMPLATES); }
+function findRef(ref) { return all().filter(function (x) { return x.ref === ref; })[0] || null; }
+function methodClass(m) { return "m-" + m.toLowerCase(); }
+function countProps(s) { return s && s.properties ? Object.keys(s.properties).length : 0; }
+
+function matchesLeaf(leaf) {
+  var item = findRef(leaf.ref);
+  if (!item) return true;
+  var q = state.search;
+  if (!q) return true;
+  var hay = ((item.method ? (item.method + " ") : "") + (item.summary || "") + " " + (item.path || "") + " " + (item.name || "") + " " + (item.description || "")).toLowerCase();
+  return hay.indexOf(q) !== -1;
+}
+
+function render(node, depth) {
+  var open = state.open[node.key] !== false;
+  if (node.type === "group" || node.type === "folder") {
+    var kids = node.children.filter(function (c) { return c.type === "leaf" ? matchesLeaf(c) : true; });
+    var sub = kids.map(function (c) { return render(c, depth + 1); }).join("");
+    return '<div class="def-row" data-toggle="' + node.key + '" style="padding-left:' + (8 + depth * 14) + 'px">' +
+      '<span class="tw">' + (open ? "▾" : "▸") + '</span><span class="ico">' + (node.type === "group" ? (node.icon || "▤") : "▤") + '</span>' +
+      '<span class="lbl">' + node.label + '</span><span class="cnt">' + node.children.length + '</span></div>' +
+      '<div class="def-children' + (open ? "" : " hidden") + '">' + sub + '</div>';
+  }
+  var item = findRef(node.ref);
+  if (!item) return "";
+  var ico, lbl, meta;
+  if (item.method) { ico = '<span class="method ' + methodClass(item.method) + '">' + item.method + '</span>'; lbl = item.summary; meta = item.path; }
+  else if (item.defType === "http" || item.defType === "oauth2" || item.defType === "apiKey") { ico = '<span class="ico">🔐</span>'; lbl = item.name; meta = item.defType; }
+  else { ico = '<span class="ico">▤</span>'; lbl = item.name; meta = item.description || ""; }
+  return '<button class="def-row' + (state.active === node.ref ? " active" : "") + '" data-ref="' + node.ref + '" style="padding-left:' + (8 + depth * 14) + 'px">' +
+    '<span class="tw">·</span>' + ico + '<span class="lbl">' + lbl + '</span><span class="meta">' + meta + '</span></button>';
+}
+
+function renderTree() { treeEl.innerHTML = NODES.map(function (n) { return render(n, 0); }).join(""); }
+
+function schemaTreeHTML(schema, depth) {
+  var html = "";
+  var props = (schema && schema.properties) || {};
+  Object.keys(props).forEach(function (key) {
+    var p = props[key];
+    var has = (p.type === "object" && p.properties) || (p.type === "array" && p.of && p.of.properties);
+    var child = p.type === "array" ? p.of : p;
+    var open = depth <= 2;
+    html += '<div class="schema-row"><span class="toggle' + (has ? "" : " spacer-slot") + '" data-toggle-key="' + key + '">' + (has ? (open ? "▾" : "▸") : "·") + '</span>' +
+      '<span class="key">' + key + '</span><span class="type ' + (TYPE_CLASS[p.type] || "type-object") + '">' + (p.type === "array" ? "array" : p.type) + '</span>' +
+      (p.required ? '<span class="req">*</span>' : '') + (p.nullable ? '<span class="nullable">nullable</span>' : '') +
+      '<span class="desc">' + (p.desc || "") + '</span></div>';
+    if (has) html += '<div class="schema-children' + (open ? "" : " hidden") + '" data-children-key="' + key + '">' + schemaTreeHTML(child, depth + 1) + '</div>';
+  });
+  return html;
+}
+
+function renderEndpoint(item) {
+  var html = '<div style="display:flex;align-items:center;gap:10px"><span class="method ' + methodClass(item.method) + '">' + item.method + '</span><span class="mono" style="font-weight:600">' + item.path + '</span></div>';
+  html += '<h2>' + item.summary + '</h2>';
+  html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px;color:var(--muted);font-size:12.5px">' +
+    (item.operationId ? '<span>operationId：<b class="mono">' + item.operationId + '</b></span>' : '') +
+    '<span class="badge badge-blue">' + item.module + '</span>' +
+    (item.security && item.security.length ? '<span class="badge badge-purple">🔐 ' + item.security.join(", ") + '</span>' : '') + '</div>';
+  html += '<div style="margin-top:12px"><button class="btn btn-secondary btn-sm" data-open="#contextDialog" data-ctx="' + item.ref + '">✦ 业务上下文</button></div>';
+  if (item.description) html += '<h3>描述</h3><p style="margin:0;color:var(--muted)">' + item.description + '</p>';
+  html += '<h3>参数</h3>' + (!item.params.length ? '<p style="margin:0;color:var(--muted);font-size:13px">无参数</p>' :
+    '<table class="ep-param-tbl"><thead><tr><th>名称</th><th>位置</th><th>类型</th><th>必填</th><th>描述</th></tr></thead><tbody>' +
+    item.params.map(function (p) { return '<tr><td class="mono">' + p.name + '</td><td style="color:var(--muted)">' + p.in + '</td><td class="mono" style="color:var(--muted)">' + p.type + '</td><td>' + (p.required ? '<span class="badge badge-red">必填</span>' : '—') + '</td><td style="color:var(--muted)">' + (p.desc || "—") + '</td></tr>'; }).join("") + '</tbody></table>');
+  html += '<h3>请求体' + (item.contentType ? ' <span class="badge badge-gray mono">' + item.contentType + '</span>' : '') + '</h3>' +
+    (!item.request ? '<p style="margin:0;color:var(--muted);font-size:13px">无请求体</p>' :
+    '<div class="card card-pad" style="padding:14px 16px"><div class="stack">' +
+    item.request.map(function (r) { return '<div class="kv"><span class="k" style="width:150px">' + r[0] + '</span><span class="v mono" style="color:var(--muted)">' + r[1] + '</span></div>'; }).join("") + '</div></div>');
+  html += '<h3>响应</h3>' + item.responses.map(function (r) {
+    var err = /^4\d\d|^5\d\d|^4XX|^5XX/.test(r.code);
+    return '<div class="ep-resp"><span class="badge ' + (err ? "badge-red" : "badge-green") + ' mono">' + r.code + '</span><span class="resp-body" style="color:var(--muted)">' + r.desc + (r.schema ? ' <span class="mono" style="color:var(--text)">' + r.schema + '</span>' : '') + '</span></div>';
+  }).join("");
+  detailEl.innerHTML = html;
+  var ctx = detailEl.querySelector("[data-ctx]");
+  if (ctx) {
+    ctx.addEventListener("click", function () {
+      document.getElementById("ctxEndpoint").textContent = item.method + " " + item.path;
+      document.getElementById("ctxBadge").className = "badge " + (item.context ? "badge-green" : "badge-gray");
+      document.getElementById("ctxBadge").textContent = item.context ? "已生成" : "待生成";
+      if (!item.context) {
+        document.getElementById("ctxName").textContent = "—";
+        document.getElementById("ctxIntent").textContent = "尚未生成，点击「生成 / 编辑」开始";
+        document.getElementById("ctxRules").textContent = "—";
+        document.getElementById("ctxSide").textContent = "—";
+        document.getElementById("ctxScene").textContent = "—";
+      }
+    });
+  }
+  bindSchemaToggles();
+}
+
+function renderSchemaDetail(item) {
+  detailEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">' + item.name + '</h2>' +
+    '<span class="model-type">' + item.defType + '</span><span style="color:var(--muted);font-size:12px">字段数 ' + countProps(item.schema) + '</span></div>' +
+    (item.description ? '<p style="margin:8px 0 0;color:var(--muted)">' + item.description + '</p>' : '') +
+    '<div class="schema-tree">' + schemaTreeHTML(item.schema, 1) + '</div>';
+  bindSchemaToggles();
+}
+
+function renderResponse(item) {
+  detailEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">' + item.name + '</h2>' +
+    '<span class="badge badge-green mono">' + item.defType + '</span><span class="badge badge-gray mono">' + item.contentType + '</span><span class="badge badge-purple">响应组件</span></div>' +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + item.description + '</p>' +
+    '<div class="schema-tree">' + schemaTreeHTML(item.schema, 1) + '</div>';
+  bindSchemaToggles();
+}
+
+function renderSecurity(item) {
+  var extra = "";
+  if (item.defType === "http") {
+    extra = '<h3>HTTP</h3><div class="kv"><span class="k">Scheme</span><span class="v mono">' + item.scheme + '</span></div><div class="kv" style="border-bottom:0"><span class="k">Bearer Format</span><span class="v mono" style="color:var(--muted)">' + (item.bearerFormat || "—") + '</span></div>';
+  } else if (item.defType === "oauth2") {
+    extra = '<h3>OAuth2</h3><div class="kv"><span class="k">流程</span><span class="v">' + item.flows + '</span></div><div class="kv" style="border-bottom:0"><span class="k">Scopes</span><span class="v mono" style="color:var(--muted)">' + item.scopes + '</span></div>';
+  } else {
+    extra = '<h3>API Key</h3><div class="kv" style="border-bottom:0"><span class="k">Header</span><span class="v mono">' + item.inName + '</span></div>';
+  }
+  detailEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">🔐 ' + item.name + '</h2>' +
+    '<span class="model-type">' + item.defType + '</span><span class="badge badge-purple">鉴权组件</span></div>' +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + item.description + '</p>' + extra +
+    '<div class="notice notice-info" style="margin-top:16px"><span>ℹ️</span><span>鉴权组件源自 OpenAPI `components.securitySchemes`，与数据模型同构落库。</span></div>';
+}
+
+function renderParameter(item) {
+  detailEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">' + item.name + '</h2>' +
+    '<span class="model-type">' + item.defType + '</span><span class="badge badge-purple">参数组件</span></div>' +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + item.description + '</p>' +
+    '<div class="kv"><span class="k">位置</span><span class="v mono">' + item.defType + '</span></div>' +
+    '<div class="kv" style="border-bottom:0"><span class="k">Schema</span><span class="v mono" style="color:var(--muted)">' + item.schema + '</span></div>';
+}
+
+function renderTemplate(item) {
+  detailEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0" class="mono">' + item.name + '</h2>' +
+    '<span class="badge badge-purple">默认模板</span></div>' +
+    '<p style="margin:8px 0 0;color:var(--muted)">' + item.description + '</p>' +
+    '<div class="kv" style="border-bottom:0"><span class="k">参数</span><span class="v mono" style="color:var(--muted)">' + item.params + '</span></div>';
+}
+
+function renderDetail(ref) {
+  var item = findRef(ref);
+  if (!item) return;
+  if (item.method) return renderEndpoint(item);
+  if (item.defType === "http" || item.defType === "oauth2" || item.defType === "apiKey") return renderSecurity(item);
+  if (item.contentType) return renderResponse(item);
+  if (item.schema && item.schema.properties) return renderSchemaDetail(item);
+  if (item.params) return renderTemplate(item);
+  return renderParameter(item);
+}
+
+function bindSchemaToggles() {
+  detailEl.querySelectorAll(".schema-row [data-toggle-key]").forEach(function (t) {
+    t.addEventListener("click", function () {
+      var key = t.getAttribute("data-toggle-key");
+      var children = detailEl.querySelector('[data-children-key="' + key + '"]');
+      if (!children) return;
+      var hidden = !children.classList.contains("hidden");
+      children.classList.toggle("hidden", hidden);
+      t.textContent = hidden ? "▸" : "▾";
+    });
+  });
+}
+
+treeEl.addEventListener("click", function (e) {
+  var toggle = e.target.closest("[data-toggle]");
+  if (toggle) {
+    var key = toggle.getAttribute("data-toggle");
+    state.open[key] = state.open[key] === false;
+    renderTree();
+    return;
+  }
+  var leaf = e.target.closest("[data-ref]");
+  if (leaf) {
+    state.active = leaf.getAttribute("data-ref");
+    renderTree();
+    renderDetail(state.active);
+  }
+});
+
+document.getElementById("defSearch").addEventListener("input", function (e) {
+  state.search = e.target.value.trim().toLowerCase();
+  renderTree();
+});
+
+renderTree();
+</script>
+</body>
+</html>
