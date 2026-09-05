@@ -224,6 +224,6 @@ docs/modules/
   audit-log.md                     ← Audit Log 技术债记录（操作日志写/查/展示）
 ```
 
-> **技术债记录：** 当前仅最小结构化日志（`console` JSON lines），**metrics 与 tracing 未实现**；排查单次失败可用 `event` + `context` 本地 grep。详见 [observability.md](./observability.md)。
+> **可观测性：** 已实现**日志规范 + reqId/taskId 贯穿**（阶段 A/B）；**Metrics 与 Tracing 未实现**（阶段 C/D，后端选型 SigNoz + OpenTelemetry）。详见 [observability.md](./observability.md)。
 >
 > **操作日志：** `operation_logs` / `operation_log_details` 表已定义但**未接线**（无写入 / 无 API / 无前端展示）；仓库、接口、数据模型、组织等变更暂不可审计。详见 [audit-log.md](./audit-log.md)。

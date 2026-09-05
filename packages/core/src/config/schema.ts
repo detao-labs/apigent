@@ -359,6 +359,36 @@ export const MCPConfigSchema = z
   .strict();
 
 // ───────────────────────────────────────────────────────────────────
+// 9.5 Observability
+// ───────────────────────────────────────────────────────────────────
+
+export const ObservabilityConfigSchema = z
+  .object({
+    provider: z.enum(["none", "otlp", "langfuse", "phoenix"]),
+    logLevel: z.enum(["debug", "info", "warn", "error"]),
+    otlp: z
+      .object({
+        endpoint: z.string(),
+        headers: z.record(z.string(), z.string()).optional(),
+      })
+      .strict()
+      .optional(),
+    langfuse: z
+      .object({
+        baseUrl: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    phoenix: z
+      .object({
+        endpoint: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+// ───────────────────────────────────────────────────────────────────
 // 10. Apps — application endpoints
 // ───────────────────────────────────────────────────────────────────
 
@@ -414,6 +444,7 @@ export const ApigentConfigSchema = z
     businessContext: BusinessContextConfigSchema,
     auth: AuthConfigSchema,
     mcp: MCPConfigSchema,
+    observability: ObservabilityConfigSchema,
     apps: AppsConfigSchema,
   })
   .strict();

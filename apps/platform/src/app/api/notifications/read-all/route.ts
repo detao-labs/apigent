@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { markAllNotificationsRead } from "@apigent/server/notifications";
+import { withRoute } from "@/lib/route";
 
-export async function POST() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+export const POST = withRoute({ auth: true }, async ({ user }) => {
   const count = await markAllNotificationsRead(user.id);
   return NextResponse.json({ count });
-}
+});

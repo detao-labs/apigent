@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { compareVersions } from "@apigent/server/versions";
 import { assertRepoAccess, ForbiddenError } from "@apigent/server/authz";
+import { withRoute } from "@/lib/route";
 
 /** 版本对比（纯规则）：GET /api/repos/:id/versions/diff?from=&to= */
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+export const GET = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
   const sp = new URL(request.url).searchParams;
   const from = sp.get("from");
@@ -27,4 +23,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

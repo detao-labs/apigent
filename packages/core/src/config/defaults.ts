@@ -9,7 +9,7 @@
 // Secrets come exclusively from .env (see .env.example).
 // ═══════════════════════════════════════════════════════════════════
 
-import type { AppsConfig, LLMFlowModelMap, RAGConfig } from "./types";
+import type { AppsConfig, LLMFlowModelMap, ObservabilityConfig, RAGConfig } from "./types";
 
 // ───────────────────────────────────────────────────────────────────
 // LLM — per-flow model defaults (Claude)
@@ -100,4 +100,13 @@ export const DEFAULT_APPS_CONFIG: AppsConfig = {
   platform: { url: "http://localhost:3000", logLevel: "info" },
   admin: { url: "http://localhost:3001", logLevel: "info" },
   open: { url: "http://localhost:3002", logLevel: "info" },
+};
+
+// ───────────────────────────────────────────────────────────────────
+// Observability — default (local structured logs to stdout)
+// ───────────────────────────────────────────────────────────────────
+
+export const DEFAULT_OBSERVABILITY_CONFIG: ObservabilityConfig = {
+  provider: "none",
+  logLevel: "info",
 };

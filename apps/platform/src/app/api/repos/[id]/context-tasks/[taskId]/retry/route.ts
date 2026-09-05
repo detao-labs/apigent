@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { retryContextTask } from "@apigent/server/contexts";
+import { withRoute } from "@/lib/route";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ taskId: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const POST = withRoute({ auth: true }, async ({ params }) => {
   const { taskId } = await params;
   try {
     const task = await retryContextTask(taskId);
@@ -22,4 +14,4 @@ export async function POST(
     console.error("[context-tasks/retry]", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

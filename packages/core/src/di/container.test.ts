@@ -47,6 +47,7 @@ function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
     },
     auth: { secret: "s", providers: ["credentials"], sessionMaxAge: 604800 },
     mcp: { path: "/mcp", transport: "streamable-http" },
+    observability: { provider: "none", logLevel: "info" },
     apps: {
       platform: { url: "http://localhost:3000", logLevel: "info" },
       admin: { url: "http://localhost:3001", logLevel: "info" },
@@ -105,7 +106,9 @@ describe("Container", () => {
     const memory = new Container(makeConfig());
     expect(memory.getQueue()).toBeInstanceOf(MemoryQueueProvider);
 
-    const bullmq = new Container(makeConfig({ queue: { provider: "bullmq", redisUrl: "redis://localhost:6379" } }));
+    const bullmq = new Container(
+      makeConfig({ queue: { provider: "bullmq", redisUrl: "redis://localhost:6379" } }),
+    );
     expect(() => bullmq.getQueue()).toThrow(/not implemented/);
   });
 });

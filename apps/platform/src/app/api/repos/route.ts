@@ -1,23 +1,14 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { OrgNotFoundError, createRepo, listRepos } from "@/services/repos";
 import { repoCreateBodySchema } from "@/lib/openapi-schemas";
 import { ForbiddenError } from "@apigent/server/authz";
+import { withRoute } from "@/lib/route";
 
-export async function GET() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+export const GET = withRoute({ auth: true }, async ({ user }) => {
   return NextResponse.json({ repos: await listRepos(user.id) });
-}
+});
 
-export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const POST = withRoute({ auth: true }, async ({ request, user }) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -31,11 +22,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const repo = await createRepo({
-      orgId: parsed.data.orgId,
-      name: parsed.data.name,
-      description: parsed.data.description,
-    }, user.id);
+    const repo = await createRepo(
+      {
+        orgId: parsed.data.orgId,
+        name: parsed.data.name,
+        description: parsed.data.description,
+      },
+      user.id,
+    );
     return NextResponse.json({ repo }, { status: 201 });
   } catch (err) {
     if (err instanceof ForbiddenError) {
@@ -46,4 +40,4 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

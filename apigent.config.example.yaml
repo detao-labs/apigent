@@ -171,6 +171,28 @@ mcp:
   # publicUrl: https://mcp.example.com
 
 # ───────────────────────────────────────────────────────────────────
+# 9.5 Observability — logs / metrics / traces
+# ───────────────────────────────────────────────────────────────────
+observability:
+  # "none" ✅ (local structured logs to stdout — A/B 阶段) | "otlp" ⏳ (OpenTelemetry OTLP 导出，C 阶段 + SigNoz) | "langfuse" / "phoenix" ⏳ (LLM/RAG 专项，后置)
+  provider: none
+  # 本地日志级别
+  logLevel: info
+
+  # --- provider: otlp (⏳ C 阶段实现) — SigNoz / Grafana Cloud 等 OTLP 端点 ---
+  # otlp:
+  #   endpoint: http://localhost:4318
+  #   headers: {}
+
+  # --- provider: langfuse (⏳ 后置) — 公钥等 secret 走 .env ---
+  # langfuse:
+  #   baseUrl: https://cloud.langfuse.com
+
+  # --- provider: phoenix (⏳ 后置) ---
+  # phoenix:
+  #   endpoint: http://localhost:6006
+
+# ───────────────────────────────────────────────────────────────────
 # 9. Apps — organized by actual application (server is a shared module, not a standalone service)
 # ───────────────────────────────────────────────────────────────────
 apps:

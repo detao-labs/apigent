@@ -72,6 +72,10 @@ export type {
   // MCP
   MCPTransport,
   MCPConfig,
+  // Observability
+  LogLevel,
+  ObservabilityProviderType,
+  ObservabilityConfig,
   // Apps
   AppEndpointConfig,
   AppsConfig,
@@ -82,7 +86,11 @@ export type {
   ApigentConfig,
 } from "./types";
 
-export { ApigentConfigSchema, BusinessContextConfigSchema } from "./schema";
+export {
+  ApigentConfigSchema,
+  BusinessContextConfigSchema,
+  ObservabilityConfigSchema,
+} from "./schema";
 
 export {
   DEFAULT_CLAUDE_MODELS,
@@ -92,6 +100,7 @@ export {
   DEFAULT_OLLAMA_MODELS,
   DEFAULT_RAG_CONFIG,
   DEFAULT_APPS_CONFIG,
+  DEFAULT_OBSERVABILITY_CONFIG,
 } from "./defaults";
 
 // ── Public API — the only way to load config ──────────────────────

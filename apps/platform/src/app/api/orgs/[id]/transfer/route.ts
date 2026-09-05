@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { MemberNotFoundError, transferOrgOwnership } from "@/services/orgs";
 import { ForbiddenError } from "@apigent/server/authz";
+import { withRoute } from "@/lib/route";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
   let body: { targetUserId?: string };
   try {
@@ -35,4 +28,4 @@ export async function POST(
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

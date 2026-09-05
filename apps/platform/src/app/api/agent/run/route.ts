@@ -19,7 +19,6 @@ import {
   zodSchema,
 } from "ai";
 import type { ToolSet, UIMessage } from "ai";
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   AgentToolRegistry,
@@ -27,9 +26,10 @@ import {
   saveBusinessContextTool,
 } from "@apigent/core/agent";
 import { createAIModel } from "@/lib/ai";
-import { getSessionUser } from "@/services/auth";
 import { getRepoEndpoints } from "@/services/repos";
 import { saveEndpointContext } from "@/services/contexts";
+import { withRoute } from "@/lib/route";
+import { generateId } from "@apigent/server/id";
 
 /** 业务上下文助手系统提示（V0；多语言化留给 i18n 阶段） */
 const SYSTEM_PROMPT = `你是 Apigent 平台的 API 业务上下文助手，帮助用户为接口生成、编辑和保存业务上下文（能力名称、意图、约束、副作用、使用场景）。
@@ -76,10 +76,9 @@ function normalizeMessages(messages: unknown[]): UIMessage[] {
     if (Array.isArray(msg.parts)) {
       return msg as unknown as UIMessage;
     }
-    const role =
-      msg.role === "assistant" || msg.role === "system" ? msg.role : "user";
+    const role = msg.role === "assistant" || msg.role === "system" ? msg.role : "user";
     return {
-      id: typeof msg.id === "string" ? msg.id : randomUUID(),
+      id: typeof msg.id === "string" ? msg.id : generateId("msg"),
       role,
       parts: [
         {
@@ -91,12 +90,7 @@ function normalizeMessages(messages: unknown[]): UIMessage[] {
   });
 }
 
-export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const POST = withRoute({ auth: true }, async ({ request, user }) => {
   let body: { messages?: unknown };
   try {
     body = (await request.json()) as { messages?: unknown };
@@ -133,4 +127,4 @@ export async function POST(request: Request) {
   return createUIMessageStreamResponse({
     stream: toUIMessageStream({ stream: result.stream, tools: serverTools }),
   });
-}
+});

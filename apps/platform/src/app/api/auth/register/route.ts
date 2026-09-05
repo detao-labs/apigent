@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { AuthError, issueSessionToken, registerUser } from "@/services/auth";
 import { getSessionMaxAge, SESSION_COOKIE } from "@apigent/server/auth";
+import { withRoute } from "@/lib/route";
 
-export async function POST(request: Request) {
+export const POST = withRoute(async ({ request }) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -30,4 +31,4 @@ export async function POST(request: Request) {
     console.error("[auth/register]", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

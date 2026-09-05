@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@apigent/server/auth";
+import { withRoute } from "@/lib/route";
 
-export async function POST() {
+export const POST = withRoute(async () => {
   const response = NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
@@ -10,4 +11,4 @@ export async function POST() {
     maxAge: 0,
   });
   return response;
-}
+});

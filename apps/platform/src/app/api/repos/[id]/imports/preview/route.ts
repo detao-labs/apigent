@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { RepoNotFoundError, previewImport } from "@/services/imports";
 import { importContentBodySchema } from "@/lib/openapi-schemas";
+import { withRoute } from "@/lib/route";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const POST = withRoute({ auth: true }, async ({ request, params }) => {
   const { id } = await params;
-
   let body: unknown;
   try {
     body = await request.json();
@@ -35,4 +26,4 @@ export async function POST(
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

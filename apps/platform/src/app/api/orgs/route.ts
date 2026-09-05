@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { createOrg, listOrgs } from "@/services/orgs";
 import { orgCreateBodySchema } from "@/lib/openapi-schemas";
+import { withRoute } from "@/lib/route";
 
-export async function GET() {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+export const GET = withRoute({ auth: true }, async ({ user }) => {
   return NextResponse.json({ orgs: await listOrgs(user.id) });
-}
+});
 
-export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
+export const POST = withRoute({ auth: true }, async ({ request, user }) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -31,4 +26,4 @@ export async function POST(request: Request) {
     ownerId: user.id,
   });
   return NextResponse.json({ org }, { status: 201 });
-}
+});

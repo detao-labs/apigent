@@ -1,27 +1,19 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
-import { createImportTask } from "@apigent/server/imports";
 import {
+  createImportTask,
   DuplicateImportError,
   ImportError,
   RepoNotFoundError,
 } from "@apigent/server/imports";
 import { importContentBodySchema } from "@/lib/openapi-schemas";
+import { withRoute } from "@/lib/route";
 
 /**
  * 异步提交导入：202 Accepted + { taskId, status }。
  * 解析/落库由队列 Worker 后台执行，进度通过
  * GET /api/repos/:id/import-tasks/:taskId 查询。
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
 
   let body: unknown;
@@ -41,10 +33,7 @@ export async function POST(
     return NextResponse.json({ task }, { status: 202 });
   } catch (err) {
     if (err instanceof ImportError) {
-      return NextResponse.json(
-        { error: "invalid-openapi", issues: err.issues },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: "invalid-openapi", issues: err.issues }, { status: 422 });
     }
     if (err instanceof RepoNotFoundError) {
       return NextResponse.json({ error: "repo-not-found" }, { status: 404 });
@@ -57,4 +46,4 @@ export async function POST(
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

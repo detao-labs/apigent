@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { getLatestImportTask } from "@apigent/server/imports";
+import { withRoute } from "@/lib/route";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const GET = withRoute({ auth: true }, async ({ params }) => {
   const { id } = await params;
   const task = await getLatestImportTask(id);
   return NextResponse.json({ task });
-}
+});

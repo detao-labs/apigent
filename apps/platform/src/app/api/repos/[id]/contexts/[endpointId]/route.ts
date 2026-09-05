@@ -1,36 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
-import {
-  getEndpointContext,
-  saveEndpointContext,
-} from "@/services/contexts";
+import { getEndpointContext, saveEndpointContext } from "@/services/contexts";
+import { withRoute } from "@/lib/route";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string; endpointId: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const GET = withRoute({ auth: true }, async ({ params }) => {
   const { id, endpointId } = await params;
   const context = await getEndpointContext(id, endpointId);
   if (!context) {
     return NextResponse.json({ error: "not-found" }, { status: 404 });
   }
   return NextResponse.json({ context });
-}
+});
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string; endpointId: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const PUT = withRoute({ auth: true }, async ({ request, params }) => {
   const { id, endpointId } = await params;
   let body: unknown;
   try {
@@ -40,12 +21,9 @@ export async function PUT(
   }
 
   try {
-    await saveEndpointContext(
-      id,
-      endpointId,
-      body as Parameters<typeof saveEndpointContext>[2],
-      { source: "human" },
-    );
+    await saveEndpointContext(id, endpointId, body as Parameters<typeof saveEndpointContext>[2], {
+      source: "human",
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof Error && err.message === "Endpoint not found") {
@@ -57,4 +35,4 @@ export async function PUT(
     console.error("[contexts PUT]", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

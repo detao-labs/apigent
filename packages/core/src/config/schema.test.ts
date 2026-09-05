@@ -13,9 +13,8 @@ import {
  * as the hand-written ApigentConfig. If types.ts and schema.ts drift,
  * this file stops compiling.
  */
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
-  ? true
-  : false;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 const _schemaMatchesTypes: Equal<ApigentConfig, z.infer<typeof ApigentConfigSchema>> = true;
 void _schemaMatchesTypes;
@@ -63,6 +62,7 @@ describe("ApigentConfigSchema", () => {
       },
       auth: { secret: "s", providers: ["credentials"], sessionMaxAge: 604800 },
       mcp: { path: "/mcp", transport: "streamable-http" },
+      observability: { provider: "none", logLevel: "info" },
       apps: {
         platform: { url: "http://localhost:3000", logLevel: "info" },
         admin: { url: "http://localhost:3001", logLevel: "info" },

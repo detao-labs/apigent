@@ -10,7 +10,7 @@ import { loadConfig } from "@apigent/core/config";
 import { getContainer } from "@apigent/core/di";
 import type { QueueProvider } from "@apigent/core/types";
 import { PgQueueProvider, registerQueueProviders } from "../queue";
-import { logError, logInfo } from "../logger";
+import { logError, logInfo, withTaskContext } from "../logger";
 import { executeContextTask } from "./executor";
 import { CONTEXT_QUEUE } from "./common";
 
@@ -36,7 +36,7 @@ export function startContextWorker(): QueueProvider {
       const taskId = (job.data as { taskId?: string } | null)?.taskId;
       if (!taskId) throw new Error(`business.context job missing taskId: ${job.id}`);
       logInfo("business.context.started", { jobId: job.id, taskId });
-      await executeContextTask(taskId);
+      await withTaskContext(taskId, () => executeContextTask(taskId));
     })
     .catch((err) => {
       logError("queue.process_registration_failed", err, { queue: CONTEXT_QUEUE });

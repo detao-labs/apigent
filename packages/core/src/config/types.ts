@@ -342,11 +342,7 @@ export interface MemoryQueueConfig {
 }
 
 export type QueueConfig =
-  | PgQueueConfig
-  | BullmqQueueConfig
-  | RabbitmqQueueConfig
-  | SqsQueueConfig
-  | MemoryQueueConfig;
+  PgQueueConfig | BullmqQueueConfig | RabbitmqQueueConfig | SqsQueueConfig | MemoryQueueConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 7.5 Business Context
@@ -412,6 +408,44 @@ export interface MCPConfig {
 }
 
 // ───────────────────────────────────────────────────────────────────
+// 9.5 Observability — logs / metrics / traces
+// ───────────────────────────────────────────────────────────────────
+
+/** 通用日志级别（本地控制台 / pino） */
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+/**
+ * 可观测性采集/导出目标。
+ *   none     → 仅本地结构化日志到 stdout（A+B 阶段，可 grep）
+ *   otlp     → OpenTelemetry OTLP 导出（C 阶段，SigNoz / Grafana Cloud 等）
+ *   langfuse → LLM / RAG 专项 trace（产品增值，后置）
+ *   phoenix  → LLM / RAG 专项 trace（产品增值，后置）
+ */
+export type ObservabilityProviderType = "none" | "otlp" | "langfuse" | "phoenix";
+
+export interface ObservabilityConfig {
+  /** 采集/导出目标。默认 none（仅 stdout 结构化日志） */
+  provider: ObservabilityProviderType;
+  /** 本地日志级别（阶段 A 起生效） */
+  logLevel: LogLevel;
+  /** OTLP 导出目标（provider=otlp 时使用；C 阶段） */
+  otlp?: {
+    /** OTLP HTTP/gRPC endpoint，如 http://localhost:4318 */
+    endpoint: string;
+    /** 可选 headers（如 API key）；secret 亦可来自环境变量 */
+    headers?: Record<string, string>;
+  };
+  /** Langfuse（LLM/RAG 专项，后置）。公钥等 secret 走环境变量 */
+  langfuse?: {
+    baseUrl?: string;
+  };
+  /** Phoenix / Arize（LLM/RAG 专项，后置） */
+  phoenix?: {
+    endpoint?: string;
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────
 // 10. Apps — application endpoints
 // ───────────────────────────────────────────────────────────────────
 
@@ -419,7 +453,7 @@ export interface AppEndpointConfig {
   /** Public URL of the app */
   url: string;
   /** Runtime log level */
-  logLevel: "debug" | "info" | "warn" | "error";
+  logLevel: LogLevel;
 }
 
 export interface AppsConfig {
@@ -451,6 +485,8 @@ export interface ApigentConfig {
   auth: AuthConfig;
   /** MCP Gateway */
   mcp: MCPConfig;
+  /** Observability configuration */
+  observability: ObservabilityConfig;
   /** Application endpoints (platform / admin / open) */
   apps: AppsConfig;
 }

@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./db": "./src/db/index.ts",
     "./id": "./src/id.ts",
+    "./logging": "./src/logging/index.ts",
     "./auth": "./src/auth/index.ts",
     "./authz": "./src/authz/index.ts",
     "./openapi": "./src/openapi/index.ts",
@@ -33,6 +34,7 @@
     "drizzle-orm": "^0.45.2",
     "nanoid": "^6.0.1",
     "pg": "^8.23.0",
+    "pino": "^10.3.1",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },

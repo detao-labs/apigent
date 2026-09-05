@@ -12,7 +12,7 @@ import { loadConfig } from "@apigent/core/config";
 import { getContainer } from "@apigent/core/di";
 import type { QueueProvider } from "@apigent/core/types";
 import { PgQueueProvider, registerQueueProviders } from "../queue";
-import { logError, logInfo } from "../logger";
+import { logError, logInfo, withTaskContext } from "../logger";
 import { executeImportTask } from "./executor";
 import { IMPORT_QUEUE } from "./common";
 
@@ -41,7 +41,7 @@ export function startImportWorker(): QueueProvider {
       const taskId = (job.data as { taskId?: string } | null)?.taskId;
       if (!taskId) throw new Error(`openapi.import job missing taskId: ${job.id}`);
       logInfo("openapi.import.started", { jobId: job.id, taskId });
-      await executeImportTask(taskId);
+      await withTaskContext(taskId, () => executeImportTask(taskId));
     })
     .catch((err) => {
       logError("queue.process_registration_failed", err, { queue: IMPORT_QUEUE });

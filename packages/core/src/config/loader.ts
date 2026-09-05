@@ -13,7 +13,12 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import type { ApigentConfig } from "./types";
-import { DEFAULT_APPS_CONFIG, DEFAULT_QWEN_MODELS, DEFAULT_RAG_CONFIG } from "./defaults";
+import {
+  DEFAULT_APPS_CONFIG,
+  DEFAULT_OBSERVABILITY_CONFIG,
+  DEFAULT_QWEN_MODELS,
+  DEFAULT_RAG_CONFIG,
+} from "./defaults";
 
 // ───────────────────────────────────────────────────────────────────
 // Base config from defaults
@@ -41,6 +46,7 @@ export function _buildConfigFromDefaults(): ApigentConfig {
     },
     auth: { secret: "", providers: ["credentials"], sessionMaxAge: 604800 },
     mcp: { path: "/mcp", transport: "streamable-http" },
+    observability: structuredClone(DEFAULT_OBSERVABILITY_CONFIG),
     apps: structuredClone(DEFAULT_APPS_CONFIG),
   };
 }

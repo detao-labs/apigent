@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import {
   createContextTask,
   DuplicateContextTaskError,
   RepoNotFoundError,
 } from "@apigent/server/contexts";
+import { withRoute } from "@/lib/route";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
   let body: { endpointIds?: unknown; force?: unknown } = {};
   try {
@@ -46,4 +38,4 @@ export async function POST(
     console.error("[contexts/generate]", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

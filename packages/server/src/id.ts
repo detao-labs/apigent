@@ -8,11 +8,13 @@
 // - Alphabet excludes confusing characters (0/O/1/I/l).
 // - Prefix identifies the entity type (Stripe-style) and scopes the
 //   collision space per entity, so same-code-different-prefix is fine.
+//
+// 约定：所有新的实体/身份字段 ID（含 reqId 等请求级、任务级 id）一律
+// 用 generateId(prefix) + ID_PREFIXES 生成，保持 `前缀_10位` 的统一格式。
 
 import { customAlphabet } from "nanoid";
 
-const ALPHABET =
-  "0123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const ALPHABET = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const LENGTH = 10;
 
 const generate = customAlphabet(ALPHABET, LENGTH);
@@ -33,10 +35,12 @@ export const ID_PREFIXES = {
   context: "ctx_",
   relationship: "rel_",
   chunk: "chunk_",
+  msg: "msg_",
   log: "log_",
   logDetail: "logd_",
   job: "job_",
   task: "task_",
+  req: "req_",
   notification: "noti_",
 } as const;
 

@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { activateVersion, VersionNotFoundError } from "@apigent/server/versions";
 import { assertRepoAccess, ForbiddenError } from "@apigent/server/authz";
+import { withRoute } from "@/lib/route";
 
 /** 设为当前版本（回滚）：POST /api/repos/:id/versions/:versionId/activate */
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string; versionId: string }> },
-) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+export const POST = withRoute({ auth: true }, async ({ params, user }) => {
   const { id, versionId } = await params;
 
   try {
@@ -27,4 +20,4 @@ export async function POST(
     }
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+});

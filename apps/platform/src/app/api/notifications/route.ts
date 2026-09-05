@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/services/auth";
 import { listNotifications } from "@apigent/server/notifications";
 import type { NotificationCategory } from "@apigent/server/notifications";
+import { withRoute } from "@/lib/route";
 
 const CATEGORIES: NotificationCategory[] = ["import", "context", "key", "mcp", "system"];
 
-export async function GET(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export const GET = withRoute({ auth: true }, async ({ request, user }) => {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category") as NotificationCategory | null;
   const unread = searchParams.get("unread") === "true";
@@ -22,4 +17,4 @@ export async function GET(request: Request) {
     limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 100) : 50,
   });
   return NextResponse.json({ notifications });
-}
+});

@@ -54,11 +54,14 @@ export interface CreatedRepo {
   createdAt: Date;
 }
 
-export async function createRepo(input: {
-  orgId: string;
-  name: string;
-  description?: string;
-}, userId: string): Promise<CreatedRepo> {
+export async function createRepo(
+  input: {
+    orgId: string;
+    name: string;
+    description?: string;
+  },
+  userId: string,
+): Promise<CreatedRepo> {
   await assertOrgRole(userId, input.orgId, "org_member");
   const org = await getOrgById(input.orgId);
   if (!org) throw new OrgNotFoundError(input.orgId);
@@ -71,9 +74,7 @@ export async function createRepo(input: {
       orgId: org.id,
       name: input.name,
       description:
-        input.description && input.description.trim() !== ""
-          ? input.description.trim()
-          : null,
+        input.description && input.description.trim() !== "" ? input.description.trim() : null,
     })
     .returning({
       id: repositories.id,
@@ -106,8 +107,7 @@ export async function updateRepo(
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.description !== undefined
         ? {
-            description:
-              input.description.trim() !== "" ? input.description.trim() : null,
+            description: input.description.trim() !== "" ? input.description.trim() : null,
           }
         : {}),
       updatedAt: new Date(),
@@ -185,10 +185,7 @@ export interface RepoDetail {
   versions: RepoVersionSummary[];
 }
 
-export async function getRepoDetail(
-  id: string,
-  userId: string,
-): Promise<RepoDetail | null> {
+export async function getRepoDetail(id: string, userId: string): Promise<RepoDetail | null> {
   await assertRepoAccess(userId, id, "repo_viewer");
   const db = getDB();
   const [repo] = await db
@@ -243,10 +240,7 @@ export async function getRepoDetail(
   return {
     ...repo,
     mcpEnabled: Boolean(repo.mcpEnabled ?? false),
-    capabilityContext: (repo.capabilityContext ?? null) as Record<
-      string,
-      unknown
-    > | null,
+    capabilityContext: (repo.capabilityContext ?? null) as Record<string, unknown> | null,
     endpointCount: Number(ep?.value ?? 0),
     modelCount: Number(dm?.value ?? 0),
     versionCount: Number(ver?.value ?? 0),
@@ -269,10 +263,7 @@ export type RepoLoadResult =
   | { status: "not-found"; repo: null; owner: RepoLoadOwner | null };
 
 /** 面向页面：区分 无权限(403) / 不存在(404) / 正常，避免让错误冒泡成 500。 */
-export async function loadRepoForPage(
-  id: string,
-  userId: string,
-): Promise<RepoLoadResult> {
+export async function loadRepoForPage(id: string, userId: string): Promise<RepoLoadResult> {
   try {
     const repo = await getRepoDetail(id, userId);
     return repo
@@ -333,10 +324,7 @@ export interface RepoEndpoint {
 }
 
 /** 当前版本快照下的接口列表（含模块、参数、响应），供接口页展示。 */
-export async function getRepoEndpoints(
-  repoId: string,
-  userId: string,
-): Promise<RepoEndpoint[]> {
+export async function getRepoEndpoints(repoId: string, userId: string): Promise<RepoEndpoint[]> {
   await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
   const [repo] = await db
@@ -372,7 +360,8 @@ export async function getRepoEndpoints(
       .from(endpointModules)
       .innerJoin(modules, eq(modules.id, endpointModules.moduleId))
       .innerJoin(endpoints, eq(endpoints.id, endpointModules.endpointId))
-      .where(and(eq(endpoints.repoId, repoId), eq(endpoints.versionId, versionId))),
+      .where(and(eq(endpoints.repoId, repoId), eq(endpoints.versionId, versionId)))
+      .orderBy(modules.name, modules.id),
     db
       .select({
         endpointId: endpointResponses.endpointId,
@@ -431,10 +420,7 @@ export interface RepoDataModel {
 }
 
 /** 当前版本快照下的数据模型列表，供数据模型页展示。 */
-export async function getRepoDataModels(
-  repoId: string,
-  userId: string,
-): Promise<RepoDataModel[]> {
+export async function getRepoDataModels(repoId: string, userId: string): Promise<RepoDataModel[]> {
   await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
   const [repo] = await db
@@ -453,12 +439,7 @@ export async function getRepoDataModels(
       schemaRaw: dataModels.schemaRaw,
     })
     .from(dataModels)
-    .where(
-      and(
-        eq(dataModels.repoId, repoId),
-        eq(dataModels.versionId, repo.currentVersionId),
-      ),
-    )
+    .where(and(eq(dataModels.repoId, repoId), eq(dataModels.versionId, repo.currentVersionId)))
     .orderBy(dataModels.name);
 
   return rows.map((row) => ({
