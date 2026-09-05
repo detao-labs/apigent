@@ -21,6 +21,7 @@ import type { OrgSummary } from "@/services/orgs";
 
 export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
   const t = useTranslations("orgs");
+  const d = useTranslations("orgs.detail");
   const router = useRouter();
   const [editingOrg, setEditingOrg] = React.useState<OrgSummary | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -61,7 +62,7 @@ export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
             <TableRow
               key={org.id}
               className="cursor-pointer"
-              onClick={() => router.push(`/repos?org=${org.id}`)}
+              onClick={() => router.push(`/orgs/${org.id}`)}
             >
               <TableCell className="font-medium">{org.name}</TableCell>
               <TableCell className="text-right tabular-nums">
@@ -72,6 +73,14 @@ export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
+                  <Link
+                    href={`/orgs/${org.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className={buttonVariants({ variant: "ghost", size: "sm" })}
+                  >
+                    <ExternalLink className="size-3" />
+                    {d("detail")}
+                  </Link>
                   <Button
                     type="button"
                     variant="ghost"
