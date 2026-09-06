@@ -212,6 +212,10 @@ export const importContentBodySchema = z
         description: "Raw OpenAPI 3.0/3.1 document (JSON or YAML)",
         writeOnly: true,
       }),
+    /** full = 全量更新（缺席即删）；partial = 增量更新（只增/改，不删） */
+    mode: z.enum(["full", "partial"]).optional(),
+    /** 目标版本 id；缺省用默认主版本 */
+    versionId: shortId("ver_").optional(),
   })
   .meta({ id: "ImportContentBody", description: "OpenAPI import payload" });
 

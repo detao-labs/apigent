@@ -1,6 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
 // Platform Contexts Service — 业务上下文的读取与人工编辑
 // ═══════════════════════════════════════════════════════════════════
+//
+// 新模型：context 以 version_commits.id 为版本（默认为主版本 head commit）。
+// ═══════════════════════════════════════════════════════════════════
 
 import { and, count, eq } from "drizzle-orm";
 import { BusinessContextSchema } from "@apigent/core/agent";
@@ -9,7 +12,8 @@ import {
   businessContexts,
   endpoints,
   getDB,
-  repositories,
+  versionEntityLinks,
+  versions,
 } from "@apigent/server/db";
 import { generateId } from "@apigent/server/id";
 import { buildCapabilitySnapshot } from "@apigent/server/contexts";
@@ -31,18 +35,23 @@ export interface EndpointContextSummary {
   sourceContextId: string | null;
 }
 
+async function defaultCommitId(repoId: string): Promise<string | null> {
+  const db = getDB();
+  const [v] = await db
+    .select({ headCommitId: versions.headCommitId })
+    .from(versions)
+    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .limit(1);
+  return v?.headCommitId ?? null;
+}
+
 /** 当前版本下所有接口的上下文状态（含未生成的接口）。 */
 export async function listEndpointContexts(
   repoId: string,
 ): Promise<EndpointContextSummary[]> {
   const db = getDB();
-  const [repo] = await db
-    .select({ currentVersionId: repositories.currentVersionId })
-    .from(repositories)
-    .where(eq(repositories.id, repoId))
-    .limit(1);
-  if (!repo?.currentVersionId) return [];
-  const versionId = repo.currentVersionId;
+  const commitId = await defaultCommitId(repoId);
+  if (!commitId) return [];
 
   const rows = await db
     .select({
@@ -61,15 +70,16 @@ export async function listEndpointContexts(
       generatedBy: businessContexts.generatedBy,
       sourceContextId: businessContexts.sourceContextId,
     })
-    .from(endpoints)
+    .from(versionEntityLinks)
+    .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
     .leftJoin(
       businessContexts,
       and(
         eq(businessContexts.endpointId, endpoints.id),
-        eq(businessContexts.versionId, versionId),
+        eq(businessContexts.versionId, commitId),
       ),
     )
-    .where(and(eq(endpoints.repoId, repoId), eq(endpoints.versionId, versionId)))
+    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
     .orderBy(endpoints.path, endpoints.method);
 
   return rows.map((row) => ({
@@ -92,15 +102,9 @@ export async function getEndpointContext(
 }
 
 export interface SaveContextOptions {
-  /** human = 人工编辑（confidence 1、edited_by_human true）；ai = agent/自动保存 */
   source?: "ai" | "human";
 }
 
-/**
- * 保存/覆盖单接口业务上下文（upsert）。
- * 人工编辑优先：edited_by_human = true、confidence = 1、needs_review = false。
- * 保存后刷新 repo 聚合快照。
- */
 export async function saveEndpointContext(
   repoId: string,
   endpointId: string,
@@ -113,11 +117,11 @@ export async function saveEndpointContext(
   }
 
   const db = getDB();
+  const commitId = await defaultCommitId(repoId);
+  if (!commitId) throw new Error(`Repository has no version: ${repoId}`);
+
   const [endpoint] = await db
-    .select({
-      id: endpoints.id,
-      versionId: endpoints.versionId,
-    })
+    .select({ id: endpoints.id })
     .from(endpoints)
     .where(and(eq(endpoints.id, endpointId), eq(endpoints.repoId, repoId)))
     .limit(1);
@@ -145,7 +149,7 @@ export async function saveEndpointContext(
     .where(
       and(
         eq(businessContexts.endpointId, endpointId),
-        eq(businessContexts.versionId, endpoint.versionId),
+        eq(businessContexts.versionId, commitId),
       ),
     )
     .limit(1);
@@ -161,33 +165,32 @@ export async function saveEndpointContext(
       entityType: "endpoint",
       entityId: endpointId,
       endpointId,
-      versionId: endpoint.versionId,
+      versionId: commitId,
       ...values,
     });
   }
 
-  await refreshCapabilitySnapshot(repoId, endpoint.versionId);
+  await refreshCapabilitySnapshot(repoId, commitId);
 }
 
-/** 保存后轻量重聚合 repo 快照（统计当前版本 context 分布）。 */
 async function refreshCapabilitySnapshot(
   repoId: string,
-  versionId: string,
+  commitId: string,
 ): Promise<void> {
   const db = getDB();
   const [epCount] = await db
     .select({ value: count() })
-    .from(endpoints)
-    .where(eq(endpoints.versionId, versionId));
+    .from(versionEntityLinks)
+    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")));
   const rows = await db
     .select({
       generatedBy: businessContexts.generatedBy,
       needsReview: businessContexts.needsReview,
     })
     .from(businessContexts)
-    .where(eq(businessContexts.versionId, versionId));
+    .where(eq(businessContexts.versionId, commitId));
 
-  await buildCapabilitySnapshot(repoId, versionId, {
+  await buildCapabilitySnapshot(repoId, commitId, {
     endpointCount: Number(epCount?.value ?? 0),
     generatedCount: rows.filter((row) => row.generatedBy === "ai").length,
     reusedCount: rows.filter((row) => row.generatedBy === "reused").length,

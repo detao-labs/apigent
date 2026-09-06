@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@apigent/ui";
-import type { DiffChange, DiffResult, RepoVersionListRow } from "@apigent/server/versions";
+import type { DiffChange, DiffResult, RepoVersionRow } from "@apigent/server/versions";
 
 const METHOD_STYLES: Record<string, string> = {
   GET: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -80,7 +80,7 @@ export function VersionsView({
   canActivate,
 }: {
   repoId: string;
-  versions: RepoVersionListRow[];
+  versions: RepoVersionRow[];
   currentVersionId: string | null;
   canActivate: boolean;
 }) {
@@ -93,7 +93,7 @@ export function VersionsView({
   const [to, setTo] = React.useState<string | null>(null);
   const [diff, setDiff] = React.useState<DiffResult | null>(null);
   const [diffLoading, setDiffLoading] = React.useState(false);
-  const [activateTarget, setActivateTarget] = React.useState<RepoVersionListRow | null>(null);
+  const [activateTarget, setActivateTarget] = React.useState<RepoVersionRow | null>(null);
   const [busy, setBusy] = React.useState(false);
 
   // URL 参数恢复：?from=&to=
@@ -174,7 +174,8 @@ export function VersionsView({
     );
   }
 
-  const versionLabel = (id: string | null) => versions.find((v) => v.id === id)?.version ?? "";
+  const versionLabel = (commitId: string | null) =>
+    versions.find((v) => v.headCommitId === commitId)?.name ?? "";
 
   const diffFrom = from ? versionLabel(from) : "";
   const diffTo = to ? versionLabel(to) : "";
@@ -202,7 +203,7 @@ export function VersionsView({
                   <TableRow key={v.id}>
                     <TableCell className="font-mono">
                       <span className="flex items-center gap-2">
-                        {v.version}
+                        {v.name}
                         {isCurrent && (
                           <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                             {t("currentBadge")}
@@ -227,7 +228,11 @@ export function VersionsView({
                           </Button>
                         )}
                         {older && (
-                          <Button variant="ghost" size="sm" onClick={() => compare(older.id, v.id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => compare(older.headCommitId, v.headCommitId)}
+                          >
                             <GitCompare className="size-3.5" />
                             {t("actionDiff")}
                           </Button>
