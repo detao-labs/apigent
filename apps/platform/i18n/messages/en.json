@@ -449,6 +449,11 @@
       "versionsSub": "Version history and change comparison",
       "versions": {
         "sub": "Version history and change comparison",
+        "title": "Version management",
+        "createVersionSuccess": "Version created",
+        "createVersionFailed": "Failed to create version",
+        "rollbackSuccess": "Rolled back to the previous version",
+        "rollbackFailed": "Rollback failed",
         "empty": "No versions yet",
         "emptyDesc": "After importing a new version, history and change comparison will be listed here.",
         "colVersion": "Version",

@@ -244,7 +244,7 @@ export function VersionsView({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">{t("title")}</h2>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("sub")}</p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <Button variant="secondary" onClick={() => setCreateOpen(true)}>

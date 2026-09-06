@@ -449,6 +449,11 @@
       "versionsSub": "版本历史与变更对比",
       "versions": {
         "sub": "版本历史与变更对比",
+        "title": "版本管理",
+        "createVersionSuccess": "版本已创建",
+        "createVersionFailed": "创建版本失败，请稍后重试",
+        "rollbackSuccess": "已回滚到上一版",
+        "rollbackFailed": "回滚失败，请稍后重试",
         "empty": "暂无版本",
         "emptyDesc": "导入新版本后，历史记录与变更对比将在此展示。",
         "colVersion": "版本",
