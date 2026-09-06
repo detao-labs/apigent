@@ -231,7 +231,11 @@ export function VersionsView({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => compare(older.headCommitId, v.headCommitId)}
+                            onClick={() => {
+                              if (older.headCommitId && v.headCommitId) {
+                                compare(older.headCommitId, v.headCommitId);
+                              }
+                            }}
                           >
                             <GitCompare className="size-3.5" />
                             {t("actionDiff")}

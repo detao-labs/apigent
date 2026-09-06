@@ -179,6 +179,7 @@ export interface RepoVersionSummary {
   version: string;
   specVersion: string | null;
   isDefault: boolean;
+  source: string;
   importedAt: Date;
   endpointCount: number;
 }
@@ -239,27 +240,38 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
 
   // 各版本的统计（取 head commit 的 endpoint 数）
   const verCounts = await Promise.all(
-    allVersions.map(async (v) => ({
-      id: v.id,
-      version: v.name,
-      isDefault: v.isDefault,
-      importedAt: v.createdAt,
-      endpointCount: v.headCommitId
-        ? Number(
-            (
-              await db
-                .select({ value: sql<number>`count(*)::int` })
-                .from(versionEntityLinks)
-                .where(
-                  and(
-                    eq(versionEntityLinks.commitId, v.headCommitId),
-                    eq(versionEntityLinks.entityType, "endpoint"),
-                  ),
-                )
-            )[0]?.value ?? 0,
-          )
-        : 0,
-    })),
+    allVersions.map(async (v) => {
+      const [head] = v.headCommitId
+        ? await db
+            .select({ specVersion: versionCommits.specVersion, source: versionCommits.source })
+            .from(versionCommits)
+            .where(eq(versionCommits.id, v.headCommitId))
+            .limit(1)
+        : [];
+      return {
+        id: v.id,
+        version: v.name,
+        specVersion: head?.specVersion ?? null,
+        isDefault: v.isDefault,
+        source: head?.source ?? "import",
+        importedAt: v.createdAt,
+        endpointCount: v.headCommitId
+          ? Number(
+              (
+                await db
+                  .select({ value: sql<number>`count(*)::int` })
+                  .from(versionEntityLinks)
+                  .where(
+                    and(
+                      eq(versionEntityLinks.commitId, v.headCommitId),
+                      eq(versionEntityLinks.entityType, "endpoint"),
+                    ),
+                  )
+              )[0]?.value ?? 0,
+            )
+          : 0,
+      };
+    }),
   );
 
   return {
