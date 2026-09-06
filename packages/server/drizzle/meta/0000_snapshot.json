@@ -1,5 +1,5 @@
 {
-  "id": "8163143e-f793-41a2-97cf-2e227fe1d207",
+  "id": "edaf719b-6962-4f4e-a53e-b812d386b6dc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,17 +14,30 @@
           "primaryKey": true,
           "notNull": true
         },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'endpoint'"
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "endpoint_id": {
           "name": "endpoint_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "version_id": {
           "name": "version_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "capability_name": {
           "name": "capability_name",
@@ -47,9 +60,10 @@
         },
         "side_effects": {
           "name": "side_effects",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'[]'::jsonb"
         },
         "usage_scenarios": {
           "name": "usage_scenarios",
@@ -57,6 +71,44 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'[]'::jsonb"
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_review": {
+          "name": "needs_review",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "edited_by_human": {
+          "name": "edited_by_human",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_context_id": {
+          "name": "source_context_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
         },
         "generated_by": {
           "name": "generated_by",
@@ -80,11 +132,17 @@
         }
       },
       "indexes": {
-        "business_contexts_endpoint_version_idx": {
-          "name": "business_contexts_endpoint_version_idx",
+        "business_contexts_entity_version_idx": {
+          "name": "business_contexts_entity_version_idx",
           "columns": [
             {
-              "expression": "endpoint_id",
+              "expression": "entity_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -116,12 +174,123 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "business_contexts_version_id_repo_versions_id_fk": {
-          "name": "business_contexts_version_id_repo_versions_id_fk",
+        "business_contexts_version_id_version_commits_id_fk": {
+          "name": "business_contexts_version_id_version_commits_id_fk",
           "tableFrom": "business_contexts",
-          "tableTo": "repo_versions",
+          "tableTo": "version_commits",
           "columnsFrom": [
             "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.components": {
+      "name": "components",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repo_id": {
+          "name": "repo_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "def_type": {
+          "name": "def_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "components_repo_content_hash_idx": {
+          "name": "components_repo_content_hash_idx",
+          "columns": [
+            {
+              "expression": "repo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "content_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "components_repo_id_repositories_id_fk": {
+          "name": "components_repo_id_repositories_id_fk",
+          "tableFrom": "components",
+          "tableTo": "repositories",
+          "columnsFrom": [
+            "repo_id"
           ],
           "columnsTo": [
             "id"
@@ -146,14 +315,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "version_id": {
-          "name": "version_id",
+        "repo_id": {
+          "name": "repo_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "content_hash": {
+          "name": "content_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -182,22 +351,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "is_modified": {
-          "name": "is_modified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -205,17 +360,17 @@
         }
       },
       "indexes": {
-        "data_models_version_name_idx": {
-          "name": "data_models_version_name_idx",
+        "data_models_repo_content_hash_idx": {
+          "name": "data_models_repo_content_hash_idx",
           "columns": [
             {
-              "expression": "version_id",
+              "expression": "repo_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "name",
+              "expression": "content_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -228,19 +383,6 @@
         }
       },
       "foreignKeys": {
-        "data_models_version_id_repo_versions_id_fk": {
-          "name": "data_models_version_id_repo_versions_id_fk",
-          "tableFrom": "data_models",
-          "tableTo": "repo_versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "data_models_repo_id_repositories_id_fk": {
           "name": "data_models_repo_id_repositories_id_fk",
           "tableFrom": "data_models",
@@ -256,66 +398,6 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.endpoint_modules": {
-      "name": "endpoint_modules",
-      "schema": "",
-      "columns": {
-        "endpoint_id": {
-          "name": "endpoint_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "module_id": {
-          "name": "module_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "endpoint_modules_endpoint_id_endpoints_id_fk": {
-          "name": "endpoint_modules_endpoint_id_endpoints_id_fk",
-          "tableFrom": "endpoint_modules",
-          "tableTo": "endpoints",
-          "columnsFrom": [
-            "endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "endpoint_modules_module_id_modules_id_fk": {
-          "name": "endpoint_modules_module_id_modules_id_fk",
-          "tableFrom": "endpoint_modules",
-          "tableTo": "modules",
-          "columnsFrom": [
-            "module_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "endpoint_modules_endpoint_id_module_id_pk": {
-          "name": "endpoint_modules_endpoint_id_module_id_pk",
-          "columns": [
-            "endpoint_id",
-            "module_id"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -431,10 +513,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "endpoint_relationships_version_id_repo_versions_id_fk": {
-          "name": "endpoint_relationships_version_id_repo_versions_id_fk",
+        "endpoint_relationships_version_id_version_commits_id_fk": {
+          "name": "endpoint_relationships_version_id_version_commits_id_fk",
           "tableFrom": "endpoint_relationships",
-          "tableTo": "repo_versions",
+          "tableTo": "version_commits",
           "columnsFrom": [
             "version_id"
           ],
@@ -461,8 +543,20 @@
           "primaryKey": true,
           "notNull": true
         },
+        "repo_id": {
+          "name": "repo_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "endpoint_id": {
           "name": "endpoint_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resp_hash": {
+          "name": "resp_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -543,6 +637,19 @@
         }
       },
       "foreignKeys": {
+        "endpoint_responses_repo_id_repositories_id_fk": {
+          "name": "endpoint_responses_repo_id_repositories_id_fk",
+          "tableFrom": "endpoint_responses",
+          "tableTo": "repositories",
+          "columnsFrom": [
+            "repo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "endpoint_responses_endpoint_id_endpoints_id_fk": {
           "name": "endpoint_responses_endpoint_id_endpoints_id_fk",
           "tableFrom": "endpoint_responses",
@@ -573,14 +680,20 @@
           "primaryKey": true,
           "notNull": true
         },
-        "version_id": {
-          "name": "version_id",
+        "repo_id": {
+          "name": "repo_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_key": {
+          "name": "identity_key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -641,6 +754,27 @@
           "notNull": false,
           "default": false
         },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "security": {
+          "name": "security",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "responses_meta": {
+          "name": "responses_meta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -650,23 +784,17 @@
         }
       },
       "indexes": {
-        "endpoints_version_method_path_idx": {
-          "name": "endpoints_version_method_path_idx",
+        "endpoints_repo_content_hash_idx": {
+          "name": "endpoints_repo_content_hash_idx",
           "columns": [
             {
-              "expression": "version_id",
+              "expression": "repo_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "method",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "path",
+              "expression": "content_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -679,19 +807,6 @@
         }
       },
       "foreignKeys": {
-        "endpoints_version_id_repo_versions_id_fk": {
-          "name": "endpoints_version_id_repo_versions_id_fk",
-          "tableFrom": "endpoints",
-          "tableTo": "repo_versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "endpoints_repo_id_repositories_id_fk": {
           "name": "endpoints_repo_id_repositories_id_fk",
           "tableFrom": "endpoints",
@@ -706,6 +821,139 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.impl_queue_jobs": {
+      "name": "impl_queue_jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "queue_name": {
+          "name": "queue_name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "impl_queue_jobs_status_available_idx": {
+          "name": "impl_queue_jobs_status_available_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "available_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "impl_queue_jobs_queue_status_idx": {
+          "name": "impl_queue_jobs_queue_status_idx",
+          "columns": [
+            {
+              "expression": "queue_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -943,10 +1191,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "knowledge_chunks_version_id_repo_versions_id_fk": {
-          "name": "knowledge_chunks_version_id_repo_versions_id_fk",
+        "knowledge_chunks_version_id_version_commits_id_fk": {
+          "name": "knowledge_chunks_version_id_version_commits_id_fk",
           "tableFrom": "knowledge_chunks",
-          "tableTo": "repo_versions",
+          "tableTo": "version_commits",
           "columnsFrom": [
             "version_id"
           ],
@@ -989,8 +1237,69 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.modules": {
-      "name": "modules",
+    "public.notification_preferences": {
+      "name": "notification_preferences",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "notification_preferences_user_id_users_id_fk": {
+          "name": "notification_preferences_user_id_users_id_fk",
+          "tableFrom": "notification_preferences",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "notification_preferences_user_id_category_pk": {
+          "name": "notification_preferences_user_id_category_pk",
+          "columns": [
+            "user_id",
+            "category"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notifications": {
+      "name": "notifications",
       "schema": "",
       "columns": {
         "id": {
@@ -999,81 +1308,135 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "user_id": {
+          "name": "user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "version_id": {
-          "name": "version_id",
-          "type": "text",
+        "category": {
+          "name": "category",
+          "type": "varchar(30)",
           "primaryKey": false,
           "notNull": true
         },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
+        "type": {
+          "name": "type",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
-          "type": "text",
+        "priority": {
+          "name": "priority",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'medium'"
+        },
+        "title_key": {
+          "name": "title_key",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_params": {
+          "name": "title_params",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": false,
-          "default": 0
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
-        "modules_version_name_idx": {
-          "name": "modules_version_name_idx",
+        "notifications_user_read_idx": {
+          "name": "notifications_user_read_idx",
           "columns": [
             {
-              "expression": "version_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "name",
+              "expression": "read_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notifications_user_category_idx": {
+          "name": "notifications_user_category_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "modules_repo_id_repositories_id_fk": {
-          "name": "modules_repo_id_repositories_id_fk",
-          "tableFrom": "modules",
-          "tableTo": "repositories",
+        "notifications_user_id_users_id_fk": {
+          "name": "notifications_user_id_users_id_fk",
+          "tableFrom": "notifications",
+          "tableTo": "users",
           "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "modules_version_id_repo_versions_id_fk": {
-          "name": "modules_version_id_repo_versions_id_fk",
-          "tableFrom": "modules",
-          "tableTo": "repo_versions",
-          "columnsFrom": [
-            "version_id"
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -1448,6 +1811,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "owner_id": {
           "name": "owner_id",
           "type": "text",
@@ -1564,8 +1933,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.repo_versions": {
-      "name": "repo_versions",
+    "public.repo_tasks": {
+      "name": "repo_tasks",
       "schema": "",
       "columns": {
         "id": {
@@ -1574,39 +1943,109 @@
           "primaryKey": true,
           "notNull": true
         },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "repo_id": {
           "name": "repo_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "version": {
-          "name": "version",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "spec_version": {
-          "name": "spec_version",
-          "type": "varchar(100)",
+        "version_id": {
+          "name": "version_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "spec_storage_path": {
-          "name": "spec_storage_path",
-          "type": "varchar(500)",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "source": {
-          "name": "source",
+        "task_type": {
+          "name": "task_type",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
           "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": false,
-          "default": "'import'"
+          "notNull": true,
+          "default": "'queued'"
         },
-        "imported_at": {
-          "name": "imported_at",
+        "progress": {
+          "name": "progress",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "depends_on": {
+          "name": "depends_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "enqueued_at": {
+          "name": "enqueued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -1614,8 +2053,8 @@
         }
       },
       "indexes": {
-        "repo_versions_repo_version_idx": {
-          "name": "repo_versions_repo_version_idx",
+        "repo_tasks_repo_status_idx": {
+          "name": "repo_tasks_repo_status_idx",
           "columns": [
             {
               "expression": "repo_id",
@@ -1624,25 +2063,119 @@
               "nulls": "last"
             },
             {
-              "expression": "version",
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "repo_tasks_user_idx": {
+          "name": "repo_tasks_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "repo_tasks_type_status_idx": {
+          "name": "repo_tasks_type_status_idx",
+          "columns": [
+            {
+              "expression": "task_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "repo_versions_repo_id_repositories_id_fk": {
-          "name": "repo_versions_repo_id_repositories_id_fk",
-          "tableFrom": "repo_versions",
+        "repo_tasks_job_id_impl_queue_jobs_id_fk": {
+          "name": "repo_tasks_job_id_impl_queue_jobs_id_fk",
+          "tableFrom": "repo_tasks",
+          "tableTo": "impl_queue_jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "repo_tasks_repo_id_repositories_id_fk": {
+          "name": "repo_tasks_repo_id_repositories_id_fk",
+          "tableFrom": "repo_tasks",
           "tableTo": "repositories",
           "columnsFrom": [
             "repo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "repo_tasks_version_id_version_commits_id_fk": {
+          "name": "repo_tasks_version_id_version_commits_id_fk",
+          "tableFrom": "repo_tasks",
+          "tableTo": "version_commits",
+          "columnsFrom": [
+            "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "repo_tasks_user_id_users_id_fk": {
+          "name": "repo_tasks_user_id_users_id_fk",
+          "tableFrom": "repo_tasks",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "repo_tasks_depends_on_repo_tasks_id_fk": {
+          "name": "repo_tasks_depends_on_repo_tasks_id_fk",
+          "tableFrom": "repo_tasks",
+          "tableTo": "repo_tasks",
+          "columnsFrom": [
+            "depends_on"
           ],
           "columnsTo": [
             "id"
@@ -1691,12 +2224,6 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'{}'::jsonb"
-        },
-        "current_version_id": {
-          "name": "current_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "mcp_enabled": {
           "name": "mcp_enabled",
@@ -1922,6 +2449,364 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.version_commits": {
+      "name": "version_commits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repo_id": {
+          "name": "repo_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version_id": {
+          "name": "version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_commit_id": {
+          "name": "parent_commit_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spec_title": {
+          "name": "spec_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spec_version": {
+          "name": "spec_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spec_storage_path": {
+          "name": "spec_storage_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merge_source": {
+          "name": "merge_source",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tag_meta": {
+          "name": "tag_meta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_summary": {
+          "name": "change_summary",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "version_commits_repo_version_idx": {
+          "name": "version_commits_repo_version_idx",
+          "columns": [
+            {
+              "expression": "repo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "version_commits_parent_idx": {
+          "name": "version_commits_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_commit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "version_commits_repo_id_repositories_id_fk": {
+          "name": "version_commits_repo_id_repositories_id_fk",
+          "tableFrom": "version_commits",
+          "tableTo": "repositories",
+          "columnsFrom": [
+            "repo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "version_commits_version_id_versions_id_fk": {
+          "name": "version_commits_version_id_versions_id_fk",
+          "tableFrom": "version_commits",
+          "tableTo": "versions",
+          "columnsFrom": [
+            "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.version_entity_links": {
+      "name": "version_entity_links",
+      "schema": "",
+      "columns": {
+        "commit_id": {
+          "name": "commit_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_key": {
+          "name": "identity_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "vel_commit_type_idx": {
+          "name": "vel_commit_type_idx",
+          "columns": [
+            {
+              "expression": "commit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "version_entity_links_commit_id_version_commits_id_fk": {
+          "name": "version_entity_links_commit_id_version_commits_id_fk",
+          "tableFrom": "version_entity_links",
+          "tableTo": "version_commits",
+          "columnsFrom": [
+            "commit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "version_entity_links_commit_id_entity_type_identity_key_pk": {
+          "name": "version_entity_links_commit_id_entity_type_identity_key_pk",
+          "columns": [
+            "commit_id",
+            "entity_type",
+            "identity_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "vel_entity_type_check": {
+          "name": "vel_entity_type_check",
+          "value": "\"version_entity_links\".\"entity_type\" IN ('endpoint','data_model','component')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.versions": {
+      "name": "versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repo_id": {
+          "name": "repo_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_version_id": {
+          "name": "parent_version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "head_commit_id": {
+          "name": "head_commit_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_default": {
+          "name": "is_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "versions_repo_name_idx": {
+          "name": "versions_repo_name_idx",
+          "columns": [
+            {
+              "expression": "repo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "versions_repo_default_idx": {
+          "name": "versions_repo_default_idx",
+          "columns": [
+            {
+              "expression": "repo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"versions\".\"is_default\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "versions_repo_id_repositories_id_fk": {
+          "name": "versions_repo_id_repositories_id_fk",
+          "tableFrom": "versions",
+          "tableTo": "repositories",
+          "columnsFrom": [
+            "repo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

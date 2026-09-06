@@ -14,7 +14,6 @@ import {
   hasFatalIssue,
   issueCounts,
   moduleCount,
-  nextVersionFor,
   RepoNotFoundError,
 } from "@apigent/server/imports";
 import { logError, logInfo } from "@/lib/logger";
@@ -25,8 +24,6 @@ export interface ImportPreview {
   openapiVersion: string;
   specTitle: string | null;
   specVersion: string | null;
-  /** 确认导入后将创建的版本号（导入序号） */
-  nextVersion: string;
   fatal: boolean;
   stats: {
     endpoints: number;
@@ -54,14 +51,11 @@ export async function previewImport(
 
     const model = parseOpenAPI({ source: "text", content, repoId });
     timer.mark("parse");
-    const nextVersion = await nextVersionFor(repoId);
-    timer.mark("nextVersion");
 
     const preview: ImportPreview = {
       openapiVersion: model.meta.openapiVersion,
       specTitle: model.meta.specTitle ?? null,
       specVersion: model.meta.specVersion ?? null,
-      nextVersion,
       fatal: hasFatalIssue(model.parseIssues),
       stats: {
         endpoints: model.apis.length,
@@ -77,7 +71,6 @@ export async function previewImport(
       timings: timer.timings,
       openapiVersion: preview.openapiVersion,
       specVersion: preview.specVersion,
-      nextVersion,
       fatal: preview.fatal,
       stats: preview.stats,
       issues: issueCounts(preview.issues),

@@ -1,0 +1,16 @@
+{
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "create": "创建",
+    "delete": "删除",
+    "edit": "编辑",
+    "search": "搜索",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "comingSoon": "即将开放",
+    "copied": "已复制",
+    "backendPending": "后端 API 尚未实现，当前为界面占位"
+  }
+}

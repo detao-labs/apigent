@@ -1,0 +1,69 @@
+{
+  "settings": {
+    "title": "设置",
+    "description": "账号、API 密钥、偏好与通知",
+    "backToDashboard": "返回仪表盘",
+    "groups": {
+      "userInfo": "用户信息",
+      "prefs": "偏好设置"
+    },
+    "sections": {
+      "account": "账号",
+      "keys": "API 密钥",
+      "preferences": "偏好",
+      "notifications": "通知"
+    },
+    "profile": {
+      "title": "个人资料",
+      "description": "用于登录与团队协作展示",
+      "avatar": "头像",
+      "changeAvatar": "更换头像",
+      "name": "姓名",
+      "email": "邮箱",
+      "emailHint": "用于登录与接收通知",
+      "save": "保存",
+      "saved": "个人资料已保存",
+      "pending": "（后端待接入）"
+    },
+    "password": {
+      "title": "修改密码",
+      "description": "定期更换密码可提高账号安全性",
+      "current": "当前密码",
+      "new": "新密码",
+      "newPlaceholder": "至少 8 位",
+      "hint": "建议混合字母、数字与符号",
+      "confirm": "确认新密码",
+      "confirmPlaceholder": "再次输入新密码",
+      "update": "更新密码",
+      "updated": "密码已更新",
+      "errors": {
+        "currentRequired": "请输入当前密码",
+        "weak": "新密码至少 8 位",
+        "mismatch": "两次输入的密码不一致"
+      }
+    },
+    "preferences": {
+      "languageTitle": "界面语言",
+      "languageDescription": "与顶栏快捷切换同步",
+      "language": "语言",
+      "languageHint": "任何页面均可通过全局顶栏快速切换",
+      "themeTitle": "主题",
+      "themeDescription": "与顶栏快捷设置同步",
+      "appearance": "外观"
+    },
+    "notifications": {
+      "title": "更多设置",
+      "description": "设置类信息统一放在本页，后续按需扩展为新分区",
+      "notifications": "通知偏好",
+      "sessions": "会话管理",
+      "apiPrefs": "API 偏好",
+      "comingSoon": "即将开放",
+      "prefImport": "导入结果",
+      "prefContext": "业务上下文",
+      "prefKey": "API 密钥",
+      "prefSystem": "平台公告",
+      "saved": "已保存",
+      "saveFailed": "保存失败"
+    }
+  }
+}

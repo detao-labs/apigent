@@ -1,0 +1,21 @@
+{
+  "topbar": {
+    "searchPlaceholder": "Search APIs, repositories, models…",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet",
+    "systemSettings": "System settings",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "chinese": "中文",
+    "english": "English",
+    "about": "About Apigent",
+    "version": "Apigent v0.1.0",
+    "userMenu": "User menu",
+    "profile": "Profile",
+    "settings": "Settings",
+    "assistant": "AI Assistant"
+  }
+}

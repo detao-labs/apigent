@@ -21,6 +21,5 @@ export {
   issueCounts,
   MAX_SPEC_BYTES,
   moduleCount,
-  nextVersionFor,
   RepoNotFoundError,
 } from "./common";

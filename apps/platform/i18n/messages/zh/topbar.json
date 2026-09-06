@@ -1,0 +1,21 @@
+{
+  "topbar": {
+    "searchPlaceholder": "全局搜索：API / 仓库 / 模型…",
+    "notifications": "消息通知",
+    "noNotifications": "暂无消息通知",
+    "systemSettings": "系统设置",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "language": "语言",
+    "chinese": "中文",
+    "english": "English",
+    "about": "关于 Apigent",
+    "version": "Apigent v0.1.0",
+    "userMenu": "用户菜单",
+    "profile": "个人信息",
+    "settings": "设置",
+    "assistant": "AI 助手"
+  }
+}

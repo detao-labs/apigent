@@ -7,83 +7,74 @@ import {
   jsonb,
   doublePrecision,
   uniqueIndex,
-  primaryKey,
 } from "drizzle-orm/pg-core";
-import { repositories, repoVersions, modules } from "./repo";
+import { repositories } from "./repo";
+import { versionCommits } from "./version";
 
 // ═══════════════════════════════════════════════════════════════════
-// Endpoints — OpenAPI paths.{path}.{method}
+// Endpoints — 接口定义（内容块 blob，版本无关）
+//
+// 版本无关：不挂 version/commit，由 version_entity_links 决定"哪个 commit
+// 用了哪个 blob"。未变接口跨 commit 复用同一行（content_hash 去重）。
 // ═══════════════════════════════════════════════════════════════════
 
 export const endpoints = pgTable(
   "endpoints",
   {
     id: text("id").primaryKey(),
-    versionId: text("version_id")
-      .notNull()
-      .references(() => repoVersions.id),
     repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
-    /** OpenAPI operationId — 跨版本身份标识 */
+    /** sha256(规范化 head + sorted responses[].hash)，用于复用/对比 */
+    contentHash: text("content_hash").notNull(),
+    /** operationId ?? METHOD:PATH，跨 commit 匹配 */
+    identityKey: text("identity_key").notNull(),
     operationId: varchar("operation_id", { length: 255 }),
     method: varchar("method", { length: 10 }).notNull(),
     path: varchar("path", { length: 500 }).notNull(),
     summary: text("summary"),
     description: text("description"),
-    /** Media type of the request body, e.g. "application/json" / "multipart/form-data" */
     requestContentType: varchar("request_content_type", { length: 100 }),
     requestSchema: jsonb("request_schema"),
     parameters: jsonb("parameters").default([]),
     deprecated: boolean("deprecated").default(false),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    security: jsonb("security").$type<Record<string, string[]>[]>().notNull().default([]),
+    /** [{ hash, status_code, content_type }] 廉价索引，不加载完整 schema */
+    responsesMeta: jsonb("responses_meta")
+      .$type<Array<{ hash: string; statusCode: string; contentType: string | null }>>()
+      .notNull()
+      .default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [
-    uniqueIndex("endpoints_version_method_path_idx").on(table.versionId, table.method, table.path),
-  ],
-);
-
-// ═══════════════════════════════════════════════════════════════════
-// Endpoint ↔ Module (M:N — OpenAPI operation.tags)
-// ═══════════════════════════════════════════════════════════════════
-
-export const endpointModules = pgTable(
-  "endpoint_modules",
-  {
-    endpointId: text("endpoint_id")
-      .notNull()
-      .references(() => endpoints.id),
-    moduleId: text("module_id")
-      .notNull()
-      .references(() => modules.id),
-  },
-  (table) => [primaryKey({ columns: [table.endpointId, table.moduleId] })],
+  (table) => [uniqueIndex("endpoints_repo_content_hash_idx").on(table.repoId, table.contentHash)],
 );
 
 // ═══════════════════════════════════════════════════════════════════
 // Endpoint Responses — OpenAPI paths.{path}.{method}.responses.{status}
 //
-// A single endpoint can have many responses (200/400/401/409/500...).
-// A response with multiple media types yields one row per media type.
-// Modeled as a separate table so AI agents and tooling can annotate/manage
-// each status code independently instead of rewriting one big jsonb blob.
+// A single endpoint can have many responses; a response with multiple media
+// types yields one row per media type. 挂在 endpoint blob 上（不改版本），
+// 便于按 status_code / content_type 检索。
 // ═══════════════════════════════════════════════════════════════════
 
 export const endpointResponses = pgTable(
   "endpoint_responses",
   {
     id: text("id").primaryKey(),
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repositories.id),
     endpointId: text("endpoint_id")
       .notNull()
       .references(() => endpoints.id, { onDelete: "cascade" }),
+    /** sha256(规范化 response)，廉价对比用 */
+    respHash: text("resp_hash").notNull(),
     statusCode: varchar("status_code", { length: 3 }).notNull(),
     description: text("description"),
     headers: jsonb("headers").default([]),
-    /** Media type, e.g. "application/json" (NULL when the status has no content) */
     contentType: varchar("content_type", { length: 100 }),
-    /** SchemaRef ({ schema, ref, unresolved }) for this media type */
     schema: jsonb("schema"),
-    /** Denormalized from statusCode for cheap filtering of error responses */
     isError: boolean("is_error").default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -97,64 +88,48 @@ export const endpointResponses = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════
-// Data Models — OpenAPI components/schemas
+// Data Models — OpenAPI components/schemas（内容块 blob，版本无关）
 // ═══════════════════════════════════════════════════════════════════
 
 export const dataModels = pgTable(
   "data_models",
   {
     id: text("id").primaryKey(),
-    versionId: text("version_id")
-      .notNull()
-      .references(() => repoVersions.id),
     repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
+    contentHash: text("content_hash").notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     schemaType: varchar("schema_type", { length: 50 }),
     schemaRaw: jsonb("schema_raw").notNull(),
     description: text("description"),
-    isModified: boolean("is_modified").default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
   },
-  (table) => [uniqueIndex("data_models_version_name_idx").on(table.versionId, table.name)],
+  (table) => [uniqueIndex("data_models_repo_content_hash_idx").on(table.repoId, table.contentHash)],
 );
 
 // ═══════════════════════════════════════════════════════════════════
-// Business Contexts — Endpoint 级 AI Agent 产出
+// Business Contexts — Endpoint 级 AI Agent 产出（按 commit 版本）
 // ═══════════════════════════════════════════════════════════════════
 
 export const businessContexts = pgTable(
   "business_contexts",
   {
     id: text("id").primaryKey(),
-    /** 上下文粒度：endpoint | repo | project（V1+） */
     entityType: varchar("entity_type", { length: 20 }).notNull().default("endpoint"),
-    /** 粒度对应的实体 id（endpoint_id / repo_id / project_id 统一引用） */
     entityId: text("entity_id").notNull(),
-    endpointId: text("endpoint_id")
-      .references(() => endpoints.id),
-    versionId: text("version_id")
-      .references(() => repoVersions.id),
+    endpointId: text("endpoint_id").references(() => endpoints.id),
+    versionId: text("version_id").references(() => versionCommits.id),
     capabilityName: varchar("capability_name", { length: 255 }),
     intent: text("intent"),
     constraints: jsonb("constraints").default([]),
     sideEffects: jsonb("side_effects").$type<string[]>().default([]),
     usageScenarios: jsonb("usage_scenarios").default([]),
-    /** 自动推断置信度 0-1；人工编辑后置 1 */
     confidence: doublePrecision("confidence"),
-    /** confidence < minConfidence 时 true */
     needsReview: boolean("needs_review").default(false),
-    /** 人工编辑标记 */
     editedByHuman: boolean("edited_by_human").default(false),
     editedAt: timestamp("edited_at", { withTimezone: true }),
-    /** 版本复用时指向上一版 context 行（快照溯源） */
     sourceContextId: text("source_context_id"),
-    /** 生成时接口的技术指纹（SHA-256），用于复用比对 */
     fingerprint: varchar("fingerprint", { length: 64 }),
     generatedBy: varchar("generated_by", { length: 100 }),
     generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -173,7 +148,7 @@ export const businessContexts = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════
-// Endpoint Relationships — 接口间依赖/关联
+// Endpoint Relationships — 接口间依赖/关联（按 commit 版本）
 // ═══════════════════════════════════════════════════════════════════
 
 export const endpointRelationships = pgTable(
@@ -192,7 +167,7 @@ export const endpointRelationships = pgTable(
       .references(() => repositories.id),
     versionId: text("version_id")
       .notNull()
-      .references(() => repoVersions.id),
+      .references(() => versionCommits.id),
   },
   (table) => [
     uniqueIndex("endpoint_relations_unique_idx").on(

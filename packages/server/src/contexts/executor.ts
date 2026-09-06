@@ -7,7 +7,7 @@
 // 部分失败语义：接口级失败记入 result.failed，任务仍 succeeded。
 // ═══════════════════════════════════════════════════════════════════
 
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { generateText } from "ai";
 import { z } from "zod";
 import { loadConfig } from "@apigent/core/config";
@@ -21,9 +21,9 @@ import {
   endpoints,
   endpointResponses,
   getDB,
-  repositories,
-  repoVersions,
   repoTasks,
+  versionCommits,
+  versionEntityLinks,
 } from "../db";
 import { createAIModel } from "../ai/model";
 import { notifySafely } from "../notifications";
@@ -68,7 +68,7 @@ interface EndpointInput {
   }>;
 }
 
-async function loadEndpoints(versionId: string): Promise<EndpointInput[]> {
+async function loadEndpoints(commitId: string): Promise<EndpointInput[]> {
   const db = getDB();
   const rows = await db
     .select({
@@ -81,8 +81,9 @@ async function loadEndpoints(versionId: string): Promise<EndpointInput[]> {
       parameters: endpoints.parameters,
       requestSchema: endpoints.requestSchema,
     })
-    .from(endpoints)
-    .where(eq(endpoints.versionId, versionId))
+    .from(versionEntityLinks)
+    .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
+    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
     .orderBy(endpoints.path, endpoints.method);
 
   const responseRows = await db
@@ -94,7 +95,8 @@ async function loadEndpoints(versionId: string): Promise<EndpointInput[]> {
     })
     .from(endpointResponses)
     .innerJoin(endpoints, eq(endpoints.id, endpointResponses.endpointId))
-    .where(eq(endpoints.versionId, versionId))
+    .innerJoin(versionEntityLinks, eq(versionEntityLinks.entityId, endpoints.id))
+    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
     .orderBy(endpointResponses.statusCode);
 
   const responsesByEndpoint = new Map<string, EndpointInput["responses"]>();
@@ -347,23 +349,19 @@ export async function executeContextTask(taskId: string): Promise<void> {
     };
     const force = payload.force ?? false;
 
-    const [repoRow] = await db
-      .select({ currentVersionId: repositories.currentVersionId })
-      .from(repositories)
-      .where(eq(repositories.id, task.repoId))
-      .limit(1);
-    const versionId = task.versionId ?? repoRow?.currentVersionId ?? null;
+    // task.versionId 已在创建时指向默认主版本的 head commit（一个 commitId）
+    const versionId = task.versionId ?? null;
     if (!versionId) {
       throw new Error(`Repository ${task.repoId} has no version to generate context for.`);
     }
 
-    // 上一版（指纹复用来源）
-    const [prevVersion] = await db
-      .select({ id: repoVersions.id })
-      .from(repoVersions)
-      .where(and(eq(repoVersions.repoId, task.repoId), ne(repoVersions.id, versionId)))
-      .orderBy(desc(repoVersions.importedAt))
+    // 上一版 = 当前 commit 的父 commit（指纹复用来源）
+    const [prevCommit] = await db
+      .select({ parentCommitId: versionCommits.parentCommitId })
+      .from(versionCommits)
+      .where(eq(versionCommits.id, versionId))
       .limit(1);
+    const prevVersionId = prevCommit?.parentCommitId ?? null;
 
     const currentEndpoints = await loadEndpoints(versionId);
     const scopeSet = payload.endpointIds?.length
@@ -378,15 +376,15 @@ export async function executeContextTask(taskId: string): Promise<void> {
       string,
       { endpoint: EndpointInput; context: typeof businessContexts.$inferSelect }
     >();
-    if (prevVersion) {
-      const prevEndpoints = await loadEndpoints(prevVersion.id);
+    if (prevVersionId) {
+      const prevEndpoints = await loadEndpoints(prevVersionId);
       const prevRows = await db
         .select()
         .from(businessContexts)
         .where(
           and(
             eq(businessContexts.entityType, "endpoint"),
-            eq(businessContexts.versionId, prevVersion.id),
+            eq(businessContexts.versionId, prevVersionId),
           ),
         );
       const byEndpointId = new Map(prevRows.map((row) => [row.endpointId, row]));

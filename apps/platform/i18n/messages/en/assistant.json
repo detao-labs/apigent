@@ -1,0 +1,22 @@
+{
+  "assistant": {
+    "title": "AI Assistant",
+    "description": "Chat with the platform agent to explore repositories and manage business context.",
+    "placeholder": "Ask about APIs, endpoints, or business context…",
+    "send": "Send",
+    "stop": "Stop",
+    "newChat": "New chat",
+    "close": "Close",
+    "thinking": "Thinking…",
+    "errorHint": "Something went wrong. Try again or start a new chat.",
+    "emptyTitle": "How can I help?",
+    "emptyHint": "I can explain endpoints, generate business context, and compare versions.",
+    "repoChip": "repo",
+    "endpointChip": "endpoint",
+    "suggest": {
+      "overview": "Summarize the APIs in this repository",
+      "context": "Generate business context for an endpoint",
+      "compare": "Explain how to use the MCP gateway"
+    }
+  }
+}

@@ -2,27 +2,36 @@
 // Import Executor — 导入任务执行器（Worker 调用）
 // ═══════════════════════════════════════════════════════════════════
 //
-// 执行一个 import_tasks 任务：
-//   解析 → 计算版本号 → 快照落库（事务）→ 切换 current_version_id →
-//   更新任务状态 + 写通用通知 + 日志打点。
-// 失败时保留 spec 原文（spec_path 指向磁盘文件），支持重试。
+// 新模型（内容寻址 + 版本树）：
+//   解析 → 确定目标版本 → 新建 commit → 每个实体算 content_hash →
+//   复用/新建 blob（endpoints / data_models / components）→ 写
+//   version_entity_links → 更新版本 head_commit_id。
+// 全量更新：文件 = 整仓，缺席即删；增量更新：只增/改，不删。
 // ═══════════════════════════════════════════════════════════════════
 
 import { readFile } from "node:fs/promises";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { loadConfig } from "@apigent/core/config";
 import { parseOpenAPI } from "../openapi";
+import {
+  hashEndpoint,
+  hashDataModel,
+  hashComponent,
+  hashResponse,
+  endpointIdentity,
+} from "../openapi/hash";
+import type { APIEntry, SchemaEntry, ComponentDef } from "../openapi/types";
 import { generateId } from "../id";
 import {
   components,
   dataModels,
-  endpointModules,
   endpointResponses,
   endpoints,
   getDB,
-  modules,
   repositories,
-  repoVersions,
+  versionCommits,
+  versionEntityLinks,
+  versions,
   repoTasks,
 } from "../db";
 import { notifySafely } from "../notifications";
@@ -31,14 +40,26 @@ import { createContextTask } from "../contexts";
 import {
   hasFatalIssue,
   ImportError,
-  isErrorStatus,
   issueCounts,
   moduleCount,
-  nextVersionFor,
   createTimer,
 } from "./common";
 
 type TaskStatus = "queued" | "running" | "succeeded" | "failed";
+
+export interface ImportTaskPayload {
+  specPath: string;
+  /** full = 全量更新（缺席即删）；partial = 增量更新（只增/改，不删） */
+  mode: "full" | "partial";
+  /** 目标版本；缺省用默认主版本 */
+  versionId?: string;
+}
+
+interface LinkRow {
+  entityType: "endpoint" | "data_model" | "component";
+  identityKey: string;
+  entityId: string;
+}
 
 async function updateTask(
   taskId: string,
@@ -58,20 +79,58 @@ async function updateTask(
     .where(eq(repoTasks.id, taskId));
 }
 
+/** 解析目标版本：payload.versionId 优先，否则取默认主版本。 */
+async function resolveVersionId(repoId: string, requested?: string): Promise<string> {
+  const db = getDB();
+  if (requested) {
+    const [v] = await db
+      .select({ id: versions.id })
+      .from(versions)
+      .where(and(eq(versions.id, requested), eq(versions.repoId, repoId)))
+      .limit(1);
+    if (v) return v.id;
+  }
+  const [def] = await db
+    .select({ id: versions.id })
+    .from(versions)
+    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .limit(1);
+  if (def) return def.id;
+  throw new Error(`Repository ${repoId} has no version to import into`);
+}
+
+/** 计算某 commit 的 identity 集合（key 规范化）。 */
+function linkKey(type: LinkRow["entityType"], identityKey: string): string {
+  return `${type}::${identityKey}`;
+}
+
+function buildChangeSummary(
+  parentKeys: Set<string>,
+  newKeys: Map<string, LinkRow>,
+  parentBlobs: Map<string, string>,
+) {
+  const added: string[] = [];
+  const updated: string[] = [];
+  const removed: string[] = [];
+  for (const [key, row] of newKeys) {
+    if (!parentKeys.has(key)) added.push(row.identityKey);
+    else if (parentBlobs.get(key) !== row.entityId) updated.push(row.identityKey);
+  }
+  for (const key of parentKeys) {
+    if (!newKeys.has(key)) removed.push(key.split("::")[1]);
+  }
+  return { added, updated, removed };
+}
+
 /**
- * 执行导入任务。任务已非 queued 时直接返回（幂等，防重复执行）。
- * 失败时把任务置 failed 并重新抛出，让队列把 job 标记为失败。
+ * 执行导入任务。任务已非 queued 时直接返回（幂等）。
  */
 export async function executeImportTask(taskId: string): Promise<void> {
   const startedAt = Date.now();
   const timer = createTimer();
-
   const db = getDB();
-  const [task] = await db
-    .select()
-    .from(repoTasks)
-    .where(eq(repoTasks.id, taskId))
-    .limit(1);
+
+  const [task] = await db.select().from(repoTasks).where(eq(repoTasks.id, taskId)).limit(1);
   if (!task) throw new Error(`Import task not found: ${taskId}`);
   if (task.status !== "queued") {
     logInfo("openapi.import.skipped", { taskId, repoId: task.repoId, status: task.status });
@@ -81,7 +140,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
   await updateTask(taskId, { status: "running", progress: 5, startedAt: new Date() });
 
   try {
-    const payload = task.payload as { specPath?: string };
+    const payload = task.payload as ImportTaskPayload;
     const specPath = payload.specPath;
     if (!specPath) throw new Error(`Import task missing specPath: ${taskId}`);
     const content = await readFile(specPath, "utf8");
@@ -90,10 +149,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
     const model = parseOpenAPI({ source: "text", content, repoId: task.repoId });
     timer.mark("parse");
     await updateTask(taskId, { progress: 30 });
-
-    if (hasFatalIssue(model.parseIssues)) {
-      throw new ImportError(model.parseIssues);
-    }
+    if (hasFatalIssue(model.parseIssues)) throw new ImportError(model.parseIssues);
 
     const [repoRow] = await db
       .select({ id: repositories.id, name: repositories.name })
@@ -107,154 +163,222 @@ export async function executeImportTask(taskId: string): Promise<void> {
       throw err;
     }
 
-    const versionId = generateId("version");
-    const version = await nextVersionFor(task.repoId);
-    timer.mark("nextVersion");
-    await updateTask(taskId, { progress: 40, result: { nextVersion: version } });
+    const versionId = await resolveVersionId(task.repoId, payload.versionId);
+    const txData = await db.transaction(async (tx) => {
+      const [versionRow] = await tx
+        .select({ headCommitId: versions.headCommitId })
+        .from(versions)
+        .where(eq(versions.id, versionId))
+        .limit(1);
+      const parentCommitId = versionRow?.headCommitId ?? null;
 
-    const txTimer = createTimer();
-    const stats = await db.transaction(async (tx) => {
-      await tx.insert(repoVersions).values({
-        id: versionId,
+      // 1) 新建 commit
+      const commitId = generateId("commit");
+      const tagMeta = Object.fromEntries(
+        Object.entries(model.tagDescriptions ?? {}).map(([name, description]) => [
+          name,
+          { description },
+        ]),
+      );
+      await tx.insert(versionCommits).values({
+        id: commitId,
         repoId: task.repoId,
-        version,
+        versionId,
+        parentCommitId,
+        specTitle: model.meta.specTitle ?? null,
         specVersion: model.meta.specVersion ?? null,
         description: model.meta.specDescription ?? null,
         specStoragePath: specPath,
         source: "import",
+        tagMeta: Object.keys(tagMeta).length > 0 ? tagMeta : null,
       });
-      txTimer.mark("versionRow");
+      timer.mark("commitRow");
 
-      if (model.apis.length > 0) {
-        const endpointIds = new Map<string, string>();
-        const moduleIds = new Map<string, string>();
+      // 2) 构建新树 links
+      const newLinks = new Map<string, LinkRow>();
+      const parentKeys = new Set<string>();
+      const parentBlobs = new Map<string, string>();
 
-        for (const api of model.apis) {
-          endpointIds.set(api.id, generateId("endpoint"));
-          for (const tag of api.tags) {
-            if (!moduleIds.has(tag)) moduleIds.set(tag, generateId("module"));
+      if (parentCommitId) {
+        const parentLinks = await tx
+          .select({ entityType: versionEntityLinks.entityType, identityKey: versionEntityLinks.identityKey, entityId: versionEntityLinks.entityId })
+          .from(versionEntityLinks)
+          .where(eq(versionEntityLinks.commitId, parentCommitId));
+        for (const link of parentLinks) {
+          const key = linkKey(link.entityType as LinkRow["entityType"], link.identityKey);
+          parentKeys.add(key);
+          parentBlobs.set(key, link.entityId);
+          if (payload.mode === "partial") {
+            newLinks.set(key, {
+              entityType: link.entityType as LinkRow["entityType"],
+              identityKey: link.identityKey,
+              entityId: link.entityId,
+            });
           }
         }
+      }
 
-        await tx.insert(endpoints).values(
-          model.apis.map((api) => ({
-            id: endpointIds.get(api.id)!,
-            versionId,
+      // 3) 处理接口（endpoint blob + responses + link）
+      const endpointLinkRows: LinkRow[] = [];
+      for (const api of model.apis) {
+        const identityKey = endpointIdentity(api.operationId, api.method, api.path);
+        const contentHash = hashEndpoint(api);
+        const [existingBlob] = await tx
+          .select({ id: endpoints.id })
+          .from(endpoints)
+          .where(and(eq(endpoints.repoId, task.repoId), eq(endpoints.contentHash, contentHash)))
+          .limit(1);
+
+        let endpointId = existingBlob?.id;
+        if (!endpointId) {
+          endpointId = generateId("endpoint");
+          const responsesMeta = api.responses
+            .slice()
+            .sort((a, b) =>
+              `${a.statusCode}:${a.contentType ?? ""}`.localeCompare(`${b.statusCode}:${b.contentType ?? ""}`),
+            )
+            .map((r) => ({
+              hash: hashResponse(r),
+              statusCode: r.statusCode,
+              contentType: r.contentType ?? null,
+            }));
+          await tx.insert(endpoints).values({
+            id: endpointId,
             repoId: task.repoId,
+            contentHash,
+            identityKey,
             operationId: api.operationId ?? null,
             method: api.method,
             path: api.path,
             summary: api.summary ?? null,
             description: api.description ?? null,
             requestContentType: api.requestContentType ?? null,
-            requestSchema: api.requestBody ?? null,
-            parameters: api.parameters,
+            requestSchema: (api.requestBody && api.requestBody.schema) || null,
+            parameters: api.parameters ?? [],
             deprecated: api.deprecated,
-          })),
-        );
-        txTimer.mark("endpoints");
-
-        const responseRows = model.apis.flatMap((api) =>
-          api.responses.map((resp) => ({
+            tags: api.tags ?? [],
+            security: api.security ?? [],
+            responsesMeta,
+          });
+          const responseRows = api.responses.map((r) => ({
             id: generateId("response"),
-            endpointId: endpointIds.get(api.id)!,
-            statusCode: resp.statusCode,
-            description: resp.description,
-            headers: [],
-            contentType: resp.contentType ?? null,
-            schema: resp.schema ?? null,
-            isError: isErrorStatus(resp.statusCode),
-          })),
-        );
-        if (responseRows.length > 0) {
-          await tx.insert(endpointResponses).values(responseRows);
-        }
-        txTimer.mark("responses");
-
-        const moduleRows = [...moduleIds.entries()].map(
-          ([name, id], index) => ({
-            id,
             repoId: task.repoId,
-            versionId,
-            name,
-            description: model.tagDescriptions?.[name] ?? null,
-            sortOrder: index,
-          }),
-        );
-        if (moduleRows.length > 0) {
-          await tx.insert(modules).values(moduleRows);
+            endpointId: endpointId!,
+            respHash: hashResponse(r),
+            statusCode: r.statusCode,
+            description: r.description,
+            headers: [],
+            contentType: r.contentType ?? null,
+            schema: r.schema ?? null,
+            isError: Number.parseInt(r.statusCode, 10) >= 400,
+          }));
+          if (responseRows.length > 0) {
+            await tx.insert(endpointResponses).values(responseRows);
+          }
         }
-        txTimer.mark("modules");
 
-        const moduleLinks = model.apis.flatMap((api) =>
-          api.tags.map((tag) => ({
-            endpointId: endpointIds.get(api.id)!,
-            moduleId: moduleIds.get(tag)!,
-          })),
-        );
-        if (moduleLinks.length > 0) {
-          await tx.insert(endpointModules).values(moduleLinks);
-        }
-        txTimer.mark("moduleLinks");
+        const row: LinkRow = { entityType: "endpoint", identityKey, entityId: endpointId };
+        const key = linkKey(row.entityType, row.identityKey);
+        newLinks.set(key, row);
       }
 
-      if (model.schemas.length > 0) {
-        await tx.insert(dataModels).values(
-          model.schemas.map((schema) => ({
-            id: generateId("dataModel"),
-            versionId,
+      // 4) 数据模型
+      for (const schema of model.schemas as SchemaEntry[]) {
+        const contentHash = hashDataModel(schema);
+        const [existingBlob] = await tx
+          .select({ id: dataModels.id })
+          .from(dataModels)
+          .where(and(eq(dataModels.repoId, task.repoId), eq(dataModels.contentHash, contentHash)))
+          .limit(1);
+        let blobId = existingBlob?.id;
+        if (!blobId) {
+          blobId = generateId("dataModel");
+          await tx.insert(dataModels).values({
+            id: blobId,
             repoId: task.repoId,
+            contentHash,
             name: schema.name,
             schemaType: schema.type ?? null,
-            schemaRaw: {
-              type: schema.type ?? null,
-              properties: schema.properties,
-              required: schema.required,
-            },
+            schemaRaw: { type: schema.type ?? null, properties: schema.properties ?? {}, required: schema.required ?? [] },
             description: schema.description ?? null,
-            isModified: false,
-          })),
-        );
+          });
+        }
+        const row: LinkRow = { entityType: "data_model", identityKey: schema.name, entityId: blobId };
+        const key = linkKey(row.entityType, row.identityKey);
+        newLinks.set(key, row);
       }
-      txTimer.mark("models");
 
-      if (model.componentDefs.length > 0) {
-        await tx.insert(components).values(
-          model.componentDefs.map((c) => ({
-            id: generateId("component"),
-            versionId,
+      // 5) 组件
+      for (const c of model.componentDefs as ComponentDef[]) {
+        const contentHash = hashComponent(c);
+        const [existingBlob] = await tx
+          .select({ id: components.id })
+          .from(components)
+          .where(and(eq(components.repoId, task.repoId), eq(components.contentHash, contentHash)))
+          .limit(1);
+        let blobId = existingBlob?.id;
+        if (!blobId) {
+          blobId = generateId("component");
+          await tx.insert(components).values({
+            id: blobId,
             repoId: task.repoId,
+            contentHash,
             kind: c.kind,
             name: c.name,
             defType: c.defType ?? null,
             description: c.description ?? null,
-            payload: c.payload,
-          })),
-        );
+            payload: c.payload ?? {},
+          });
+        }
+        const row: LinkRow = { entityType: "component", identityKey: `${c.kind}::${c.name}`, entityId: blobId };
+        const key = linkKey(row.entityType, row.identityKey);
+        newLinks.set(key, row);
       }
-      txTimer.mark("componentDefs");
 
+      // 6) 写 link（对 partial 已继承 parent；对 full 只保留文件实体，absent 即删）
+      if (newLinks.size > 0) {
+        await tx
+          .insert(versionEntityLinks)
+          .values([...newLinks.values()].map((link) => ({ ...link, commitId })))
+          .onConflictDoNothing();
+      }
+      timer.mark("links");
+
+      // 7) change_summary + 更新 head
+      const summary = buildChangeSummary(parentKeys, newLinks, parentBlobs);
+      await tx.update(versionCommits).set({ changeSummary: summary }).where(eq(versionCommits.id, commitId));
       await tx
-        .update(repositories)
-        .set({ currentVersionId: versionId })
-        .where(eq(repositories.id, task.repoId));
-      txTimer.mark("pointer");
+        .update(versions)
+        .set({ headCommitId: commitId })
+        .where(eq(versions.id, versionId));
+      timer.mark("pointer");
 
       return {
+        commitId,
+        versionId,
         endpoints: model.apis.length,
         models: model.schemas.length,
         components: model.componentDefs.length,
         modules: moduleCount(model.apis),
+        changeSummary: summary,
       };
     });
     timer.mark("transaction");
 
-    const issues = model.parseIssues;
     await updateTask(taskId, {
       status: "succeeded",
       progress: 100,
-      versionId,
-      result: { stats, issues, nextVersion: version },
+      versionId: txData.versionId,
+      result: {
+        stats: {
+          endpoints: txData.endpoints,
+          models: txData.models,
+          components: txData.components,
+          modules: txData.modules,
+        },
+        issues: model.parseIssues,
+        commitId: txData.commitId,
+      },
       finishedAt: new Date(),
     });
 
@@ -264,26 +388,22 @@ export async function executeImportTask(taskId: string): Promise<void> {
       type: "import.succeeded",
       priority: "medium",
       titleKey: "notifications.import.succeeded",
-      titleParams: { repoName: repoRow.name, version },
+      titleParams: { repoName: repoRow.name },
       payload: {
-        href: `/repos/${task.repoId}/endpoints?version=${versionId}`,
+        href: `/repos/${task.repoId}/endpoints?version=${txData.versionId}`,
         repoId: task.repoId,
-        versionId,
+        versionId: txData.versionId,
         taskId,
       },
       metadata: { orgId: null },
     });
 
-    // 自动触发（默认关闭）：导入成功后联动创建上下文生成任务
     if (loadConfig().businessContext.autoGenerate) {
       await createContextTask(task.repoId, task.userId, {
         trigger: "auto",
         dependsOn: taskId,
       }).catch((err) => {
-        logError("business.context.auto_trigger_failed", err, {
-          repoId: task.repoId,
-          importTaskId: taskId,
-        });
+        logError("business.context.auto_trigger_failed", err, { repoId: task.repoId, importTaskId: taskId });
       });
     }
 
@@ -291,13 +411,18 @@ export async function executeImportTask(taskId: string): Promise<void> {
       taskId,
       repoId: task.repoId,
       userId: task.userId,
-      versionId,
-      version,
-      specVersion: model.meta.specVersion ?? null,
-      stats,
-      issues: issueCounts(issues),
+      versionId: txData.versionId,
+      commitId: txData.commitId,
+      stats: {
+        endpoints: txData.endpoints,
+        models: txData.models,
+        components: txData.components,
+        modules: txData.modules,
+      },
+      changeSummary: txData.changeSummary,
+      issues: issueCounts(model.parseIssues),
       durationMs: Date.now() - startedAt,
-      timings: { ...timer.timings, transaction: txTimer.timings },
+      timings: timer.timings,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -307,7 +432,6 @@ export async function executeImportTask(taskId: string): Promise<void> {
       result: err instanceof ImportError ? { issues: err.issues } : undefined,
       finishedAt: new Date(),
     });
-
     await notifySafely({
       userId: task.userId,
       category: "import",
@@ -315,14 +439,9 @@ export async function executeImportTask(taskId: string): Promise<void> {
       priority: "high",
       titleKey: "notifications.import.failed",
       titleParams: { repoName: task.repoId, error: message },
-      payload: {
-        href: `/repos/${task.repoId}/versions`,
-        repoId: task.repoId,
-        taskId,
-      },
+      payload: { href: `/repos/${task.repoId}/versions`, repoId: task.repoId, taskId, versionId: null },
       metadata: { orgId: null },
     });
-
     logError("openapi.import.failed", err, {
       taskId,
       repoId: task.repoId,

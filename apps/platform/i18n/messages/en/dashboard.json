@@ -1,0 +1,43 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of your API knowledge platform",
+    "newRepo": "New Repository",
+    "onboarding": {
+      "title": "Getting started",
+      "description": "Complete the core steps to unlock Agent access",
+      "progress": "{done} / {total} completed",
+      "steps": {
+        "org": "Create an organization",
+        "repo": "Create a repository and import OpenAPI",
+        "key": "Generate an API key",
+        "keyHint": "Generate",
+        "mcp": "Connect your Agent (MCP)",
+        "mcpHint": "Copy the config to Cursor / Claude",
+        "done": "Done"
+      }
+    },
+    "stats": {
+      "organizations": "Organizations",
+      "repositories": "Repositories",
+      "endpoints": "Endpoints",
+      "mcpEnabled": "MCP enabled"
+    },
+    "recentUpdates": {
+      "title": "Recent updates",
+      "description": "Sorted by last update",
+      "viewAll": "View all",
+      "empty": "No updates yet. Repositories you create will show up here."
+    },
+    "connectAgent": {
+      "title": "Connect your Agent",
+      "description": "Copy the MCP config to use it in Cursor / Claude",
+      "serviceUrl": "Service URL",
+      "auth": "Authentication",
+      "authValue": "API key (Bearer)",
+      "copy": "Copy config",
+      "guide": "View integration guide",
+      "copied": "Copied"
+    }
+  }
+}

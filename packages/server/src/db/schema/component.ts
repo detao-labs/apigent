@@ -6,7 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { repositories, repoVersions } from "./repo";
+import { repositories } from "./repo";
 
 // ═══════════════════════════════════════════════════════════════════
 // Components — 可复用 OpenAPI 组件（components.*，OpenAPI 3.x 术语）
@@ -22,12 +22,11 @@ export const components = pgTable(
   "components",
   {
     id: text("id").primaryKey(),
-    versionId: text("version_id")
-      .notNull()
-      .references(() => repoVersions.id),
     repoId: text("repo_id")
       .notNull()
       .references(() => repositories.id),
+    /** sha256(规范化定义)，用于复用/对比 */
+    contentHash: text("content_hash").notNull(),
     /** response | securityScheme | parameter | requestBody | header | example */
     kind: varchar("kind", { length: 30 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
@@ -44,10 +43,6 @@ export const components = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("components_version_kind_name_idx").on(
-      table.versionId,
-      table.kind,
-      table.name,
-    ),
+    uniqueIndex("components_repo_content_hash_idx").on(table.repoId, table.contentHash),
   ],
 );

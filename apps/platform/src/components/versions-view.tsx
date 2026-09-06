@@ -13,6 +13,12 @@ import {
   CardHeader,
   CardTitle,
   ConfirmDialog,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
   Table,
   TableBody,
   TableCell,
@@ -20,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@apigent/ui";
-import type { DiffChange, DiffResult, RepoVersionListRow } from "@apigent/server/versions";
+import type { DiffChange, DiffResult, RepoVersionRow } from "@apigent/server/versions";
 
 const METHOD_STYLES: Record<string, string> = {
   GET: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -80,7 +86,7 @@ export function VersionsView({
   canActivate,
 }: {
   repoId: string;
-  versions: RepoVersionListRow[];
+  versions: RepoVersionRow[];
   currentVersionId: string | null;
   canActivate: boolean;
 }) {
@@ -93,8 +99,14 @@ export function VersionsView({
   const [to, setTo] = React.useState<string | null>(null);
   const [diff, setDiff] = React.useState<DiffResult | null>(null);
   const [diffLoading, setDiffLoading] = React.useState(false);
-  const [activateTarget, setActivateTarget] = React.useState<RepoVersionListRow | null>(null);
+  const [activateTarget, setActivateTarget] = React.useState<RepoVersionRow | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [newName, setNewName] = React.useState("");
+  const [newParentId, setNewParentId] = React.useState("");
+  const [newEmpty, setNewEmpty] = React.useState(false);
+  const [createBusy, setCreateBusy] = React.useState(false);
+  const [rollbackTarget, setRollbackTarget] = React.useState<RepoVersionRow | null>(null);
 
   // URL 参数恢复：?from=&to=
   React.useEffect(() => {
@@ -162,6 +174,53 @@ export function VersionsView({
     }
   };
 
+  const doCreateVersion = async () => {
+    if (!newName.trim()) return;
+    setCreateBusy(true);
+    try {
+      const res = await fetch(`/api/repos/${repoId}/versions/branches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          parentVersionId: newParentId || undefined,
+          empty: newEmpty,
+        }),
+      });
+      if (!res.ok) throw new Error(`create version failed: ${res.status}`);
+      toast.success(t("createVersionSuccess"));
+      setCreateOpen(false);
+      setNewName("");
+      setNewParentId("");
+      setNewEmpty(false);
+      router.refresh();
+    } catch {
+      toast.error(t("createVersionFailed"));
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
+  const doRollback = async () => {
+    if (!rollbackTarget) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/repos/${repoId}/versions/${rollbackTarget.id}/rollback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ steps: 1 }),
+      });
+      if (!res.ok) throw new Error(`rollback failed: ${res.status}`);
+      toast.success(t("rollbackSuccess"));
+      setRollbackTarget(null);
+      router.refresh();
+    } catch {
+      toast.error(t("rollbackFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (versions.length === 0) {
     return (
       <Card className="border-dashed">
@@ -174,13 +233,65 @@ export function VersionsView({
     );
   }
 
-  const versionLabel = (id: string | null) => versions.find((v) => v.id === id)?.version ?? "";
+  const versionLabel = (commitId: string | null) =>
+    versions.find((v) => v.headCommitId === commitId)?.name ?? "";
 
   const diffFrom = from ? versionLabel(from) : "";
   const diffTo = to ? versionLabel(to) : "";
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">{t("title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("sub")}</p>
+        </div>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Button variant="secondary" onClick={() => setCreateOpen(true)}>
+            新建版本
+          </Button>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>新建版本</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <Input
+                placeholder="版本名（如 v2 / dev）"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={newParentId}
+                onChange={(e) => setNewParentId(e.target.value)}
+              >
+                <option value="">基于默认主版本 fork</option>
+                {versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    基于 {v.name}
+                  </option>
+                ))}
+              </select>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={newEmpty}
+                  onChange={(e) => setNewEmpty(e.target.checked)}
+                />
+                空树新建（不继承任何内容）
+              </label>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={doCreateVersion} disabled={createBusy || !newName.trim()}>
+                创建
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -202,7 +313,7 @@ export function VersionsView({
                   <TableRow key={v.id}>
                     <TableCell className="font-mono">
                       <span className="flex items-center gap-2">
-                        {v.version}
+                        {v.name}
                         {isCurrent && (
                           <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                             {t("currentBadge")}
@@ -226,8 +337,22 @@ export function VersionsView({
                             {t("actionActivate")}
                           </Button>
                         )}
+                        {!isCurrent && canActivate && (
+                          <Button variant="ghost" size="sm" onClick={() => setRollbackTarget(v)}>
+                            <History className="size-3.5" />
+                            回滚
+                          </Button>
+                        )}
                         {older && (
-                          <Button variant="ghost" size="sm" onClick={() => compare(older.id, v.id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (older.headCommitId && v.headCommitId) {
+                                compare(older.headCommitId, v.headCommitId);
+                              }
+                            }}
+                          >
                             <GitCompare className="size-3.5" />
                             {t("actionDiff")}
                           </Button>
@@ -342,6 +467,17 @@ export function VersionsView({
         destructive
         loading={busy}
         onConfirm={doActivate}
+      />
+      <ConfirmDialog
+        open={rollbackTarget !== null}
+        onOpenChange={(open) => !open && setRollbackTarget(null)}
+        title="回滚"
+        description={`确定回滚到上一版吗？当前「${rollbackTarget?.name ?? ""}」的内容将被指向其上一个快照。`}
+        confirmText="回滚"
+        cancelText="取消"
+        destructive
+        loading={busy}
+        onConfirm={doRollback}
       />
     </div>
   );

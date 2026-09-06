@@ -29,7 +29,13 @@ export const POST = withRoute({ auth: true }, async ({ request, params, user }) 
   }
 
   try {
-    const task = await createImportTask(id, user.id, parsed.data.content);
+    const task = await createImportTask(
+      id,
+      user.id,
+      parsed.data.content,
+      parsed.data.mode ?? "full",
+      parsed.data.versionId,
+    );
     return NextResponse.json({ task }, { status: 202 });
   } catch (err) {
     if (err instanceof ImportError) {

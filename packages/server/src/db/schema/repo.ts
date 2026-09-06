@@ -3,10 +3,8 @@ import {
   varchar,
   text,
   boolean,
-  integer,
   timestamp,
   jsonb,
-  uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { users, organizations } from "./auth";
@@ -23,8 +21,7 @@ export const repositories = pgTable("repositories", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   capabilityContext: jsonb("capability_context").default({}),
-  /** Points to the active version. Soft reference — FK added in migration. */
-  currentVersionId: text("current_version_id"),
+  // "当前版本" 由 versions.is_default 的 head_commit_id 决定，不再单列指针。
   mcpEnabled: boolean("mcp_enabled").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -50,48 +47,4 @@ export const repoPermissions = pgTable(
     grantedAt: timestamp("granted_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.repoId] })],
-);
-
-// ═══════════════════════════════════════════════════════════════════
-// Repo Versions — OpenAPI 版本快照
-// ═══════════════════════════════════════════════════════════════════
-
-export const repoVersions = pgTable(
-  "repo_versions",
-  {
-    id: text("id").primaryKey(),
-    repoId: text("repo_id")
-      .notNull()
-      .references(() => repositories.id),
-    version: varchar("version", { length: 50 }).notNull(),
-    /** OpenAPI info.version — 发布版本标签（区别于快照序号 version） */
-    specVersion: varchar("spec_version", { length: 100 }),
-    /** 版本描述——来自 OpenAPI info.description，供版本级 RAG 检索 */
-    description: text("description"),
-    specStoragePath: varchar("spec_storage_path", { length: 500 }).notNull(),
-    source: varchar("source", { length: 20 }).default("import"),
-    importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [uniqueIndex("repo_versions_repo_version_idx").on(table.repoId, table.version)],
-);
-
-// ═══════════════════════════════════════════════════════════════════
-// Modules — OpenAPI tags → 模块
-// ═══════════════════════════════════════════════════════════════════
-
-export const modules = pgTable(
-  "modules",
-  {
-    id: text("id").primaryKey(),
-    repoId: text("repo_id")
-      .notNull()
-      .references(() => repositories.id),
-    versionId: text("version_id")
-      .notNull()
-      .references(() => repoVersions.id),
-    name: varchar("name", { length: 255 }).notNull(),
-    description: text("description"),
-    sortOrder: integer("sort_order").default(0),
-  },
-  (table) => [uniqueIndex("modules_version_name_idx").on(table.versionId, table.name)],
 );

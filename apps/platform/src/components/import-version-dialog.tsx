@@ -61,6 +61,7 @@ export function ImportVersionDialog({
   const t = useTranslations("repos.import");
   const [step, setStep] = React.useState<"input" | "preview" | "task" | "done">("input");
   const [mode, setMode] = React.useState<"file" | "paste">("file");
+  const [updateMode, setUpdateMode] = React.useState<"full" | "partial">("full");
   const [content, setContent] = React.useState("");
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [preview, setPreview] = React.useState<PreviewData | null>(null);
@@ -149,7 +150,7 @@ export function ImportVersionDialog({
       const res = await fetch(`/api/repos/${repoId}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, mode: updateMode }),
       });
       const data = (await res.json().catch(() => null)) as {
         task?: { taskId: string; status: string };
@@ -188,7 +189,7 @@ export function ImportVersionDialog({
           task?: {
             status: "queued" | "running" | "succeeded" | "failed";
             progress: number;
-            nextVersion: string | null;
+            versionId: string | null;
             result?: { stats: PreviewData["stats"] } | null;
             error: string | null;
           };
@@ -199,7 +200,7 @@ export function ImportVersionDialog({
         setProgress(task.progress ?? 0);
         if (task.status === "succeeded") {
           setResult({
-            version: task.nextVersion ?? "",
+            version: task.versionId ?? "",
             stats: task.result?.stats ?? { endpoints: 0, models: 0, modules: 0 },
           });
           setStep("done");
@@ -303,6 +304,17 @@ export function ImportVersionDialog({
                 className="w-full rounded-md border border-input bg-transparent p-3 font-mono text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             )}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="shrink-0 text-muted-foreground">更新方式</span>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={updateMode}
+                onChange={(e) => setUpdateMode(e.target.value as "full" | "partial")}
+              >
+                <option value="full">全量更新（以文件为准，缺席即删）</option>
+                <option value="partial">增量更新（只增/改，不删）</option>
+              </select>
+            </div>
             <input
               ref={fileRef}
               type="file"

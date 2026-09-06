@@ -1,10 +1,18 @@
 export {
-  listRepoVersions,
-  activateVersion,
+  listVersions,
+  createVersion,
+  setDefaultVersion,
+  getDefaultVersionId,
+  rollbackVersion,
+  rollbackVersionSteps,
   compareVersions,
-  getCurrentVersionId,
+  listVersionHistory,
+  deleteVersionEntity,
   VersionNotFoundError,
-  type RepoVersionListRow,
+  type RepoVersionRow,
+  type CreateVersionInput,
+  type VersionHistoryEntry,
+  type DeleteEntityResult,
 } from "./service";
 
 export type { DiffResult, DiffChange, DiffCategory, DiffChangeType } from "../diff/engine";

@@ -1,0 +1,24 @@
+{
+  "notifications": {
+    "title": "消息通知",
+    "empty": "暂无消息通知",
+    "markAllRead": "全部已读",
+    "categories": {
+      "import": "导入",
+      "context": "业务上下文",
+      "key": "密钥",
+      "mcp": "MCP",
+      "system": "系统"
+    },
+    "import": {
+      "succeeded": "OpenAPI 导入成功：{repoName} v{version}",
+      "failed": "OpenAPI 导入失败：{repoName}（{error}）"
+    },
+    "context": {
+      "ready": "业务上下文生成完成：{repoName}（{generatedCount} 生成，{reusedCount} 复用）",
+      "readySkipped": "业务上下文未变更：{repoName}（{skippedCount} 个接口为人工编辑，已跳过）",
+      "readyWithFailures": "业务上下文生成完成：{repoName}（{generatedCount} 生成，{failedCount} 失败）",
+      "failed": "业务上下文生成失败：{repoName}（{error}）"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "keys": {
+    "title": "API 密钥",
+    "description": "管理 API 和 MCP 访问密钥",
+    "generate": "生成新密钥",
+    "revoke": "吊销",
+    "never": "从未使用",
+    "table": {
+      "name": "名称",
+      "prefix": "密钥前缀",
+      "scopes": "权限范围",
+      "lastUsed": "最近使用",
+      "expires": "过期时间",
+      "actions": "操作"
+    },
+    "empty": {
+      "title": "暂无密钥",
+      "description": "创建第一个 API 密钥"
+    },
+    "examples": {
+      "title": "接入示例",
+      "description": "将密钥用于 MCP 或 REST 调用",
+      "mcp": "MCP 配置（claude_desktop_config.json）",
+      "rest": "REST 调用",
+      "copy": "复制",
+      "copied": "已复制"
+    }
+  }
+}

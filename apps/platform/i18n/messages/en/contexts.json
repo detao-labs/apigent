@@ -1,0 +1,32 @@
+{
+  "contexts": {
+    "title": "Business Context",
+    "subtitle": "View and edit endpoint business context (capability, constraints, side effects, usage scenarios)",
+    "loading": "Loading…",
+    "empty": "No endpoints in this repository yet, or context has not been generated.",
+    "notGenerated": "Not generated",
+    "generated": "Generated",
+    "needsReview": "Needs review",
+    "humanEdited": "Human edited",
+    "generating": "Generating…",
+    "failed": "Generation failed",
+    "capabilityName": "Capability name",
+    "capabilityNamePlaceholder": "e.g. Order refund",
+    "intent": "Intent",
+    "constraints": "Constraints",
+    "addConstraint": "Add constraint",
+    "noConstraints": "No constraints",
+    "rulePlaceholder": "Rule description, e.g. Order must be paid",
+    "sideEffects": "Side effects",
+    "usageScenarios": "Usage scenarios",
+    "lineSeparatedPlaceholder": "One item per line",
+    "save": "Save",
+    "saved": "Saved",
+    "regenerated": "Regenerated",
+    "generateFailed": "Generation failed, please try again later",
+    "regenerate": "Regenerate",
+    "confirmRegenerate": "Regenerating will overwrite the current content. Continue?",
+    "confidence": "Confidence",
+    "source": "Source"
+  }
+}

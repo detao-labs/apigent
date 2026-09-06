@@ -7,7 +7,7 @@ import { RepoForbidden } from "@/components/repo-forbidden";
 import { RepoNotFound } from "@/components/repo-not-found";
 import { requireUser } from "@/services/auth";
 import { loadRepoForPage } from "@/services/repos";
-import { getCurrentVersionId, listRepoVersions } from "@apigent/server/versions";
+import { getDefaultVersionId, listVersions } from "@apigent/server/versions";
 import { getEffectiveRepoRole, isRepoRoleAtLeast } from "@apigent/server/authz";
 
 export default async function RepoVersionsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,8 +20,8 @@ export default async function RepoVersionsPage({ params }: { params: Promise<{ i
   if (status === "not-found" || !repo) return <RepoNotFound />;
 
   const [versions, currentVersionId, role] = await Promise.all([
-    listRepoVersions(id),
-    getCurrentVersionId(id),
+    listVersions(id),
+    getDefaultVersionId(id),
     getEffectiveRepoRole(user.id, id),
   ]);
   const canActivate = isRepoRoleAtLeast(role, "repo_admin");

@@ -1,20 +1,25 @@
 // ═══════════════════════════════════════════════════════════════════
-// Platform Repos Service — list / detail for API repositories
+// Platform Repos Service — list / detail / entities for API repositories
+// ═══════════════════════════════════════════════════════════════════
+//
+// 新模型：versions = 活线(branch)，version_commits = 快照，
+// version_entity_links = 版本树（commit → identity → blob）。
+// 模块（tag 分组）由 endpoints.tags 派生，不再有 modules 表。
 // ═══════════════════════════════════════════════════════════════════
 
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   components,
   dataModels,
-  endpointModules,
   endpointResponses,
   endpoints,
   getDB,
-  modules,
   organizations,
   repositories,
-  repoVersions,
   users,
+  versionCommits,
+  versionEntityLinks,
+  versions,
 } from "@apigent/server/db";
 import {
   ForbiddenError,
@@ -87,6 +92,15 @@ export async function createRepo(
 
   if (!repo) throw new Error("Failed to create repository");
 
+  // 新建仓库即创建默认 main 版本（活线），首个导入前 head 为 NULL。
+  await db.insert(versions).values({
+    id: generateId("version"),
+    repoId: repo.id,
+    name: "main",
+    isDefault: true,
+    headCommitId: null,
+  });
+
   return {
     ...repo,
     mcpEnabled: Boolean(repo.mcpEnabled ?? false),
@@ -129,6 +143,7 @@ export async function listRepos(userId: string): Promise<RepoSummary[]> {
   const accessible = await listAccessibleRepoIds(userId);
   if (accessible.length === 0) return [];
   const db = getDB();
+
   const rows = await db
     .select({
       id: repositories.id,
@@ -138,19 +153,18 @@ export async function listRepos(userId: string): Promise<RepoSummary[]> {
       orgId: organizations.id,
       mcpEnabled: repositories.mcpEnabled,
       updatedAt: repositories.updatedAt,
-      endpointCount: sql<number>`${count(endpoints.id)}::int`,
-      currentVersion: sql<string | null>`
-        (select ${repoVersions.version}
-         from ${repoVersions}
-         where ${repoVersions.repoId} = ${repositories.id}
-         order by ${repoVersions.importedAt} desc
-         limit 1)`,
+      currentVersion: versions.name,
+      endpointCount: sql<number>`(
+        select count(*)::int
+        from version_entity_links vel
+        where vel.commit_id = ${versions.headCommitId}
+          and vel.entity_type = 'endpoint'
+      )`,
     })
     .from(repositories)
     .leftJoin(organizations, eq(repositories.orgId, organizations.id))
-    .leftJoin(endpoints, eq(endpoints.repoId, repositories.id))
+    .leftJoin(versions, and(eq(versions.repoId, repositories.id), eq(versions.isDefault, true)))
     .where(inArray(repositories.id, accessible))
-    .groupBy(repositories.id, organizations.name, organizations.id)
     .orderBy(desc(repositories.updatedAt));
 
   return rows.map((row) => ({
@@ -164,8 +178,9 @@ export interface RepoVersionSummary {
   id: string;
   version: string;
   specVersion: string | null;
-  importedAt: Date;
+  isDefault: boolean;
   source: string;
+  importedAt: Date;
   endpointCount: number;
 }
 
@@ -196,59 +211,87 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
       orgName: organizations.name,
       orgId: organizations.id,
       mcpEnabled: repositories.mcpEnabled,
-      currentVersion: repoVersions.version,
-      currentSpecVersion: repoVersions.specVersion,
       capabilityContext: repositories.capabilityContext,
     })
     .from(repositories)
     .leftJoin(organizations, eq(repositories.orgId, organizations.id))
-    .leftJoin(repoVersions, eq(repositories.currentVersionId, repoVersions.id))
     .where(eq(repositories.id, id))
     .limit(1);
-
   if (!repo) return null;
 
-  const [ep] = await db
-    .select({ value: sql<number>`${count(endpoints.id)}::int` })
-    .from(endpoints)
-    .where(eq(endpoints.repoId, id));
-  const [dm] = await db
-    .select({ value: sql<number>`${count(dataModels.id)}::int` })
-    .from(dataModels)
-    .where(eq(dataModels.repoId, id));
-  const [ver] = await db
-    .select({ value: sql<number>`${count(repoVersions.id)}::int` })
-    .from(repoVersions)
-    .where(eq(repoVersions.repoId, id));
+  const allVersions = await db.select().from(versions).where(eq(versions.repoId, id)).orderBy(desc(versions.createdAt));
+  const defaultVersion = allVersions.find((v) => v.isDefault) ?? null;
+  const headCommitId = defaultVersion?.headCommitId ?? null;
 
-  const versions = await db
-    .select({
-      id: repoVersions.id,
-      version: repoVersions.version,
-      specVersion: repoVersions.specVersion,
-      importedAt: repoVersions.importedAt,
-      source: repoVersions.source,
-      endpointCount: sql<number>`${count(endpoints.id)}::int`,
-    })
-    .from(repoVersions)
-    .leftJoin(endpoints, eq(endpoints.versionId, repoVersions.id))
-    .where(eq(repoVersions.repoId, id))
-    .groupBy(repoVersions.id)
-    .orderBy(desc(repoVersions.importedAt))
-    .limit(10);
+  const [ep, dm] = await Promise.all([
+    headCommitId
+      ? db
+          .select({ value: sql<number>`count(*)::int` })
+          .from(versionEntityLinks)
+          .where(and(eq(versionEntityLinks.commitId, headCommitId), eq(versionEntityLinks.entityType, "endpoint")))
+      : undefined,
+    headCommitId
+      ? db
+          .select({ value: sql<number>`count(*)::int` })
+          .from(versionEntityLinks)
+          .where(and(eq(versionEntityLinks.commitId, headCommitId), eq(versionEntityLinks.entityType, "data_model")))
+      : undefined,
+  ]);
+
+  // 各版本的统计（取 head commit 的 endpoint 数）
+  const verCounts = await Promise.all(
+    allVersions.map(async (v) => {
+      const [head] = v.headCommitId
+        ? await db
+            .select({ specVersion: versionCommits.specVersion, source: versionCommits.source })
+            .from(versionCommits)
+            .where(eq(versionCommits.id, v.headCommitId))
+            .limit(1)
+        : [];
+      return {
+        id: v.id,
+        version: v.name,
+        specVersion: head?.specVersion ?? null,
+        isDefault: v.isDefault,
+        source: head?.source ?? "import",
+        importedAt: v.createdAt,
+        endpointCount: v.headCommitId
+          ? Number(
+              (
+                await db
+                  .select({ value: sql<number>`count(*)::int` })
+                  .from(versionEntityLinks)
+                  .where(
+                    and(
+                      eq(versionEntityLinks.commitId, v.headCommitId),
+                      eq(versionEntityLinks.entityType, "endpoint"),
+                    ),
+                  )
+              )[0]?.value ?? 0,
+            )
+          : 0,
+      };
+    }),
+  );
 
   return {
     ...repo,
     mcpEnabled: Boolean(repo.mcpEnabled ?? false),
     capabilityContext: (repo.capabilityContext ?? null) as Record<string, unknown> | null,
-    endpointCount: Number(ep?.value ?? 0),
-    modelCount: Number(dm?.value ?? 0),
-    versionCount: Number(ver?.value ?? 0),
-    versions: versions.map((v) => ({
-      ...v,
-      source: v.source ?? "import",
-      endpointCount: Number(v.endpointCount ?? 0),
-    })),
+    endpointCount: Number(ep?.[0]?.value ?? 0),
+    modelCount: Number(dm?.[0]?.value ?? 0),
+    versionCount: allVersions.length,
+    currentVersion: defaultVersion?.name ?? null,
+    currentSpecVersion: headCommitId
+      ? (
+          await db
+            .select({ specVersion: versionCommits.specVersion })
+            .from(versionCommits)
+            .where(eq(versionCommits.id, headCommitId))
+            .limit(1)
+        )[0]?.specVersion ?? null
+      : null,
+    versions: verCounts,
   };
 }
 
@@ -262,7 +305,6 @@ export type RepoLoadResult =
   | { status: "forbidden"; repo: null; owner: RepoLoadOwner | null }
   | { status: "not-found"; repo: null; owner: RepoLoadOwner | null };
 
-/** 面向页面：区分 无权限(403) / 不存在(404) / 正常，避免让错误冒泡成 500。 */
 export async function loadRepoForPage(id: string, userId: string): Promise<RepoLoadResult> {
   try {
     const repo = await getRepoDetail(id, userId);
@@ -277,7 +319,6 @@ export async function loadRepoForPage(id: string, userId: string): Promise<RepoL
   }
 }
 
-/** 仓库所属组织的 owner 联系方式，用于 403 页指引。 */
 async function getRepoOwnerContact(repoId: string): Promise<RepoLoadOwner | null> {
   const db = getDB();
   const [repo] = await db
@@ -323,19 +364,25 @@ export interface RepoEndpoint {
   responses: RepoEndpointResponse[];
 }
 
-/** 当前版本快照下的接口列表（含模块、参数、响应），供接口页展示。 */
+/** 解析默认主版本 head commit。 */
+async function defaultHeadCommitId(repoId: string): Promise<string | null> {
+  const db = getDB();
+  const [v] = await db
+    .select({ headCommitId: versions.headCommitId })
+    .from(versions)
+    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .limit(1);
+  return v?.headCommitId ?? null;
+}
+
+/** 默认主版本下的接口列表（模块由 tags 派生）。 */
 export async function getRepoEndpoints(repoId: string, userId: string): Promise<RepoEndpoint[]> {
   await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
-  const [repo] = await db
-    .select({ currentVersionId: repositories.currentVersionId })
-    .from(repositories)
-    .where(eq(repositories.id, repoId))
-    .limit(1);
-  if (!repo?.currentVersionId) return [];
-  const versionId = repo.currentVersionId;
+  const commitId = await defaultHeadCommitId(repoId);
+  if (!commitId) return [];
 
-  const [endpointRows, moduleRows, responseRows] = await Promise.all([
+  const [endpointRows, responseRows] = await Promise.all([
     db
       .select({
         id: endpoints.id,
@@ -348,20 +395,12 @@ export async function getRepoEndpoints(repoId: string, userId: string): Promise<
         parameters: endpoints.parameters,
         requestContentType: endpoints.requestContentType,
         requestSchema: endpoints.requestSchema,
+        tags: endpoints.tags,
       })
-      .from(endpoints)
-      .where(and(eq(endpoints.repoId, repoId), eq(endpoints.versionId, versionId)))
+      .from(versionEntityLinks)
+      .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
+      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
       .orderBy(endpoints.path, endpoints.method),
-    db
-      .select({
-        endpointId: endpointModules.endpointId,
-        name: modules.name,
-      })
-      .from(endpointModules)
-      .innerJoin(modules, eq(modules.id, endpointModules.moduleId))
-      .innerJoin(endpoints, eq(endpoints.id, endpointModules.endpointId))
-      .where(and(eq(endpoints.repoId, repoId), eq(endpoints.versionId, versionId)))
-      .orderBy(modules.name, modules.id),
     db
       .select({
         endpointId: endpointResponses.endpointId,
@@ -373,16 +412,11 @@ export async function getRepoEndpoints(repoId: string, userId: string): Promise<
       })
       .from(endpointResponses)
       .innerJoin(endpoints, eq(endpoints.id, endpointResponses.endpointId))
-      .where(and(eq(endpoints.repoId, repoId), eq(endpoints.versionId, versionId)))
+      .innerJoin(versionEntityLinks, eq(versionEntityLinks.entityId, endpoints.id))
+      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
       .orderBy(endpointResponses.statusCode),
   ]);
 
-  const moduleByEndpoint = new Map<string, string[]>();
-  for (const row of moduleRows) {
-    const list = moduleByEndpoint.get(row.endpointId) ?? [];
-    list.push(row.name);
-    moduleByEndpoint.set(row.endpointId, list);
-  }
   const responsesByEndpoint = new Map<string, RepoEndpointResponse[]>();
   for (const row of responseRows) {
     const list = responsesByEndpoint.get(row.endpointId) ?? [];
@@ -402,7 +436,7 @@ export async function getRepoEndpoints(repoId: string, userId: string): Promise<
     parameters: (row.parameters ?? []) as unknown[],
     requestContentType: row.requestContentType ?? null,
     requestSchema: row.requestSchema ?? null,
-    modules: moduleByEndpoint.get(row.id) ?? [],
+    modules: (row.tags ?? []) as string[],
     responses: responsesByEndpoint.get(row.id) ?? [],
   }));
 }
@@ -419,16 +453,11 @@ export interface RepoDataModel {
   } | null;
 }
 
-/** 当前版本快照下的数据模型列表，供数据模型页展示。 */
 export async function getRepoDataModels(repoId: string, userId: string): Promise<RepoDataModel[]> {
   await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
-  const [repo] = await db
-    .select({ currentVersionId: repositories.currentVersionId })
-    .from(repositories)
-    .where(eq(repositories.id, repoId))
-    .limit(1);
-  if (!repo?.currentVersionId) return [];
+  const commitId = await defaultHeadCommitId(repoId);
+  if (!commitId) return [];
 
   const rows = await db
     .select({
@@ -438,8 +467,9 @@ export async function getRepoDataModels(repoId: string, userId: string): Promise
       description: dataModels.description,
       schemaRaw: dataModels.schemaRaw,
     })
-    .from(dataModels)
-    .where(and(eq(dataModels.repoId, repoId), eq(dataModels.versionId, repo.currentVersionId)))
+    .from(versionEntityLinks)
+    .innerJoin(dataModels, eq(dataModels.id, versionEntityLinks.entityId))
+    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "data_model")))
     .orderBy(dataModels.name);
 
   return rows.map((row) => ({
@@ -467,7 +497,6 @@ export interface RepoComponentDef {
   payload: Record<string, unknown>;
 }
 
-/** 当前版本快照下的可复用组件定义（responses / securitySchemes …）。 */
 export async function getRepoComponentDefs(
   repoId: string,
   userId: string,
@@ -475,17 +504,10 @@ export async function getRepoComponentDefs(
 ): Promise<RepoComponentDef[]> {
   await assertRepoAccess(userId, repoId, "repo_viewer");
   const db = getDB();
-  const [repo] = await db
-    .select({ currentVersionId: repositories.currentVersionId })
-    .from(repositories)
-    .where(eq(repositories.id, repoId))
-    .limit(1);
-  if (!repo?.currentVersionId) return [];
+  const commitId = await defaultHeadCommitId(repoId);
+  if (!commitId) return [];
 
-  const conditions = [
-    eq(components.repoId, repoId),
-    eq(components.versionId, repo.currentVersionId),
-  ];
+  const conditions = [eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "component")];
   if (kind) conditions.push(eq(components.kind, kind));
 
   const rows = await db
@@ -497,7 +519,8 @@ export async function getRepoComponentDefs(
       description: components.description,
       payload: components.payload,
     })
-    .from(components)
+    .from(versionEntityLinks)
+    .innerJoin(components, eq(components.id, versionEntityLinks.entityId))
     .where(and(...conditions))
     .orderBy(components.kind, components.name);
 

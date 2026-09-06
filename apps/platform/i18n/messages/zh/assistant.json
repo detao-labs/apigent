@@ -1,0 +1,22 @@
+{
+  "assistant": {
+    "title": "AI 助手",
+    "description": "与平台 Agent 对话：探索仓库、生成和编辑业务上下文。",
+    "placeholder": "询问 API、接口或业务上下文…",
+    "send": "发送",
+    "stop": "停止",
+    "newChat": "新对话",
+    "close": "关闭",
+    "thinking": "思考中…",
+    "errorHint": "出了点问题，请重试或开始新对话。",
+    "emptyTitle": "有什么可以帮你？",
+    "emptyHint": "我可以解释接口、生成业务上下文、对比版本。",
+    "repoChip": "仓库",
+    "endpointChip": "接口",
+    "suggest": {
+      "overview": "概括这个仓库的接口情况",
+      "context": "为一个接口生成业务上下文",
+      "compare": "解释 MCP 网关的用法"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet",
+    "markAllRead": "Mark all as read",
+    "categories": {
+      "import": "Import",
+      "context": "Business Context",
+      "key": "API Keys",
+      "mcp": "MCP",
+      "system": "System"
+    },
+    "import": {
+      "succeeded": "OpenAPI import succeeded: {repoName} v{version}",
+      "failed": "OpenAPI import failed: {repoName} ({error})"
+    },
+    "context": {
+      "ready": "Business context generated: {repoName} ({generatedCount} generated, {reusedCount} reused)",
+      "readySkipped": "Business context unchanged: {repoName} ({skippedCount} endpoints are human-edited and were skipped)",
+      "readyWithFailures": "Business context generated with failures: {repoName} ({generatedCount} generated, {failedCount} failed)",
+      "failed": "Business context generation failed: {repoName} ({error})"
+    }
+  }
+}

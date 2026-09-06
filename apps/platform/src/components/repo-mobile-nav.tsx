@@ -14,6 +14,7 @@ export function RepoMobileNav({ repoId }: { repoId: string }) {
     { key: "definitions", label: t("definitions"), url: `${base}/definition` },
     { key: "context", label: t("context"), url: `${base}/context` },
     { key: "versions", label: t("versions"), url: `${base}/versions` },
+    { key: "history", label: t("history"), url: `${base}/history` },
     { key: "settings", label: t("settings"), url: `${base}/settings` },
   ];
 

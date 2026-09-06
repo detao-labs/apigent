@@ -2,11 +2,14 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  ConfirmDialog,
   Input,
 } from "@apigent/ui";
 import {
@@ -16,6 +19,7 @@ import {
   ListTree,
   Search,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import type { RepoEndpoint } from "@/services/repos";
@@ -63,6 +67,7 @@ export function EndpointList({
   repoId: string;
 }) {
   const t = useTranslations("repos.detail");
+  const te = useTranslations("repos.detail.endpoints");
   const [query, setQuery] = React.useState("");
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = React.useState<string | null>(
@@ -78,7 +83,7 @@ export function EndpointList({
   const groups = React.useMemo(() => {
     const map = new Map<string, RepoEndpoint[]>();
     for (const ep of filtered) {
-      const key = ep.modules[0] ?? t("endpointsUngrouped");
+      const key = ep.modules[0] ?? te("endpointsUngrouped");
       const list = map.get(key) ?? [];
       list.push(ep);
       map.set(key, list);
@@ -94,9 +99,9 @@ export function EndpointList({
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
           <ListTree className="mb-4 size-12 text-muted-foreground/50" />
-          <h3 className="mb-1 text-lg font-semibold">{t("endpointsEmpty")}</h3>
+          <h3 className="mb-1 text-lg font-semibold">{te("endpointsEmpty")}</h3>
           <p className="max-w-md text-muted-foreground">
-            {t("endpointsEmptyDesc")}
+            {te("endpointsEmptyDesc")}
           </p>
         </CardContent>
       </Card>
@@ -123,12 +128,12 @@ export function EndpointList({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("endpointsSearchPlaceholder")}
+              placeholder={te("endpointsSearchPlaceholder")}
               className="h-8 pl-7 text-sm"
             />
           </div>
           <span className="shrink-0 text-xs text-muted-foreground">
-            {t("endpointsCount", { count: filtered.length })}
+            {te("endpointsCount", { count: filtered.length })}
           </span>
         </div>
 
@@ -136,7 +141,7 @@ export function EndpointList({
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
               <p className="text-sm text-muted-foreground">
-                {t("endpointsNoResults")}
+                {te("endpointsNoResults")}
               </p>
               <button
                 type="button"
@@ -195,7 +200,7 @@ export function EndpointList({
                               </span>
                               {ep.deprecated && (
                                 <AlertTriangle
-                                  aria-label={t("endpointsDeprecated")}
+                                  aria-label={te("endpointsDeprecated")}
                                   className="size-3 shrink-0 text-amber-500"
                                 />
                               )}
@@ -221,7 +226,7 @@ export function EndpointList({
           <EndpointDetail endpoint={selected} repoId={repoId} />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {t("endpointsSelectHint")}
+            {te("endpointsSelectHint")}
           </div>
         )}
       </section>
@@ -237,11 +242,29 @@ function EndpointDetail({
   repoId: string;
 }) {
   const t = useTranslations("repos.detail");
+  const te = useTranslations("repos.detail.endpoints");
+  const router = useRouter();
   const openBusinessContext = useOpenBusinessContext();
+  const [deleteTarget, setDeleteTarget] = React.useState<RepoEndpoint | null>(null);
   const parameters = (endpoint.parameters ?? []) as Record<
     string,
     unknown
   >[];
+
+  const doDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const res = await fetch(`/api/repos/${repoId}/entities/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(`delete failed: ${res.status}`);
+      toast.success(te("endpointsDeleted"));
+      setDeleteTarget(null);
+      router.refresh();
+    } catch {
+      toast.error(te("endpointsDeleteFailed"));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -253,7 +276,7 @@ function EndpointDetail({
           </Badge>
           <code className="font-mono text-sm">{endpoint.path}</code>
           {endpoint.deprecated && (
-            <Badge variant="destructive">{t("endpointsDeprecated")}</Badge>
+            <Badge variant="destructive">{te("endpointsDeprecated")}</Badge>
           )}
         </div>
         <h2 className="mt-2 text-xl font-bold tracking-tight">
@@ -262,7 +285,7 @@ function EndpointDetail({
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {endpoint.operationId && (
             <span>
-              {t("endpointsOperationId")}: {endpoint.operationId}
+              {te("endpointsOperationId")}: {endpoint.operationId}
             </span>
           )}
           {endpoint.modules.map((m) => (
@@ -281,7 +304,17 @@ function EndpointDetail({
             }
           >
             <Sparkles className="mr-1.5 size-3.5" />
-            {t("endpointsContext")}
+            {te("endpointsContext")}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-2 text-destructive"
+            onClick={() => setDeleteTarget(endpoint)}
+          >
+            <Trash2 className="mr-1.5 size-3.5" />
+            {te("endpointsDelete")}
           </Button>
         </div>
       </div>
@@ -289,7 +322,7 @@ function EndpointDetail({
       {endpoint.description && (
         <div>
           <h3 className="mb-1.5 text-sm font-medium">
-            {t("endpointsDescription")}
+            {te("endpointsDescription")}
           </h3>
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">
             {endpoint.description}
@@ -300,27 +333,27 @@ function EndpointDetail({
       {/* 参数 */}
       <section>
         <h3 className="mb-2 text-sm font-semibold">
-          {t("endpointsParameters")}
+          {te("endpointsParameters")}
         </h3>
         {parameters.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {t("endpointsNoParameters")}
+            {te("endpointsNoParameters")}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">{t("endpointsName")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsName")}</th>
                   <th className="px-3 py-2 font-medium">
-                    {t("endpointsLocation")}
+                    {te("endpointsLocation")}
                   </th>
                   <th className="px-3 py-2 font-medium">
-                    {t("endpointsRequired")}
+                    {te("endpointsRequired")}
                   </th>
-                  <th className="px-3 py-2 font-medium">{t("endpointsType")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsType")}</th>
                   <th className="px-3 py-2 font-medium">
-                    {t("endpointsDescription")}
+                    {te("endpointsDescription")}
                   </th>
                 </tr>
               </thead>
@@ -334,7 +367,7 @@ function EndpointDetail({
                     <td className="px-3 py-2">
                       {p.required ? (
                         <Badge variant="destructive">
-                          {t("endpointsRequired")}
+                          {te("endpointsRequired")}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -357,7 +390,7 @@ function EndpointDetail({
       {/* 请求体 */}
       <section>
         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-          {t("endpointsRequestBody")}
+          {te("endpointsRequestBody")}
           {endpoint.requestContentType ? (
             <Badge variant="secondary" className="font-mono text-xs">
               {endpoint.requestContentType}
@@ -368,7 +401,7 @@ function EndpointDetail({
           <SchemaRefView schemaRef={endpoint.requestSchema} />
         ) : (
           <p className="text-sm text-muted-foreground">
-            {t("endpointsNoRequestBody")}
+            {te("endpointsNoRequestBody")}
           </p>
         )}
       </section>
@@ -376,11 +409,11 @@ function EndpointDetail({
       {/* 响应 */}
       <section>
         <h3 className="mb-2 text-sm font-semibold">
-          {t("endpointsResponses")}
+          {te("endpointsResponses")}
         </h3>
         {endpoint.responses.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {t("endpointsNoResponses")}
+            {te("endpointsNoResponses")}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -411,12 +444,26 @@ function EndpointDetail({
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={te("endpointsDeleteTitle")}
+        description={te("endpointsDeleteDesc", {
+          name: deleteTarget?.method ? `${deleteTarget.method} ${deleteTarget.path}` : "",
+        })}
+        confirmText={te("endpointsDelete")}
+        cancelText={t("cancel")}
+        destructive
+        onConfirm={doDelete}
+      />
     </div>
   );
 }
 
 function SchemaRefView({ schemaRef }: { schemaRef: unknown }) {
   const t = useTranslations("repos.detail");
+  const te = useTranslations("repos.detail.endpoints");
   const ref = schemaRef as
     | { schema?: unknown; ref?: string; unresolved?: boolean }
     | null;
@@ -424,7 +471,7 @@ function SchemaRefView({ schemaRef }: { schemaRef: unknown }) {
   if (ref.unresolved) {
     return (
       <p className="text-sm text-muted-foreground">
-        {t("endpointsUnresolved")}
+        {te("endpointsUnresolved")}
       </p>
     );
   }

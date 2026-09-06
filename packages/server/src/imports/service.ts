@@ -24,7 +24,6 @@ export interface ImportTaskSummary {
   status: ImportTaskStatus;
   progress: number;
   versionId: string | null;
-  nextVersion: string | null;
   result: unknown;
   error: string | null;
   createdAt: Date;
@@ -39,13 +38,11 @@ function toSummary(row: {
   error: string | null;
   createdAt: Date;
 }): ImportTaskSummary {
-  const result = row.result as { nextVersion?: string } | null;
   return {
     taskId: row.id,
     status: row.status as ImportTaskStatus,
     progress: row.progress,
     versionId: row.versionId,
-    nextVersion: result?.nextVersion ?? null,
     result: row.result,
     error: row.error,
     createdAt: row.createdAt,
@@ -60,6 +57,8 @@ export async function createImportTask(
   repoId: string,
   userId: string,
   content: string,
+  mode: "full" | "partial" = "full",
+  versionId?: string,
 ): Promise<ImportTaskSummary> {
   if (Buffer.byteLength(content, "utf8") > MAX_SPEC_BYTES) {
     throw new ImportError([
@@ -103,7 +102,7 @@ export async function createImportTask(
     userId,
     taskType: "import",
     status: "queued",
-    payload: { specPath },
+    payload: { specPath, mode, versionId },
   });
 
   const queue = startImportWorker();
