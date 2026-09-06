@@ -2,10 +2,7 @@
 // Import Common — 共享常量、错误与工具
 // ═══════════════════════════════════════════════════════════════════
 
-import { count, eq } from "drizzle-orm";
 import type { ParseIssue } from "../openapi";
-import { getDB } from "../db";
-import { repoVersions } from "../db";
 
 export const MAX_SPEC_BYTES = 5 * 1024 * 1024;
 export const IMPORT_QUEUE = "openapi.import";
@@ -64,14 +61,4 @@ export function createTimer() {
       last = now;
     },
   };
-}
-
-/** 下一个导入序号（v1/v2/v3…） */
-export async function nextVersionFor(repoId: string): Promise<string> {
-  const db = getDB();
-  const [row] = await db
-    .select({ value: count() })
-    .from(repoVersions)
-    .where(eq(repoVersions.repoId, repoId));
-  return `v${(row?.value ?? 0) + 1}`;
 }

@@ -11,7 +11,8 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./auth";
-import { repositories, repoVersions } from "./repo";
+import { repositories } from "./repo";
+import { versionCommits } from "./version";
 import { endpoints } from "./endpoint";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -61,7 +62,7 @@ export const knowledgeChunks = pgTable(
       .notNull()
       .references(() => repositories.id),
     /** 所属 OpenAPI 版本（project/usage-context chunk 可为空） */
-    versionId: text("version_id").references(() => repoVersions.id),
+    versionId: text("version_id").references(() => versionCommits.id),
     /** endpoint 级 chunk 关联（L2/L3） */
     endpointId: text("endpoint_id").references(() => endpoints.id),
     /** 分层 chunk 的父节点（L3 → L2；双语 chunk 共享同一 parent） */

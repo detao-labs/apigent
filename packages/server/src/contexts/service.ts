@@ -8,7 +8,7 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { generateId } from "../id";
-import { getDB, repositories, repoTasks } from "../db";
+import { getDB, repositories, repoTasks, versions } from "../db";
 import { logInfo } from "../logger";
 import { startContextWorker } from "./worker";
 import {
@@ -119,14 +119,19 @@ export async function createContextTask(
 ): Promise<ContextTaskSummary> {
   const db = getDB();
   const [repoRow] = await db
-    .select({
-      id: repositories.id,
-      currentVersionId: repositories.currentVersionId,
-    })
+    .select({ id: repositories.id })
     .from(repositories)
     .where(eq(repositories.id, repoId))
     .limit(1);
   if (!repoRow) throw new RepoNotFoundError(repoId);
+
+  // 目标版本 = 默认主版本的 head commit
+  const [defVersion] = await db
+    .select({ headCommitId: versions.headCommitId })
+    .from(versions)
+    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .limit(1);
+  const versionId = defVersion?.headCommitId ?? null;
 
   const [active] = await db
     .select({ id: repoTasks.id })
@@ -150,7 +155,7 @@ export async function createContextTask(
   await db.insert(repoTasks).values({
     id: taskId,
     repoId,
-    versionId: repoRow.currentVersionId,
+    versionId,
     userId,
     taskType: "context",
     dependsOn: options.dependsOn ?? undefined,

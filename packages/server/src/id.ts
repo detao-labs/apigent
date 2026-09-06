@@ -24,6 +24,7 @@ export const ID_PREFIXES = {
   org: "org_",
   repo: "repo_",
   version: "ver_",
+  commit: "cmt_",
   endpoint: "api_",
   dataModel: "data_",
   module: "mod_",

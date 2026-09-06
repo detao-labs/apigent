@@ -9,7 +9,8 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
-import { repositories, repoVersions } from "./repo";
+import { repositories } from "./repo";
+import { versionCommits } from "./version";
 import { implQueueJobs } from "./queue";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -34,7 +35,7 @@ export const repoTasks = pgTable(
       .notNull()
       .references(() => repositories.id),
     /** import→产出版本；context→目标版本 */
-    versionId: text("version_id").references(() => repoVersions.id),
+    versionId: text("version_id").references(() => versionCommits.id),
     userId: text("user_id")
       .notNull()
       .references(() => users.id),

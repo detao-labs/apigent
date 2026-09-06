@@ -3,10 +3,10 @@
 // ═══════════════════════════════════════════════════════════════════
 
 export { users, organizations, organizationMembers } from "./auth";
-export { repositories, repoPermissions, repoVersions, modules } from "./repo";
+export { repositories, repoPermissions } from "./repo";
+export { versions, versionCommits, versionEntityLinks } from "./version";
 export {
   endpoints,
-  endpointModules,
   endpointResponses,
   dataModels,
   businessContexts,
