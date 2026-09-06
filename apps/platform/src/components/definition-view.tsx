@@ -620,7 +620,11 @@ function ComponentDetail({
       </div>
       <Card>
         <CardContent className="p-0">
-          {meta.length ? meta : <p className="px-4 py-3 text-sm text-muted-foreground">—</p>}
+          {meta.length
+            ? meta.map((item, i) => (
+                <React.Fragment key={i}>{item}</React.Fragment>
+              ))
+            : <p className="px-4 py-3 text-sm text-muted-foreground">—</p>}
         </CardContent>
       </Card>
       {schema ? (
