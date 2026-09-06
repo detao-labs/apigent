@@ -156,6 +156,31 @@ export async function rollbackVersion(repoId: string, versionId: string, targetC
   await db.update(versions).set({ headCommitId: targetCommitId }).where(eq(versions.id, versionId));
 }
 
+/** 回滚（R1，移指针）：把版本 head 沿 parent_commit_id 往回走 N 步。 */
+export async function rollbackVersionSteps(repoId: string, versionId: string, steps: number): Promise<string> {
+  const db = getDB();
+  const [version] = await db
+    .select({ id: versions.id, headCommitId: versions.headCommitId })
+    .from(versions)
+    .where(and(eq(versions.id, versionId), eq(versions.repoId, repoId)))
+    .limit(1);
+  if (!version) throw new VersionNotFoundError(versionId);
+
+  let current = version.headCommitId;
+  for (let i = 0; i < steps && current; i += 1) {
+    const [commit] = await db
+      .select({ parentCommitId: versionCommits.parentCommitId })
+      .from(versionCommits)
+      .where(eq(versionCommits.id, current))
+      .limit(1);
+    current = commit?.parentCommitId ?? null;
+  }
+  if (!current) throw new Error(`Version ${versionId} cannot roll back ${steps} step(s)`);
+
+  await db.update(versions).set({ headCommitId: current }).where(eq(versions.id, versionId));
+  return current;
+}
+
 // ───────────────────────────────────────────────────────────────
 // 版本对比（diff 两 commit，复用 diff engine）
 // ───────────────────────────────────────────────────────────────

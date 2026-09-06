@@ -4,6 +4,7 @@ export {
   setDefaultVersion,
   getDefaultVersionId,
   rollbackVersion,
+  rollbackVersionSteps,
   compareVersions,
   VersionNotFoundError,
   type RepoVersionRow,
