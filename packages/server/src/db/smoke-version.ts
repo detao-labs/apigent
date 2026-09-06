@@ -18,6 +18,7 @@ import {
   getDefaultVersionId,
   listVersions,
   compareVersions,
+  deleteVersionEntity,
 } from "../versions/service";
 import {
   organizations,
@@ -195,6 +196,27 @@ async function main() {
     .from(versions)
     .where(eq(versions.id, versionId));
   ok("rollback moves head to parent commit", headRow[0]?.headCommitId === newHead, `${headRow[0]?.headCommitId}`);
+
+  // 手动删除：走 deleteVersionEntity（新 commit 去掉该 link）
+  // 从当前 head commit 的 links 里取一个 endpoint（确保它确实存在于该版本）
+  const curHead = await headOf();
+  const [epToDelete] = await db
+    .select({ id: versionEntityLinks.entityId })
+    .from(versionEntityLinks)
+    .where(and(eq(versionEntityLinks.commitId, curHead), eq(versionEntityLinks.entityType, "endpoint")))
+    .limit(1);
+  const beforeHead = await headOf();
+  const del = await deleteVersionEntity(repoId, versionId, epToDelete.id);
+  const afterHead = await headOf();
+  ok("manual delete creates a new commit", afterHead === del.commitId && afterHead !== beforeHead, `${beforeHead}->${afterHead}`);
+  const linksAfterDelete = await db
+    .select()
+    .from(versionEntityLinks)
+    .where(eq(versionEntityLinks.commitId, afterHead));
+  ok(
+    "manual delete removes the endpoint link",
+    linksAfterDelete.filter((l) => l.entityType === "endpoint" && l.entityId === epToDelete.id).length === 0,
+  );
 
   const versionsList = await listVersions(repoId);
   ok("listVersions returns smoke repo", versionsList.length === 1, `${versionsList.length}`);

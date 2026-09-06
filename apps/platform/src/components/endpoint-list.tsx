@@ -2,11 +2,14 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  ConfirmDialog,
   Input,
 } from "@apigent/ui";
 import {
@@ -16,6 +19,7 @@ import {
   ListTree,
   Search,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import type { RepoEndpoint } from "@/services/repos";
@@ -237,11 +241,28 @@ function EndpointDetail({
   repoId: string;
 }) {
   const t = useTranslations("repos.detail");
+  const router = useRouter();
   const openBusinessContext = useOpenBusinessContext();
+  const [deleteTarget, setDeleteTarget] = React.useState<RepoEndpoint | null>(null);
   const parameters = (endpoint.parameters ?? []) as Record<
     string,
     unknown
   >[];
+
+  const doDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const res = await fetch(`/api/repos/${repoId}/entities/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(`delete failed: ${res.status}`);
+      toast.success(t("endpointsDeleted"));
+      setDeleteTarget(null);
+      router.refresh();
+    } catch {
+      toast.error(t("endpointsDeleteFailed"));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -282,6 +303,16 @@ function EndpointDetail({
           >
             <Sparkles className="mr-1.5 size-3.5" />
             {t("endpointsContext")}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-2 text-destructive"
+            onClick={() => setDeleteTarget(endpoint)}
+          >
+            <Trash2 className="mr-1.5 size-3.5" />
+            {t("endpointsDelete")}
           </Button>
         </div>
       </div>
@@ -411,6 +442,19 @@ function EndpointDetail({
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={t("endpointsDeleteTitle")}
+        description={t("endpointsDeleteDesc", {
+          name: deleteTarget?.method ? `${deleteTarget.method} ${deleteTarget.path}` : "",
+        })}
+        confirmText={t("endpointsDelete")}
+        cancelText={t("cancel")}
+        destructive
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

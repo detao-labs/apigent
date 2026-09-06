@@ -414,6 +414,12 @@
         "detailCallback": "Callback"
       },
       "endpointsEmpty": "No endpoints yet",
+      "endpointsDelete": "Delete",
+      "endpointsDeleted": "Endpoint deleted",
+      "endpointsDeleteFailed": "Delete failed, please retry",
+      "endpointsDeleteTitle": "Delete endpoint",
+      "endpointsDeleteDesc": "Delete {name}? This creates a new version without this endpoint; you can roll back to recover it.",
+      "cancel": "Cancel",
       "endpointsEmptyDesc": "Import an OpenAPI specification and endpoints will be listed here.",
       "endpointsSub": "Browse and search this repository's endpoints",
       "endpointsSearchPlaceholder": "Search path, summary or operationId",

@@ -293,3 +293,85 @@ export async function listVersionHistory(repoId: string): Promise<VersionHistory
     .orderBy(desc(versionCommits.createdAt));
   return rows as VersionHistoryEntry[];
 }
+
+export interface DeleteEntityResult {
+  commitId: string;
+  identityKey: string;
+  entityType: string;
+}
+
+/**
+ * 手动删除：在目标版本上新建一个 commit，去掉该实体的 link（其内容仍作为 blob 保留，
+ * 历史 commit 引用它），并把版本 head 移到新 commit。可回滚找回。
+ */
+export async function deleteVersionEntity(
+  repoId: string,
+  versionId: string,
+  entityId: string,
+): Promise<DeleteEntityResult> {
+  const db = getDB();
+  const [version] = await db
+    .select({ headCommitId: versions.headCommitId })
+    .from(versions)
+    .where(and(eq(versions.id, versionId), eq(versions.repoId, repoId)))
+    .limit(1);
+  if (!version) throw new VersionNotFoundError(versionId);
+  const parentCommitId = version.headCommitId;
+  if (!parentCommitId) throw new Error(`Version ${versionId} has no head commit to delete from`);
+
+  const [link] = await db
+    .select({
+      identityKey: versionEntityLinks.identityKey,
+      entityType: versionEntityLinks.entityType,
+    })
+    .from(versionEntityLinks)
+    .where(and(eq(versionEntityLinks.commitId, parentCommitId), eq(versionEntityLinks.entityId, entityId)))
+    .limit(1);
+  if (!link) throw new Error(`Entity not found in version ${versionId}: ${entityId}`);
+
+  const parentLinks = await db
+    .select({
+      entityType: versionEntityLinks.entityType,
+      identityKey: versionEntityLinks.identityKey,
+      entityId: versionEntityLinks.entityId,
+    })
+    .from(versionEntityLinks)
+    .where(eq(versionEntityLinks.commitId, parentCommitId));
+  const remaining = parentLinks.filter((l) => !(l.entityId === entityId && l.identityKey === link.identityKey));
+
+  const [parentMeta] = await db
+    .select({
+      specTitle: versionCommits.specTitle,
+      specVersion: versionCommits.specVersion,
+      description: versionCommits.description,
+      specStoragePath: versionCommits.specStoragePath,
+      tagMeta: versionCommits.tagMeta,
+    })
+    .from(versionCommits)
+    .where(eq(versionCommits.id, parentCommitId))
+    .limit(1);
+
+  const commitId = generateId("commit");
+  await db.insert(versionCommits).values({
+    id: commitId,
+    repoId,
+    versionId,
+    parentCommitId,
+    specTitle: parentMeta?.specTitle ?? null,
+    specVersion: parentMeta?.specVersion ?? null,
+    description: parentMeta?.description ?? null,
+    specStoragePath: parentMeta?.specStoragePath ?? null,
+    source: "manual",
+    tagMeta: parentMeta?.tagMeta ?? null,
+    changeSummary: { added: [], updated: [], removed: [link.identityKey] },
+  });
+  if (remaining.length > 0) {
+    await db
+      .insert(versionEntityLinks)
+      .values(remaining.map((l) => ({ ...l, commitId })))
+      .onConflictDoNothing();
+  }
+  await db.update(versions).set({ headCommitId: commitId }).where(eq(versions.id, versionId));
+
+  return { commitId, identityKey: link.identityKey, entityType: link.entityType };
+}

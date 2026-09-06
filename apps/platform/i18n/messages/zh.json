@@ -414,6 +414,12 @@
         "detailCallback": "Callback"
       },
       "endpointsEmpty": "暂无接口",
+      "endpointsDelete": "删除",
+      "endpointsDeleted": "已删除接口",
+      "endpointsDeleteFailed": "删除失败，请稍后重试",
+      "endpointsDeleteTitle": "删除接口",
+      "endpointsDeleteDesc": "确定删除 {name} 吗？会创建一个删除该接口的新版本，可回滚找回。",
+      "cancel": "取消",
       "endpointsEmptyDesc": "导入 OpenAPI 规范后，接口将在此展示。",
       "endpointsSub": "浏览与搜索该仓库的接口",
       "endpointsSearchPlaceholder": "搜索路径、摘要或 operationId",
