@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@apigent/ui";
 import {
   ArrowLeft,
-  GitBranch,
+  GitGraph,
   History,
   LayoutDashboard,
   ListTree,
@@ -32,7 +32,7 @@ export function RepoRail({
     { key: "overview", label: nav("overview"), url: base, icon: LayoutDashboard },
     { key: "definitions", label: nav("definitions"), url: `${base}/definition`, icon: ListTree },
     { key: "context", label: nav("context"), url: `${base}/context`, icon: Sparkles },
-    { key: "versions", label: nav("versions"), url: `${base}/versions`, icon: GitBranch },
+    { key: "versions", label: nav("versions"), url: `${base}/versions`, icon: GitGraph },
     { key: "history", label: nav("history"), url: `${base}/history`, icon: History },
     { key: "settings", label: nav("settings"), url: `${base}/settings`, icon: Settings },
   ];
