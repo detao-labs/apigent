@@ -51,8 +51,8 @@ export const implQueueJobs = pgTable(
   },
   (table) => [
     // 消费扫描：按状态 + 可用时间取队首
-    index("queue_jobs_status_available_idx").on(table.status, table.availableAt),
+    index("impl_queue_jobs_status_available_idx").on(table.status, table.availableAt),
     // 按队列名过滤（同一队列多消费者场景）
-    index("queue_jobs_queue_status_idx").on(table.queueName, table.status),
+    index("impl_queue_jobs_queue_status_idx").on(table.queueName, table.status),
   ],
 );

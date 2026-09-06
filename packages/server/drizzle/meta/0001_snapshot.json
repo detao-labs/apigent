@@ -1,5 +1,5 @@
 {
-  "id": "19f5eb2e-18e4-4b5c-b82f-c34b8d8a42c8",
+  "id": "98b3e547-bd42-4767-9bd6-2591475171a8",
   "prevId": "8163143e-f793-41a2-97cf-2e227fe1d207",
   "version": "7",
   "dialect": "postgresql",
@@ -853,8 +853,8 @@
         }
       },
       "indexes": {
-        "queue_jobs_status_available_idx": {
-          "name": "queue_jobs_status_available_idx",
+        "impl_queue_jobs_status_available_idx": {
+          "name": "impl_queue_jobs_status_available_idx",
           "columns": [
             {
               "expression": "status",
@@ -874,8 +874,8 @@
           "method": "btree",
           "with": {}
         },
-        "queue_jobs_queue_status_idx": {
-          "name": "queue_jobs_queue_status_idx",
+        "impl_queue_jobs_queue_status_idx": {
+          "name": "impl_queue_jobs_queue_status_idx",
           "columns": [
             {
               "expression": "queue_name",
