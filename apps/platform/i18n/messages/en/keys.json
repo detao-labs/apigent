@@ -1,0 +1,29 @@
+{
+  "keys": {
+    "title": "API Keys",
+    "description": "Manage secret keys for API and MCP access",
+    "generate": "Generate New Key",
+    "revoke": "Revoke",
+    "never": "Never",
+    "table": {
+      "name": "Name",
+      "prefix": "Key Prefix",
+      "scopes": "Scopes",
+      "lastUsed": "Last Used",
+      "expires": "Expires",
+      "actions": "Actions"
+    },
+    "empty": {
+      "title": "No keys",
+      "description": "Create your first API key"
+    },
+    "examples": {
+      "title": "Integration examples",
+      "description": "Use your key with MCP or REST calls",
+      "mcp": "MCP config (claude_desktop_config.json)",
+      "rest": "REST call",
+      "copy": "Copy",
+      "copied": "Copied"
+    }
+  }
+}

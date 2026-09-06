@@ -1,0 +1,24 @@
+{
+  "errors": {
+    "genericTitle": "出了点问题",
+    "description": "发生了意外错误。请重试，或返回首页。",
+    "retry": "重试",
+    "backHome": "返回首页",
+    "databaseTitle": "数据库连接失败",
+    "databaseDescription": "无法连接到数据库，页面暂时无法加载。",
+    "databaseHint": "可以这样排查：",
+    "hints": {
+      "connection": [
+        "确认 PostgreSQL 已启动（如 docker compose up -d 或启动 postgres 容器）",
+        "确认数据库端口与 APIGENT_DATABASE_URL 一致（默认 5433）",
+        "数据库恢复后点击“重试”"
+      ],
+      "migrations": [
+        "数据库可达但缺少表结构——请先执行 drizzle 迁移",
+        "迁移文件位于 packages/server/drizzle",
+        "迁移完成后点击“重试”"
+      ]
+    },
+    "digest": "错误编号"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "organizations": "Organizations",
+    "repositories": "Repositories",
+    "apiKeys": "API Keys",
+    "settings": "Settings",
+    "workspace": "Workspace",
+    "brandSubtitle": "API for Agents"
+  }
+}

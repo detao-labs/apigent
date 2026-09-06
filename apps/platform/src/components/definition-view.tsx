@@ -405,6 +405,7 @@ function EndpointDetail({
   onSelectModel: (name: string) => void;
 }) {
   const t = useTranslations("repos.detail");
+  const te = useTranslations("repos.detail.endpoints");
   const parameters = (ep.parameters ?? []) as Record<string, unknown>[];
   return (
     <div className="space-y-5">
@@ -413,7 +414,7 @@ function EndpointDetail({
           <Badge className={methodStyle(ep.method)}>{ep.method}</Badge>
           <code className="font-mono text-sm">{ep.path}</code>
           {ep.deprecated && (
-            <Badge variant="destructive">{t("endpointsDeprecated")}</Badge>
+            <Badge variant="destructive">{te("endpointsDeprecated")}</Badge>
           )}
         </div>
         <h2 className="mt-2 text-xl font-bold tracking-tight">
@@ -421,7 +422,7 @@ function EndpointDetail({
         </h2>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {ep.operationId && (
-            <span>{t("endpointsOperationId")}: {ep.operationId}</span>
+            <span>{te("endpointsOperationId")}: {ep.operationId}</span>
           )}
           {ep.modules.map((m) => (
             <Badge key={m} variant="secondary">
@@ -438,19 +439,19 @@ function EndpointDetail({
       )}
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold">{t("endpointsParameters")}</h3>
+        <h3 className="mb-2 text-sm font-semibold">{te("endpointsParameters")}</h3>
         {parameters.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("endpointsNoParameters")}</p>
+          <p className="text-sm text-muted-foreground">{te("endpointsNoParameters")}</p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">{t("endpointsName")}</th>
-                  <th className="px-3 py-2 font-medium">{t("endpointsLocation")}</th>
-                  <th className="px-3 py-2 font-medium">{t("endpointsRequired")}</th>
-                  <th className="px-3 py-2 font-medium">{t("endpointsType")}</th>
-                  <th className="px-3 py-2 font-medium">{t("endpointsDescription")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsName")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsLocation")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsRequired")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsType")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsDescription")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -460,7 +461,7 @@ function EndpointDetail({
                     <td className="px-3 py-2 text-muted-foreground">{String(p.in ?? "")}</td>
                     <td className="px-3 py-2">
                       {p.required ? (
-                        <Badge variant="destructive">{t("endpointsRequired")}</Badge>
+                        <Badge variant="destructive">{te("endpointsRequired")}</Badge>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
@@ -479,7 +480,7 @@ function EndpointDetail({
 
       <section>
         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-          {t("endpointsRequestBody")}
+          {te("endpointsRequestBody")}
           {ep.requestContentType && (
             <Badge variant="secondary" className="font-mono text-xs">
               {ep.requestContentType}
@@ -489,14 +490,14 @@ function EndpointDetail({
         {ep.requestSchema ? (
           <SchemaRefView schemaRef={ep.requestSchema} onSelectModel={onSelectModel} />
         ) : (
-          <p className="text-sm text-muted-foreground">{t("endpointsNoRequestBody")}</p>
+          <p className="text-sm text-muted-foreground">{te("endpointsNoRequestBody")}</p>
         )}
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold">{t("endpointsResponses")}</h3>
+        <h3 className="mb-2 text-sm font-semibold">{te("endpointsResponses")}</h3>
         {ep.responses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("endpointsNoResponses")}</p>
+          <p className="text-sm text-muted-foreground">{te("endpointsNoResponses")}</p>
         ) : (
           <div className="space-y-1.5">
             {ep.responses.map((r, i) => (
@@ -564,6 +565,7 @@ function ComponentDetail({
   onSelectModel: (name: string) => void;
 }) {
   const t = useTranslations("repos.detail");
+  const te = useTranslations("repos.detail.endpoints");
   const p = c.payload ?? {};
   const schema = p.schema as Record<string, unknown> | undefined;
 
@@ -579,7 +581,7 @@ function ComponentDetail({
   const kindLabel = d(`detail${cap(c.kind)}`);
   const meta: React.ReactNode[] = [];
   if (c.defType) meta.push(row("Type", <code className="font-mono">{c.defType}</code>));
-  if (c.description) meta.push(row(t("endpointsDescription"), c.description));
+  if (c.description) meta.push(row(te("endpointsDescription"), c.description));
 
   if (c.kind === "securityScheme") {
     if (typeof p.in === "string") meta.push(row("In", p.in));
@@ -642,10 +644,11 @@ function SchemaRefView({
   onSelectModel?: (name: string) => void;
 }) {
   const t = useTranslations("repos.detail");
+  const te = useTranslations("repos.detail.endpoints");
   const any = (schemaRef ?? null) as Record<string, unknown> | null;
   if (!any) return null;
   if (any.unresolved === true) {
-    return <p className="text-sm text-muted-foreground">{t("endpointsUnresolved")}</p>;
+    return <p className="text-sm text-muted-foreground">{te("endpointsUnresolved")}</p>;
   }
   if (typeof any.ref === "string") {
     const name = String(any.ref).split("/").pop() ?? String(any.ref);

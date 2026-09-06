@@ -1,0 +1,32 @@
+{
+  "contexts": {
+    "title": "业务上下文",
+    "subtitle": "查看和编辑接口的业务上下文（能力、约束、副作用与使用场景）",
+    "loading": "加载中…",
+    "empty": "该仓库还没有接口，或上下文尚未生成。",
+    "notGenerated": "未生成",
+    "generated": "已生成",
+    "needsReview": "待审阅",
+    "humanEdited": "人工编辑",
+    "generating": "生成中…",
+    "failed": "生成失败",
+    "capabilityName": "能力名称",
+    "capabilityNamePlaceholder": "如：订单退款",
+    "intent": "意图",
+    "constraints": "约束",
+    "addConstraint": "添加约束",
+    "noConstraints": "暂无约束",
+    "rulePlaceholder": "规则描述，如：订单状态必须为已支付",
+    "sideEffects": "副作用",
+    "usageScenarios": "使用场景",
+    "lineSeparatedPlaceholder": "每行一项",
+    "save": "保存",
+    "saved": "已保存",
+    "regenerated": "已重新生成",
+    "generateFailed": "生成失败，请稍后重试",
+    "regenerate": "重新生成",
+    "confirmRegenerate": "重新生成将覆盖当前内容，确定继续吗？",
+    "confidence": "置信度",
+    "source": "来源"
+  }
+}

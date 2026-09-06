@@ -1,0 +1,91 @@
+{
+  "orgs": {
+    "title": "Organizations",
+    "description": "Manage your team workspaces",
+    "editTitle": "Edit organization",
+    "edit": "Edit",
+    "nameLabel": "Name",
+    "descriptionLabel": "Description",
+    "namePlaceholder": "Organization name",
+    "descriptionPlaceholder": "Purpose and scope of the organization (used as RAG corpus)",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Organization info saved",
+    "saveFailed": "Save failed, please try again later",
+    "empty": {
+      "title": "No organizations",
+      "description": "Create your first organization to get started"
+    },
+    "new": {
+      "title": "New Organization",
+      "description": "Create a new organization to collaborate with your team",
+      "details": "Organization Details",
+      "detailsDesc": "Fill in the basic information for your organization",
+      "name": "Name",
+      "namePlaceholder": "e.g. E-commerce Team",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "Brief description of this organization",
+      "submit": "Create Organization",
+      "cancel": "Cancel",
+      "errors": {
+        "invalid": "Please check the form fields",
+        "generic": "Something went wrong, please try again"
+      }
+    },
+    "table": {
+      "name": "Name",
+      "members": "Members",
+      "repos": "Repos",
+      "actions": "Actions",
+      "viewRepos": "View repos"
+    },
+    "detail": {
+      "invite": "Invite member",
+      "inviteEmail": "Email",
+      "inviteRole": "Role",
+      "sendInvite": "Send invite",
+      "inviteSuccess": "Invite sent",
+      "inviteFailed": "Invite failed",
+      "userNotFound": "No user found with this email",
+      "alreadyMember": "Already a member",
+      "remove": "Remove",
+      "removeConfirm": "Remove this member? They will lose access to all repos in this organization.",
+      "removed": "Member removed",
+      "removeFailed": "Remove failed",
+      "roleUpdated": "Role updated",
+      "roleUpdateFailed": "Role update failed",
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "ownerNote": "Owner · transfer in Settings",
+      "you": "(you)",
+      "tabs": {
+        "overview": "Overview",
+        "members": "Members",
+        "repos": "Repos",
+        "settings": "Settings"
+      },
+      "membersTitle": "Members",
+      "membersEmpty": "No members yet",
+      "reposTitle": "Repositories",
+      "reposEmpty": "No repositories yet",
+      "createRepo": "New repository",
+      "settingsTitle": "Settings",
+      "name": "Name",
+      "description": "Description",
+      "save": "Save",
+      "saved": "Saved",
+      "saveFailed": "Save failed",
+      "transferTitle": "Transfer ownership",
+      "transferDesc": "Transfer to another member. You become admin; irreversible.",
+      "newOwner": "New owner",
+      "transferBtn": "Transfer ownership",
+      "statsRepos": "Repositories",
+      "statsMembers": "Members",
+      "statsEndpoints": "Endpoints",
+      "detail": "Details",
+      "forbidden": "You don't have access to this organization",
+      "back": "Back to organizations"
+    }
+  }
+}

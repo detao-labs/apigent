@@ -1,0 +1,69 @@
+{
+  "settings": {
+    "title": "Settings",
+    "description": "Account, API keys, preferences and notifications",
+    "backToDashboard": "Back to dashboard",
+    "groups": {
+      "userInfo": "User",
+      "prefs": "Preferences"
+    },
+    "sections": {
+      "account": "Account",
+      "keys": "API keys",
+      "preferences": "Preferences",
+      "notifications": "Notifications"
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Shown on sign-in and team collaboration",
+      "avatar": "Avatar",
+      "changeAvatar": "Change avatar",
+      "name": "Name",
+      "email": "Email",
+      "emailHint": "Used to sign in and receive notifications",
+      "save": "Save",
+      "saved": "Profile saved",
+      "pending": "(backend pending)"
+    },
+    "password": {
+      "title": "Change password",
+      "description": "Regularly changing your password improves security",
+      "current": "Current password",
+      "new": "New password",
+      "newPlaceholder": "At least 8 characters",
+      "hint": "Mix letters, numbers and symbols",
+      "confirm": "Confirm new password",
+      "confirmPlaceholder": "Enter the new password again",
+      "update": "Update password",
+      "updated": "Password updated",
+      "errors": {
+        "currentRequired": "Enter your current password",
+        "weak": "New password must be at least 8 characters",
+        "mismatch": "Passwords do not match"
+      }
+    },
+    "preferences": {
+      "languageTitle": "Interface language",
+      "languageDescription": "Synced with the top bar quick switch",
+      "language": "Language",
+      "languageHint": "Switch language from the top bar on any page",
+      "themeTitle": "Theme",
+      "themeDescription": "Synced with the top bar settings",
+      "appearance": "Appearance"
+    },
+    "notifications": {
+      "title": "More settings",
+      "description": "Settings live on this page and can be extended with new sections",
+      "notifications": "Notification preferences",
+      "sessions": "Session management",
+      "apiPrefs": "API preferences",
+      "comingSoon": "Coming soon",
+      "prefImport": "Import results",
+      "prefContext": "Business context",
+      "prefKey": "API keys",
+      "prefSystem": "Platform announcements",
+      "saved": "Saved",
+      "saveFailed": "Save failed"
+    }
+  }
+}

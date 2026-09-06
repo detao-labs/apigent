@@ -1,0 +1,11 @@
+{
+  "nav": {
+    "dashboard": "仪表盘",
+    "organizations": "组织",
+    "repositories": "仓库",
+    "apiKeys": "API 密钥",
+    "settings": "设置",
+    "workspace": "工作台",
+    "brandSubtitle": "为Agent而生"
+  }
+}

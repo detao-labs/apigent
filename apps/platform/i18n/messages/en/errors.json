@@ -1,0 +1,24 @@
+{
+  "errors": {
+    "genericTitle": "Unexpected error",
+    "description": "An unexpected error occurred. Please try again, or go back to the home page.",
+    "retry": "Try again",
+    "backHome": "Back to home",
+    "databaseTitle": "Database unavailable",
+    "databaseDescription": "We couldn't connect to the database, so this page can't be loaded right now.",
+    "databaseHint": "How to fix this:",
+    "hints": {
+      "connection": [
+        "Make sure PostgreSQL is running (e.g. docker compose up -d or start the postgres container)",
+        "Check that the database port matches APIGENT_DATABASE_URL (default 5433)",
+        "Once the database is back, click “Try again”"
+      ],
+      "migrations": [
+        "The database is reachable but tables are missing — run the drizzle migrations first",
+        "Migration files live in packages/server/drizzle",
+        "After migrating, click “Try again”"
+      ]
+    },
+    "digest": "Error reference"
+  }
+}
