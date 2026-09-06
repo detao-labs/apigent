@@ -542,6 +542,8 @@ apps/
     └── auth/           # Shared auth utilities
 ```
 
+> **Note:** This is the *target* application structure. In the current repo the Hono server lives at `apps/open`, shared server modules (OpenAPI parser, contexts, versions, imports, queue, auth/authz, notifications) live in `packages/server`, and there are no `mcp/` or `jobs/` folders yet — the MCP Gateway and BullMQ workers are designed, not implemented.
+
 ### Why Hono for the API Server?
 
 The Core API Server is separated from Next.js for three reasons:
@@ -553,6 +555,8 @@ The Core API Server is separated from Next.js for three reasons:
 | **Deployment flexibility** |                                       Tied to Vercel/Node.js serverless model                                       | Deploy anywhere — VPS, K8s, Docker, or edge runtimes (Bun, Cloudflare Workers) |
 
 ### MCP Transport
+
+> **Status:** designed, not yet implemented. The `apps/open` Hono process currently serves `/` and `/health` only; there is no `/mcp` endpoint or tool registration yet (`@modelcontextprotocol/sdk` is a declared dependency but unused).
 
 Apigent's MCP Gateway uses **Streamable HTTP** (2025 spec), not the older SSE-based transport:
 
@@ -584,6 +588,8 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 | **MCP**             | @modelcontextprotocol/sdk              | —                       | Standard MCP implementation, Streamable HTTP transport                                     |
 | **Storage**         | Local filesystem                       | `StorageProvider`       | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage                                |
 | **Diff**            | diff (or custom renderer)              | —                       | Side-by-side comparison for version history and AI edits                                   |
+
+> **Implementation status:** the table above is the *target* V0 stack. In the current codebase the DI container registers only the `memory` vector store, `local` storage, and Postgres queue. LLM, Embedding, pgvector, BullMQ and the MCP Gateway are defined in config/types but have no factory yet — `getLLM()`, `getEmbedding()`, `getVectorStore()` (non-`memory`), and `getQueue()` (non-`postgres`/`memory`) fail fast with `not implemented` (see `packages/core/src/di/container.test.ts`).
 
 ## 5.3 API Layer Design
 

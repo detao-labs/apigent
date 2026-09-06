@@ -1,5 +1,7 @@
 # Business Context — 业务上下文生成与编辑（技术设计）
 
+> **状态：** 部分实现——上下文服务与 agent 工具位于 `packages/server/src/contexts` 与 `packages/core/src/agent/business-context-tools.ts`。
+
 > **状态：V0 设计稿（2026-08-13），评审通过后实施；本文档不修改任何代码。**
 > **关联：** Agent 行为规范见 [business-context.agent.md](./business-context.agent.md)；任务调度与通知复用 [async-queue.md](./async-queue.md)；交互式生成接入 [agent-runtime.md](./agent-runtime.md)；配置的 LLM 部分见 `packages/core/src/config`。
 

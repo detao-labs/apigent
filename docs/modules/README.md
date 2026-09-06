@@ -1,5 +1,7 @@
 # Apigent Agent Architecture
 
+> **状态：** 模块套件的架构索引 / 设计依据。每个模块有自己的状态横幅——部分已实现，其余为仅设计。
+
 > 🌐 Language: [English](./README.md) | [中文](./README.zh.md)
 
 ## 设计原则

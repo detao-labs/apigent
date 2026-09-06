@@ -1,5 +1,7 @@
 # MCP Gateway
 
+> **状态：** 仅设计——尚未实现。只存在配置（`mcp.path`、`mcp_enabled`）与 `mcp` 通知分类；尚无 `/mcp` 端点或工具注册。
+
 > **类型：协议服务器**（非 Agent，非普通 Service——MCP 协议适配层）
 > **版本：V1**（V0 聚焦 Platform Webapp，不挂载 MCP；本文档为设计稿）
 

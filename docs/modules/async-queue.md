@@ -1,5 +1,7 @@
 # Async Queue & Notifications — 异步队列与消息通知
 
+> **状态：** 已实现——Postgres 队列（`packages/server/src/queue/pg-queue.ts`）；BullMQ/Redis 为扩容目标，尚未实现。
+
 > **类型：Platform Service**（确定性逻辑；队列调度本身不需要 LLM）
 
 ## 定位

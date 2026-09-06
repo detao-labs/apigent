@@ -1,5 +1,7 @@
 # Knowledge Retrieval Service
 
+> **状态：** 部分实现——检索配置与内存向量库已存在；完整 RAG 管道/Provider 尚未接线（仅 `memory` 向量库，其它 provider 的 `getEmbedding()`/`getVectorStore()` 会抛 `not implemented`）。
+
 > **类型：Platform Service**（确定性逻辑，不需要 LLM）
 
 ## 定位

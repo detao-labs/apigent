@@ -541,6 +541,8 @@ apps/
     └── auth/           # 共享认证工具
 ```
 
+> **说明：** 这是*目标*应用结构。当前仓库里 Hono 服务位于 `apps/open`，共享服务端模块（OpenAPI 解析、上下文、版本、导入、队列、鉴权/授权、通知）位于 `packages/server`，且目前没有 `mcp/` 或 `jobs/` 目录——MCP Gateway 与 BullMQ 工作进程仍是设计，尚未实现。
+
 ### 为什么 Core API Server 用 Hono？
 
 将 Core API Server 与 Next.js 分离，基于三个理由：
@@ -552,6 +554,8 @@ apps/
 | **部署灵活**   |                    绑定 Vercel/Node.js serverless 模型                     | 可部署到 VPS、K8s、Docker，甚至未来迁移到边缘运行时（Bun、Cloudflare Workers） |
 
 ### MCP 传输模式
+
+> **状态：** 已设计，尚未实现。`apps/open` 的 Hono 进程目前只提供 `/` 与 `/health`；尚无 `/mcp` 端点或工具注册（`@modelcontextprotocol/sdk` 是声明依赖，但未使用）。
 
 Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧的 SSE 传输：
 
@@ -583,6 +587,8 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 | **MCP**         | @modelcontextprotocol/sdk               | —                   | 标准 MCP 实现，Streamable HTTP 传输                                             |
 | **存储**        | 本地文件系统                            | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                            |
 | **Diff**        | diff（或自研渲染器）                    | —                   | 版本对比和 AI 编辑建议展示                                                      |
+
+> **实现状态：** 上表是*目标* V0 技术栈。当前代码里 DI 容器只注册了 `memory` 向量库、`local` 存储与 Postgres 队列。LLM、Embedding、pgvector、BullMQ 以及 MCP Gateway 只在 config/types 中定义，尚无工厂实现——`getLLM()`、`getEmbedding()`、`getVectorStore()`（非 `memory`）、`getQueue()`（非 `postgres`/`memory`）都会以 `not implemented` 快速失败（参见 `packages/core/src/di/container.test.ts`）。
 
 ## 5.3 API 层设计
 

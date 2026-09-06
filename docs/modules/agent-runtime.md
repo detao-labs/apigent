@@ -1,5 +1,7 @@
 # Agent Runtime — AI 对话运行时与工具系统（技术设计）
 
+> **状态：** 部分实现——agent registry 与业务上下文工具位于 `packages/core/src/agent`；完整的对话/规划运行时为设计，尚未实现。
+
 > **状态：V0 设计稿（2026-08-13），评审通过后实施；本文档不修改任何代码。**
 > **关联：** 业务上下文生成接入本运行时（[business-context.md](./business-context.md)）；批量生成的任务调度与通知复用 [async-queue.md](./async-queue.md)；LLM 配置见 `packages/core/src/config`。
 

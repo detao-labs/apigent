@@ -1,5 +1,7 @@
 # Semantic Search Agent
 
+> **状态：** 仅设计——配置与内存向量库已存在，但尚无语义搜索 agent 端点。
+
 > **类型：AI Agent**（LLM 驱动，需要语义理解）
 
 ## 定位

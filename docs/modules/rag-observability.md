@@ -1,5 +1,7 @@
 # RAG Observability
 
+> **状态：** 仅设计——尚未实现。
+
 > **Type: Platform Service**（确定性逻辑，不需要 LLM）
 
 ## 定位

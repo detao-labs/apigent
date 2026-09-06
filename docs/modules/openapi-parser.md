@@ -1,5 +1,7 @@
 # OpenAPI Parser Service
 
+> **状态：** 已实现——`packages/server/src/openapi/parser.ts`（含测试）。
+
 > **类型：Platform Service**（确定性逻辑，不需要 LLM）
 
 ## 定位

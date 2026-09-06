@@ -1,5 +1,7 @@
 # Business Context Agent
 
+> **状态：** 部分实现——上下文服务与 agent 工具位于 `packages/server/src/contexts` 与 `packages/core/src/agent/business-context-tools.ts`。
+
 > **类型：AI Agent**（LLM 驱动，需要推理能力）
 
 ## 定位

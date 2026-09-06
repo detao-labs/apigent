@@ -1,5 +1,7 @@
 # Audit Log（操作日志）— 技术债记录
 
+> **状态：** 仅 schema——`packages/server/src/db/schema/audit.ts`；尚无读写服务。
+
 > **状态：V0 未接线（表已建，写/查/展示均未实现），记录以便后续实现**
 
 ## 目标
@@ -39,4 +41,3 @@
 
 - **Phase 4 版本管理**：`设为当前 / 导出 / 对比` 均应写审计；diff 明细沉淀到 `operation_log_details`。
 - **Observability**：操作日志偏业务审计，日志/追踪偏系统诊断，二者不冲突，详见 [observability.md](./observability.md)。
-

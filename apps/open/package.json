@@ -2,7 +2,7 @@
   "name": "@apigent/open",
   "version": "0.1.0",
   "private": true,
-  "description": "Apigent Open API Gateway — Hono (REST + MCP)",
+  "description": "Apigent Open API Gateway — Hono (REST implemented; MCP planned, not yet implemented)",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",

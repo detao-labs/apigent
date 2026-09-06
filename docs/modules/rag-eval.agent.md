@@ -1,5 +1,7 @@
 # RAG Evaluation Agent
 
+> **状态：** 仅设计——尚未实现。
+
 > **Type: AI Agent**（LLM 驱动，LLM-as-judge 打分）
 
 ## 定位

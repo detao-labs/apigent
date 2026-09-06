@@ -1,5 +1,7 @@
 # Knowledge Graph Service
 
+> **状态：** 仅设计——`packages/server/src/db/schema/knowledge.ts` 搭建了 schema（`knowledgeGraph.enabled: false`）；尚未实现图谱构建。
+
 > **类型：Platform Service**（确定性逻辑，不需要 LLM）
 >
 > **状态：V1+ 可选增强，默认关闭**（配置开关 `rag.knowledgeGraph.enabled`）。V0 不构建图谱。

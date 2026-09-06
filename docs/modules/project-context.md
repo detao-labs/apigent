@@ -1,5 +1,7 @@
 # Project Context Service
 
+> **状态：** 仅设计——V1+；尚未实现。
+
 > **类型：Platform Service**（确定性逻辑，不需要 LLM）
 
 ## 定位

@@ -37,24 +37,26 @@ Config types live in `packages/core/src/config/types.ts` as discriminated unions
 
 All infrastructure concerns have TypeScript interfaces (`VectorStore`, `LLMProvider`, `EmbeddingProvider`, `StorageProvider`, `QueueProvider`) with default implementations. Business code never imports concrete implementations directly — it uses `getContainer().getVectorStore()` etc. See `docs/tech-design.md` Section 5.5.
 
+> **Implementation status:** the config + DI scaffolding is in place, but only the `memory` vector store, `local` storage, and Postgres queue providers are registered. LLM, Embedding, pgvector, BullMQ, and the MCP Gateway are defined in config/types but have no factory yet — `getLLM()`, `getEmbedding()`, `getVectorStore()` (non-`memory`), and `getQueue()` (non-`postgres`/`memory`) fail fast with `not implemented` (see the fail-fast tests in `packages/core/src/di/container.test.ts`).
+
 ### Bilingual documentation
 
-All `docs/*.md` files have a `.zh.md` counterpart. Both must be kept in sync when documentation changes. The `common-docs-i18n` skill handles this.
+`docs/*.md` files should have a `.zh.md` counterpart, and both must stay in sync when documentation changes (the `common-docs-i18n` skill handles this). Note: only `docs/blueprint.md` and `docs/tech-design.md` currently have `.zh.md`; the `docs/modules/*` docs are English-only as of now.
 
 ## Technology Stack (V0)
 
-| Layer         | Choice                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------- |
-| API Server    | Hono (TypeScript, independent process — not bundled with Next.js)                                    |
-| Webapps       | Next.js App Router (Platform + Admin, separate instances)                                            |
-| Webapp ↔ API  | REST + Hono RPC (`hc`) + OpenAPI (Zod schemas); public REST uses SecretKey `api:*`, MCP uses `mcp:*` |
-| Database      | PostgreSQL + Drizzle ORM                                                                             |
-| Vector store  | pgvector (swappable to Milvus/Qdrant/etc.)                                                           |
-| LLM           | Qwen API (DashScope; swappable to Claude/OpenAI/Gemini/Ollama)                                       |
-| Embedding     | Qwen text-embedding-v4 (DashScope)                                                                   |
-| Async tasks   | BullMQ + Redis                                                                                       |
-| Auth          | NextAuth.js with RBAC                                                                                |
-| MCP transport | Streamable HTTP (`@modelcontextprotocol/sdk`)                                                        |
+| Layer         | Choice                                                                                                    |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| API Server    | Hono (TypeScript, independent process — not bundled with Next.js)                                         |
+| Webapps       | Next.js App Router (Platform + Admin, separate instances)                                                 |
+| Webapp ↔ API  | REST + Hono RPC (`hc`) + OpenAPI (Zod schemas); public REST uses SecretKey `api:*`, MCP uses `mcp:*`        |
+| Database      | PostgreSQL + Drizzle ORM                                                                                  |
+| Vector store  | `memory` (implemented, dev/tests); `pgvector` is the V0 target — not yet implemented                       |
+| LLM           | Config-target `qwen` (Claude/OpenAI/Gemini/Ollama selectable); only a stub exists — `getLLM()` throws       |
+| Embedding     | Config-target `qwen` text-embedding-v4; only a stub exists — `getEmbedding()` throws                        |
+| Async tasks   | Postgres queue (implemented V0 default); BullMQ + Redis is the scale target — not yet implemented           |
+| Auth          | NextAuth.js with RBAC                                                                                     |
+| MCP transport | Streamable HTTP (`@modelcontextprotocol/sdk`) — config scaffold only, Gateway not implemented yet           |
 
 ## Port Conventions
 
@@ -91,7 +93,7 @@ All packages follow this pattern from `packages/core/package.json`:
 
 ## Config Module Architecture
 
-The config system is the first (and currently only) implemented module. It has three layers:
+The config system is the first implemented module. It has three layers:
 
 | File             | Role                                                                                            | Public?                                                 |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -105,7 +107,7 @@ The config system is the first (and currently only) implemented module. It has t
 
 **Notable:** `yaml` is a declared dependency (full YAML 1.2 parsing). `loadConfig()` loads `<rootDir>/.env` into `process.env` (shell env wins), then validates the fully-merged config with the zod `ApigentConfigSchema` — wrong-typed YAML values and unknown provider names fail at startup with a readable error.
 
-**Env var naming convention:** `.env` holds **secrets only** — `APIGENT_<CATEGORY>_<KEY>` (e.g., `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET`) and third-party keys using their standard names (`DASHSCOPE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). Provider/scheme choices live only in `apigent.config.yaml`.
+**Env var naming convention:** `.env` holds **secrets only** — `APIGENT_<CATEGORY>_<KEY>` (e.g., `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET`) and third-party keys using their standard names (`DASHSCOPE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). Provider/scheme choices live only in `apigent.config.yaml`. (Note: the header comment in `packages/core/src/config/types.ts` mentions `APIGENT_*_PROVIDER` env overrides, but no such override is implemented.)
 
 ## Available Commands
 
@@ -139,10 +141,15 @@ The Drizzle schema and migrations live in `packages/server` (`drizzle.config.ts`
 
 ## Current State
 
-No working application yet. What exists:
+Working apps and server modules exist (V0 is further along than the earliest config/DI scaffolding):
 
-- `packages/core/src/config/` — fully typed, runtime-validated configuration system (YAML + `.env` + zod)
-- `packages/core/src/di/` — fail-fast DI container with provider factory registries
-- `packages/server/src/db/` — Drizzle schema + connection, exported via `@apigent/server/db`
-- Design documents covering the full V0 architecture
-- `tsconfig.base.json` at root, per-package tsconfigs extending it
+- `apps/platform` — Platform Webapp (Next.js SSR, port 3000): repos, endpoints, schemas, versions, settings, context pages.
+- `apps/admin` — Admin Webapp (Next.js SSR, port 3001): audit, users, settings, stats.
+- `apps/open` — Hono REST gateway (port 3002); currently serves `/` and `/health` only. No MCP endpoint yet.
+- `packages/core` — config (`loadConfig()`: YAML + `.env` + zod), fail-fast DI container, types, i18n, agent registry.
+- `packages/server` — Drizzle schema + migrations, Postgres queue, OpenAPI parser, contexts, versions, imports, auth/authz, notifications, logging.
+- `packages/ui` — shadcn/ui components (Base UI + Tailwind v4).
+- Tests (Vitest) for `packages/core` config/DI and `packages/server` modules.
+- `tsconfig.base.json` at root, with per-package tsconfigs extending it.
+
+Not yet implemented (designed only): MCP Gateway, and the LLM / Embedding / pgvector / BullMQ providers.

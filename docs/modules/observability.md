@@ -1,5 +1,7 @@
 # Observability（日志 / 指标 / 追踪）
 
+> **状态：** 部分实现——结构化日志（`pino`，`packages/server/src/logging`）已就位；指标/追踪为设计（默认 `observability.provider: "none"`）。
+
 > **状态：V0 已实现 A+B（日志规范 + reqId/taskId 贯穿）；C（Metrics）与 D（Tracing）待实现**
 
 ## 选型结论（2026-09 确认）
