@@ -523,7 +523,7 @@
       "importing": "Importing…",
       "importFailed": "Import failed. Please retry.",
       "success": "Imported successfully",
-      "successDesc": "Created version snapshot {version}",
+      "successDesc": "Import succeeded, created a new version snapshot",
       "viewEndpoints": "View endpoints",
       "generateKey": "Generate key",
       "cancel": "Cancel",

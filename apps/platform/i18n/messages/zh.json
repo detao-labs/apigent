@@ -523,7 +523,7 @@
       "importing": "导入中…",
       "importFailed": "导入失败，请重试",
       "success": "导入成功",
-      "successDesc": "已创建新版本快照 {version}",
+      "successDesc": "导入成功，已创建新版本快照",
       "viewEndpoints": "查看接口",
       "generateKey": "生成密钥",
       "cancel": "取消",

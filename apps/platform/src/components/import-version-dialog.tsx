@@ -189,7 +189,7 @@ export function ImportVersionDialog({
           task?: {
             status: "queued" | "running" | "succeeded" | "failed";
             progress: number;
-            nextVersion: string | null;
+            versionId: string | null;
             result?: { stats: PreviewData["stats"] } | null;
             error: string | null;
           };
@@ -200,7 +200,7 @@ export function ImportVersionDialog({
         setProgress(task.progress ?? 0);
         if (task.status === "succeeded") {
           setResult({
-            version: task.nextVersion ?? "",
+            version: task.versionId ?? "",
             stats: task.result?.stats ?? { endpoints: 0, models: 0, modules: 0 },
           });
           setStep("done");
