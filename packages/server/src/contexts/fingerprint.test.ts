@@ -8,7 +8,7 @@ describe("endpointKey", () => {
     ).toBe("getOrders");
     expect(
       endpointKey({ operationId: null, method: "POST", path: "/orders" }),
-    ).toBe("POST /orders");
+    ).toBe("POST:/orders");
   });
 });
 

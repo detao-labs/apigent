@@ -16,6 +16,8 @@
 // 规则为 V0 初版，后续可扩展（枚举值 / ref 引用计数 / 字段 default 判断等）。
 // ═══════════════════════════════════════════════════════════════════
 
+import { buildEndpointKey } from "../openapi/key";
+
 export interface EndpointDiffNode {
   method: string;
   path: string;
@@ -64,7 +66,7 @@ export interface DiffChange {
   id: string;
   category: DiffCategory;
   changeType: DiffChangeType;
-  /** endpoint → `${method} ${path}`；schema → name；component → `${kind}::${name}` */
+  /** endpoint → `${method}:${path}`；schema → name；component → `${kind}::${name}` */
   key: string;
   /** 展示主文本 */
   subject: string;
@@ -96,7 +98,7 @@ function stableStringify(value: unknown): string {
 }
 
 function endpointKey(e: EndpointDiffNode): string {
-  return `${e.method} ${e.path}`;
+  return buildEndpointKey(e.method, e.path);
 }
 
 function paramEssential(p: { name: string; in: string; required: boolean }): string {

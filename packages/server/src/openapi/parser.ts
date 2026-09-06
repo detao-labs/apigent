@@ -13,6 +13,7 @@
 
 import * as yaml from "yaml";
 import { HTTP_METHODS } from "./types";
+import { buildEndpointKey } from "./key";
 import type {
   ParsedAPIModel,
   APIEntry,
@@ -216,7 +217,7 @@ function extractAPIs(
 
       if (!operation) continue;
 
-      const id = `${method}:${path}`;
+      const id = buildEndpointKey(method, path);
       const requestBody = extractRequestBody(operation);
       const api: APIEntry = {
         id,

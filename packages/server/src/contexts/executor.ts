@@ -190,7 +190,7 @@ async function generateBatch(
   const prompt =
     batch.map((ep) => endpointToText(ep)).join("\n---\n") +
     `\n\n只输出一个 JSON 对象，不要输出任何其他文字、解释或代码块标记。` +
-    `格式：{"endpoints":[{"endpointKey":"<method path>","context":{capabilityName,intent,constraints,sideEffects,usageScenarios,confidence,needsReview}}]}`;
+    `格式：{"endpoints":[{"endpointKey":"<method:path>","context":{capabilityName,intent,constraints,sideEffects,usageScenarios,confidence,needsReview}}]}`;
 
   // 部分 provider（如 qwen 兼容端点）不支持 structured output（response_format
   // json_schema），用 generateText + 自解析 JSON，失败重试一次。
