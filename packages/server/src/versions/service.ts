@@ -258,3 +258,38 @@ export async function compareVersions(
 }
 
 export { loadCommitSnapshot };
+
+export interface VersionHistoryEntry {
+  commitId: string;
+  versionId: string;
+  versionName: string;
+  specTitle: string | null;
+  specVersion: string | null;
+  source: string | null;
+  changeSummary: {
+    added: string[];
+    updated: string[];
+    removed: string[];
+  } | null;
+  createdAt: Date;
+}
+
+/** 仓库全部 commit 的变更日志（按时间倒序）。 */
+export async function listVersionHistory(repoId: string): Promise<VersionHistoryEntry[]> {
+  const rows = await getDB()
+    .select({
+      commitId: versionCommits.id,
+      versionId: versionCommits.versionId,
+      versionName: versions.name,
+      specTitle: versionCommits.specTitle,
+      specVersion: versionCommits.specVersion,
+      source: versionCommits.source,
+      changeSummary: versionCommits.changeSummary,
+      createdAt: versionCommits.createdAt,
+    })
+    .from(versionCommits)
+    .innerJoin(versions, eq(versions.id, versionCommits.versionId))
+    .where(eq(versionCommits.repoId, repoId))
+    .orderBy(desc(versionCommits.createdAt));
+  return rows as VersionHistoryEntry[];
+}

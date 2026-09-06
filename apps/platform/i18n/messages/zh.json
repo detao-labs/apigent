@@ -312,11 +312,25 @@
       "copyLink": "复制链接",
       "deleteRepo": "删除仓库",
       "mcp": "MCP",
+      "history": {
+        "title": "历史日志",
+        "subtitle": "仓库每次版本快照的变更记录",
+        "empty": "暂无历史",
+        "emptyDesc": "导入新版本后，变更日志将在此展示。",
+        "colVersion": "版本",
+        "colTime": "时间",
+        "colSource": "来源",
+        "colChanges": "变更",
+        "added": "新增",
+        "updated": "修改",
+        "removed": "移除"
+      },
       "nav": {
         "overview": "概览",
         "definitions": "接口管理",
         "context": "业务上下文",
-        "versions": "版本",
+      "versions": "版本",
+      "history": "历史日志",
         "settings": "设置"
       },
       "capability": {

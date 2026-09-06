@@ -312,11 +312,25 @@
       "copyLink": "Copy link",
       "deleteRepo": "Delete repository",
       "mcp": "MCP",
+      "history": {
+        "title": "History",
+        "subtitle": "Change log of every version snapshot in this repo",
+        "empty": "No history yet",
+        "emptyDesc": "After importing a new version, the change log will appear here.",
+        "colVersion": "Version",
+        "colTime": "Time",
+        "colSource": "Source",
+        "colChanges": "Changes",
+        "added": "added",
+        "updated": "updated",
+        "removed": "removed"
+      },
       "nav": {
         "overview": "Overview",
         "definitions": "APIs",
         "context": "Business context",
-        "versions": "Versions",
+      "versions": "Versions",
+      "history": "History",
         "settings": "Settings"
       },
       "capability": {
