@@ -428,7 +428,7 @@ function extractSchemas(
  */
 function extractComponentDefs(
   doc: Record<string, unknown>,
-  issues: ParseIssue[],
+  _issues: ParseIssue[],
 ): ComponentDef[] {
   const out: ComponentDef[] = [];
   const components = doc.components as Record<string, unknown> | undefined;

@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     user = await getSessionUser();
   } catch (err) {
     // 数据库不可用时，所有已登录页面都会在这里失败——确定性兜底，
-    // 跳转到独立 /500 页（生产环境 error.message 会被脱敏，不能依赖它）。
+    // 跳转到独立 /server-error 页（生产环境 error.message 会被脱敏，不能依赖它）。
     const issue = detectDatabaseIssue(err);
     if (issue) {
       console.error("[auth] database unavailable", err);

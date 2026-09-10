@@ -17,7 +17,7 @@ import { Button } from "@apigent/ui";
 import { House, RefreshCw } from "lucide-react";
 import type { DatabaseIssue } from "@/lib/error-detection";
 
-/** 布局跳转到 /500 前，把用户原页面存入 sessionStorage，重试时跳回。 */
+/** 布局跳转到 /server-error 前，把用户原页面存入 sessionStorage，重试时跳回。 */
 export const ERROR_RETURN_KEY = "apigent-error-return";
 
 export function ErrorPage({
@@ -95,7 +95,7 @@ export function ErrorPage({
 
 /**
  * 已登录布局在数据库故障时渲染此组件：记录原页面地址后跳转到独立的
- * /500 页面，避免把错误 UI 内联在布局里。
+ * /server-error 页面，避免把错误 UI 内联在布局里。
  */
 export function DatabaseDownRedirect({ issue }: { issue: DatabaseIssue }) {
   const pathname = usePathname();
@@ -107,7 +107,7 @@ export function DatabaseDownRedirect({ issue }: { issue: DatabaseIssue }) {
     } catch {
       // 存储不可用时，重试按钮会回退到首页
     }
-    router.replace(`/500?issue=${issue}`);
+    router.replace(`/server-error?issue=${issue}`);
   }, [pathname, router, issue]);
 
   return null;

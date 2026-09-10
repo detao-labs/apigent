@@ -462,7 +462,6 @@ function EndpointDetail({
 }
 
 function SchemaRefView({ schemaRef }: { schemaRef: unknown }) {
-  const t = useTranslations("repos.detail");
   const te = useTranslations("repos.detail.endpoints");
   const ref = schemaRef as
     | { schema?: unknown; ref?: string; unresolved?: boolean }

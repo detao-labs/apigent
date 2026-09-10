@@ -4,7 +4,7 @@
   "private": true,
   "description": "Apigent Admin Webapp — Next.js (SSR)",
   "scripts": {
-    "dev": "tsx scripts/start.ts --dev",
+    "dev": "tsx scripts/start.ts --dev --turbopack",
     "build": "next build",
     "start": "tsx scripts/start.ts",
     "typecheck": "tsc --noEmit",

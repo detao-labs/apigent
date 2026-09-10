@@ -47,7 +47,6 @@ export function DefinitionView({
   models: RepoDataModel[];
   components: RepoComponentDef[];
 }) {
-  const t = useTranslations("repos.detail");
   const d = useTranslations("repos.detail.definitions");
   const router = useRouter();
   const params = useParams<{ endpointId?: string; schemaId?: string; componentId?: string }>();
@@ -71,7 +70,8 @@ export function DefinitionView({
     if (!selectedKey) return;
     setSelected(selectedKey);
     openGroupFor(selectedKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // openGroupFor 每次渲染都会重建，并读取 endpoints / components / d，
+    // 纳入依赖会形成循环；此处只在选中项变化时重跑分组展开。
   }, [selectedKey]);
 
   const q = query.trim().toLowerCase();
@@ -404,7 +404,6 @@ function EndpointDetail({
   ep: RepoEndpoint;
   onSelectModel: (name: string) => void;
 }) {
-  const t = useTranslations("repos.detail");
   const te = useTranslations("repos.detail.endpoints");
   const parameters = (ep.parameters ?? []) as Record<string, unknown>[];
   return (
@@ -564,7 +563,6 @@ function ComponentDetail({
   d: (key: string) => string;
   onSelectModel: (name: string) => void;
 }) {
-  const t = useTranslations("repos.detail");
   const te = useTranslations("repos.detail.endpoints");
   const p = c.payload ?? {};
   const schema = p.schema as Record<string, unknown> | undefined;
@@ -643,7 +641,6 @@ function SchemaRefView({
   schemaRef: unknown;
   onSelectModel?: (name: string) => void;
 }) {
-  const t = useTranslations("repos.detail");
   const te = useTranslations("repos.detail.endpoints");
   const any = (schemaRef ?? null) as Record<string, unknown> | null;
   if (!any) return null;

@@ -14,13 +14,11 @@ import {
   Check,
   Circle,
   Database,
-  KeyRound,
   Plug,
   Plus,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { CopyButton } from "@/components/copy-button";
 import { McpConnectCard } from "@/components/mcp-connect-card";
 import { PageContainer } from "@/components/page-container";
 import { formatRelativeTime } from "@/lib/format";

@@ -28,7 +28,7 @@ app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
 // Only start the server when this file is run directly
 if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) {
-  serve({ fetch: app.fetch, port: open.port }, (info: { port: number }) => {
+  serve({ fetch: app.fetch, port: open.port }, (_info: { port: number }) => {
     console.log(`Apigent Gateway running at ${open.url} (logLevel: ${logLevel})`);
   });
 }

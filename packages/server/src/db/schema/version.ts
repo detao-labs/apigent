@@ -20,7 +20,6 @@ import {
   index,
   primaryKey,
   check,
-  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { repositories } from "./repo";

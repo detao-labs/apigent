@@ -20,7 +20,7 @@ import {
   hashResponse,
   endpointIdentity,
 } from "../openapi/hash";
-import type { APIEntry, SchemaEntry, ComponentDef } from "../openapi/types";
+import type { SchemaEntry, ComponentDef } from "../openapi/types";
 import { generateId } from "../id";
 import {
   components,
@@ -219,7 +219,6 @@ export async function executeImportTask(taskId: string): Promise<void> {
       }
 
       // 3) 处理接口（endpoint blob + responses + link）
-      const endpointLinkRows: LinkRow[] = [];
       for (const api of model.apis) {
         const identityKey = endpointIdentity(api.operationId, api.method, api.path);
         const contentHash = hashEndpoint(api);

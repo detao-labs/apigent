@@ -4,7 +4,7 @@
 // Loads the app's port from apigent.config.yaml (apps.admin.url)
 // and starts Next.js on that port.
 //
-// Usage: tsx scripts/start.ts [--dev]
+// Usage: tsx scripts/start.ts [--dev] [--turbopack]
 // ═══════════════════════════════════════════════════════════════════
 
 import { spawn } from "node:child_process";
@@ -15,9 +15,13 @@ const require = createRequire(import.meta.url);
 const nextBin = require.resolve("next/dist/bin/next");
 
 const app = getAppConfig("admin");
-const args: string[] = process.argv.includes("--dev")
-  ? ["dev", "--port", String(app.port)]
-  : ["start", "-p", String(app.port)];
+const args: string[] = [];
+if (process.argv.includes("--dev")) {
+  args.push("dev", "--port", String(app.port));
+  if (process.argv.includes("--turbopack")) args.push("--turbopack");
+} else {
+  args.push("start", "-p", String(app.port));
+}
 
 const child = spawn(process.execPath, [nextBin, ...args], {
   stdio: "inherit",

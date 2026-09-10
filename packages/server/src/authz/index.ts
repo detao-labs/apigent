@@ -22,7 +22,6 @@ import {
   ForbiddenError,
   isOrgRoleAtLeast,
   isRepoRoleAtLeast,
-  orgRoleToRepoRole,
   resolveEffectiveRepoRole,
   type OrgRole,
   type RepoRole,

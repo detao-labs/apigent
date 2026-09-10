@@ -117,8 +117,18 @@ The config system is the first implemented module. It has three layers:
 | `pnpm lint`      | `packages/core/` | Run ESLint over `src/`               |
 | `pnpm test`      | `packages/core/` | Run Vitest                           |
 | `pnpm -r <cmd>`  | root             | Run a script across all packages     |
+| `pnpm build`     | root             | Production build (`pnpm -r build`)   |
 
-There is no build system (turborepo/nx) — TypeScript sources are consumed directly via tsx/ts-node. When adding tooling, follow the monorepo pattern established by `packages/core/package.json`.
+### Build & bundling
+
+- **No orchestration layer** (turborepo/nx): `pnpm -r` already runs scripts in topological order, and since packages ship TypeScript sources (no compile step) there are few artifacts to cache. Revisit only when multi-package production builds make build time the bottleneck (`docs/agent-prd.md` §2).
+- **Root `pnpm build`** fans out to every package that defines a `build` script — currently `apps/platform` and `apps/admin` (`next build`). Libraries under `packages/*` have no `build` on purpose: `main`/`exports` point at `src/**/*.ts` and runtimes consume the sources directly via tsx/bun.
+- **Bundler choice:** `next build` runs on webpack. Turbopack (`--turbopack`) is enabled for `dev` in both webapps; the build path stays on webpack until Next.js promotes Turbopack builds out of alpha (Next 16). Measured on this repo: compile 18.4s → 7.0s and dev `Ready` 1.9s → 0.9s, not worth running alpha in production for apps this size.
+- **Hono gateway** (`apps/open`) currently runs from source via tsx in both dev and start; the PRD target is an esbuild single-file bundle for production (`docs/agent-prd.md` §2) — not implemented yet.
+
+When adding tooling, follow the monorepo pattern established by `packages/core/package.json`.
+
+**Reserved route paths:** do not create an App Router page at `/500` (or `/404`). Next.js maps those URLs to the built-in `_error` page (`defaultMap['/500'] = { page: '/_error' }` in `build/index.js`) and `next build` fails with `ENOENT ... rename '.next/export/500.html'`. The platform's database-down page therefore lives at `/server-error`.
 
 ### Database (Drizzle)
 
