@@ -58,13 +58,13 @@ describe("Config Types", () => {
     expect(rag.retrieval.reranker.provider).toBe("qwen");
   });
 
-  it("AppsConfig — should expose the three app endpoints", () => {
+  it("AppsConfig — should expose the three apps", () => {
     const apps: AppsConfig = {
-      platform: { url: "http://localhost:3000", logLevel: "info" },
-      admin: { url: "http://localhost:3001", logLevel: "info" },
-      open: { url: "http://localhost:3002", logLevel: "info" },
+      platform: { logLevel: "info" },
+      admin: { logLevel: "info" },
+      open: { logLevel: "warn" },
     };
-    expect(apps.open.url).toBe("http://localhost:3002");
+    expect(apps.open.logLevel).toBe("warn");
     expect(apps.platform.logLevel).toBe("info");
   });
 });

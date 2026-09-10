@@ -93,13 +93,13 @@ export const DEFAULT_RAG_CONFIG: RAGConfig = {
 };
 
 // ───────────────────────────────────────────────────────────────────
-// Apps — default endpoints (server is a shared module, no standalone service)
+// Apps — default per-app runtime settings (server is a shared module, no standalone service)
 // ───────────────────────────────────────────────────────────────────
 
 export const DEFAULT_APPS_CONFIG: AppsConfig = {
-  platform: { url: "http://localhost:3000", logLevel: "info" },
-  admin: { url: "http://localhost:3001", logLevel: "info" },
-  open: { url: "http://localhost:3002", logLevel: "info" },
+  platform: { logLevel: "info" },
+  admin: { logLevel: "info" },
+  open: { logLevel: "info" },
 };
 
 // ───────────────────────────────────────────────────────────────────

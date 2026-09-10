@@ -4,8 +4,8 @@
   "private": true,
   "description": "Apigent Open API Gateway — Hono (REST implemented; MCP planned, not yet implemented)",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts --port 3002",
+    "start": "tsx src/index.ts --port 3002",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "format": "prettier --write src/",

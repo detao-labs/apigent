@@ -49,9 +49,9 @@ function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
     mcp: { path: "/mcp", transport: "streamable-http" },
     observability: { provider: "none", logLevel: "info" },
     apps: {
-      platform: { url: "http://localhost:3000", logLevel: "info" },
-      admin: { url: "http://localhost:3001", logLevel: "info" },
-      open: { url: "http://localhost:3002", logLevel: "info" },
+      platform: { logLevel: "info" },
+      admin: { logLevel: "info" },
+      open: { logLevel: "info" },
     },
   };
   return { ...base, ...overrides };

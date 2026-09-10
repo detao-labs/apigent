@@ -60,11 +60,13 @@ All infrastructure concerns have TypeScript interfaces (`VectorStore`, `LLMProvi
 
 ## Port Conventions
 
-| Port | Service                   |
-| ---- | ------------------------- |
-| 3000 | Platform Webapp (Next.js) |
-| 3001 | Admin Webapp (Next.js)    |
-| 3002 | Core API Server (Hono)    |
+Listening ports are set on the launch command, not in `apigent.config.yaml`:
+
+| Port | Service                   | Set by                               |
+| ---- | ------------------------- | ------------------------------------ |
+| 3000 | Platform Webapp (Next.js) | `next dev/start -p 3000`             |
+| 3001 | Admin Webapp (Next.js)    | `next dev/start -p 3001`             |
+| 3002 | Core API Server (Hono)    | `tsx src/index.ts --port 3002`       |
 
 ## Key Documentation Files
 
@@ -103,7 +105,7 @@ The config system is the first implemented module. It has three layers:
 | `schema.ts`      | Zod schemas mirroring `types.ts`; `loadConfig()` validates the merged config before caching    | Yes — `ApigentConfigSchema` re-exported                 |
 | `defaults.ts`    | Per-provider default model maps + default RAG/apps config                                        | Yes                                                     |
 
-**Resolution priority:** `apigent.config.yaml` > hardcoded defaults. There are **no env-var scheme overrides** — providers, models, ports and strategies come exclusively from the YAML. Secrets (API keys, passwords, connection URLs) are **never** in defaults or YAML — they come exclusively from `.env` via `injectSecrets()`.
+**Resolution priority:** `apigent.config.yaml` > hardcoded defaults. There are **no env-var scheme overrides** — providers, models and strategies come exclusively from the YAML. Secrets (API keys, passwords, connection URLs) are **never** in defaults or YAML — they come exclusively from `.env` via `injectSecrets()`. Listening ports are the one exception to "config drives everything": they belong to the launch command (see Port Conventions), so `apps.*` only carries `logLevel`.
 
 **Notable:** `yaml` is a declared dependency (full YAML 1.2 parsing). `loadConfig()` loads `<rootDir>/.env` into `process.env` (shell env wins), then validates the fully-merged config with the zod `ApigentConfigSchema` — wrong-typed YAML values and unknown provider names fail at startup with a readable error.
 

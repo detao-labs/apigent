@@ -64,9 +64,9 @@ describe("ApigentConfigSchema", () => {
       mcp: { path: "/mcp", transport: "streamable-http" },
       observability: { provider: "none", logLevel: "info" },
       apps: {
-        platform: { url: "http://localhost:3000", logLevel: "info" },
-        admin: { url: "http://localhost:3001", logLevel: "info" },
-        open: { url: "http://localhost:3002", logLevel: "info" },
+        platform: { logLevel: "info" },
+        admin: { logLevel: "info" },
+        open: { logLevel: "info" },
       },
     };
 
@@ -75,9 +75,9 @@ describe("ApigentConfigSchema", () => {
 
   it("rejects wrong-typed values (apps.logLevel as string)", () => {
     const result = AppsConfigSchema.safeParse({
-      platform: { url: "http://localhost:3000", logLevel: "info" },
-      admin: { url: "http://localhost:3001", logLevel: "verbose" },
-      open: { url: "http://localhost:3002", logLevel: "info" },
+      platform: { logLevel: "info" },
+      admin: { logLevel: "verbose" },
+      open: { logLevel: "info" },
     });
     expect(result.success).toBe(false);
   });
@@ -96,9 +96,9 @@ describe("ApigentConfigSchema", () => {
 
   it("rejects unknown keys (typos)", () => {
     const result = AppsConfigSchema.safeParse({
-      platform: { url: "http://localhost:3000", logLevel: "info", hst: "typo" },
-      admin: { url: "http://localhost:3001", logLevel: "info" },
-      open: { url: "http://localhost:3002", logLevel: "info" },
+      platform: { logLevel: "info", hst: "typo" },
+      admin: { logLevel: "info" },
+      open: { logLevel: "info" },
     });
     expect(result.success).toBe(false);
   });

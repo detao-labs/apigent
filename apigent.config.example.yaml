@@ -196,14 +196,11 @@ observability:
 # 9. Apps — organized by actual application (server is a shared module, not a standalone service)
 # ───────────────────────────────────────────────────────────────────
 apps:
-  # ✅ ports are loaded from url by each app at startup;
+  # ✅ listening ports come from the launch command (see CLAUDE.md → Port Conventions);
   #    logLevel drives request logging in apps/open
   platform:
-    url: http://localhost:3000 # Next.js platform app
     logLevel: info # "debug" | "info" | "warn" | "error"
   admin:
-    url: http://localhost:3001 # Next.js admin app
     logLevel: info
   open:
-    url: http://localhost:3002 # Open API Gateway (Hono + MCP)
     logLevel: info

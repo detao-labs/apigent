@@ -106,5 +106,3 @@ export {
 // ── Public API — the only way to load config ──────────────────────
 
 export { loadConfig, findConfigFile, getConfig, resetConfig } from "./file-loader";
-export { getAppConfig } from "./apps";
-export type { ResolvedAppConfig } from "./apps";

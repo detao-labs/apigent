@@ -394,7 +394,6 @@ export const ObservabilityConfigSchema = z
 
 export const AppEndpointConfigSchema = z
   .object({
-    url: z.string(),
     logLevel: z.enum(["debug", "info", "warn", "error"]),
   })
   .strict();

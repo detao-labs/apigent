@@ -446,12 +446,13 @@ export interface ObservabilityConfig {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// 10. Apps — application endpoints
+// 10. Apps — per-app runtime settings
 // ───────────────────────────────────────────────────────────────────
+//
+// 监听端口不在这里：每个 app 在启动命令上指定（`next -p` / `--port`），
+// 见 CLAUDE.md → Port Conventions。
 
 export interface AppEndpointConfig {
-  /** Public URL of the app */
-  url: string;
   /** Runtime log level */
   logLevel: LogLevel;
 }

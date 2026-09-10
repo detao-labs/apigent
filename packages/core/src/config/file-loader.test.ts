@@ -116,15 +116,10 @@ describe("loadConfig — .env loading", () => {
     process.env.APIGENT_AUTH_SECRET = "shell-secret";
     fs.writeFileSync(
       path.join(dir, "apigent.config.yaml"),
-      [
-        "apps:",
-        "  platform:",
-        "    url: \"http://localhost:3000/#/apis\"",
-        "",
-      ].join("\n"),
+      ["mcp:", "  publicUrl: \"https://mcp.example.com/#/tools\"", ""].join("\n"),
     );
 
     const config = loadConfig(dir);
-    expect(config.apps.platform.url).toBe("http://localhost:3000/#/apis");
+    expect(config.mcp.publicUrl).toBe("https://mcp.example.com/#/tools");
   });
 });
