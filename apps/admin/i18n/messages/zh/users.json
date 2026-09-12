@@ -28,7 +28,7 @@
     "errors": {
       "lastAdmin": "不能禁用或删除最后一个管理员——否则没有人能再进入控制台",
       "ownsOrganizations": "该账号仍是某些组织的 owner，请先转移或删除这些组织",
-      "cannotDeleteSelf": "不能删除自己的账号",
+      "selfNotAllowed": "不能对自己执行删除 / 禁用——请让另一位管理员操作",
       "notFound": "账号不存在",
       "generic": "操作失败，请稍后重试"
     },

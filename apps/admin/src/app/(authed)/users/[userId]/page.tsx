@@ -69,6 +69,7 @@ export default async function AdminUserDetailPage({
               userId={detail.id}
               userName={detail.name}
               disabled={detail.disabledAt !== null}
+              isSelf={detail.id === admin.id}
             />
             <p className="text-xs text-muted-foreground">{t("detailDisableHint")}</p>
           </div>

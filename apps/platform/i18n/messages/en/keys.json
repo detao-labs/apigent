@@ -29,12 +29,29 @@
       "rawCopied": "Copied",
       "rawDone": "I have saved it"
     },
+    "scope": {
+      "label": "Access scope",
+      "all": "All accessible repositories (unrestricted)",
+      "selected": "Specific repositories",
+      "selectAll": "Select all",
+      "empty": "You do not have access to any repository yet — get a repository role first.",
+      "hint": "Pick at least one repository. Repositories outside the scope stay unreachable through this key, even where you have access.",
+      "allShort": "All",
+      "count": "{count} repositories",
+      "editTitle": "Edit access scope",
+      "editDesc": "Change which repositories \"{name}\" may reach",
+      "editHint": "Clearing every checkbox means unrestricted (all repositories you can access). The scope can only narrow your own permissions, never widen them.",
+      "save": "Save",
+      "saved": "Scope updated",
+      "failed": "Could not update the scope, please try again"
+    },
     "revokeConfirm": "Calls using this key start failing immediately and it cannot be restored. Revoke \"{name}\"?",
     "revoked": "Key revoked",
     "revokeFailed": "Could not revoke the key, please try again",
     "errors": {
       "invalid-name": "Enter a name (1–100 characters)",
       "invalid-scopes": "Pick at least one scope",
+      "invalid-repositories": "The selection includes repositories you cannot access",
       "not-found": "Key not found or already revoked"
     },
     "table": {
@@ -43,6 +60,7 @@
       "scopes": "Scopes",
       "lastUsed": "Last Used",
       "expires": "Expires",
+      "scope": "Scope",
       "actions": "Actions"
     },
     "empty": {

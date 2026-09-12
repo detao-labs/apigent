@@ -127,6 +127,7 @@ export default async function UsersPage({
                           userId={user.id}
                           userName={user.name}
                           disabled={user.disabledAt !== null}
+                          isSelf={user.id === admin.id}
                         />
                       </TableCell>
                     ) : null}

@@ -29,6 +29,13 @@
       "when": 1789203939700,
       "tag": "0003_user_disabled",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789205324793,
+      "tag": "0004_secret_key_repository_scope",
+      "breakpoints": true
     }
   ]
 }

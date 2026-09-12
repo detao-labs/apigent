@@ -8,7 +8,7 @@ function errorResponse(err: unknown): NextResponse | null {
   switch (err.code) {
     case "user-not-found":
       return NextResponse.json({ error: err.code }, { status: 404 });
-    case "cannot-delete-self":
+    case "self-not-allowed":
       return NextResponse.json({ error: err.code }, { status: 400 });
     default:
       // last-admin / owns-organizations：状态冲突，调用方需要先处理别的东西

@@ -16,7 +16,10 @@ export async function DELETE(_request: Request, ctx: { params: Promise<{ userId:
       if (err.code === "not-admin") {
         return NextResponse.json({ error: err.code }, { status: 404 });
       }
-      // last-admin → 409：不能撤销最后一个管理员
+      // 对自己下手是请求本身的问题（400）；last-admin 是状态冲突（409）
+      if (err.code === "self-not-allowed") {
+        return NextResponse.json({ error: err.code }, { status: 400 });
+      }
       return NextResponse.json({ error: err.code }, { status: 409 });
     }
     console.error("[admin/admins DELETE]", err);

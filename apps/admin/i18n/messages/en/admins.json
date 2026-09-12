@@ -17,11 +17,13 @@
     "revoke": "Revoke",
     "revokeConfirm": "Revoke platform admin access for {name}? They lose access to this console immediately.",
     "revokeSuccess": "Platform admin revoked",
+    "selfRevoke": "You cannot revoke your own admin access — ask another admin",
     "errors": {
       "userNotFound": "No user with that email",
       "alreadyAdmin": "That account is already an admin",
       "lastAdmin": "Cannot revoke the last admin — nobody would be able to grant admins",
       "noPermission": "This account cannot manage admins.",
+      "selfNotAllowed": "You cannot revoke your own admin access",
       "generic": "Operation failed, please try again"
     }
   }

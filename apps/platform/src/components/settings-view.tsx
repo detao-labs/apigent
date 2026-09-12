@@ -47,7 +47,7 @@ import { CopyButton } from "@/components/copy-button";
 import { useTheme } from "@/hooks/use-theme";
 import { formatRelativeTime } from "@/lib/format";
 import { curlSnippet, mcpConfigSnippet, useMcpServiceUrl } from "@/hooks/use-mcp-service-url";
-import type { SecretKeySummary } from "@apigent/server/keys";
+import type { SelectableRepository, SecretKeySummary } from "@apigent/server/keys";
 
 const SECTIONS = ["account", "keys", "preferences", "notifications"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -63,12 +63,14 @@ export function SettingsView({
   user,
   section,
   keys,
+  selectableRepositories,
   mcpPath,
   mcpPublicUrl,
 }: {
   user: { name: string; email: string };
   section: Section;
   keys: SecretKeySummary[];
+  selectableRepositories: SelectableRepository[];
   mcpPath: string;
   mcpPublicUrl: string;
 }) {
@@ -142,7 +144,9 @@ export function SettingsView({
         </div>
 
         {section === "account" && <AccountPanel user={user} />}
-        {section === "keys" && <KeysPanel keys={keys} mcpUrl={mcpUrl} />}
+        {section === "keys" && (
+          <KeysPanel keys={keys} selectableRepositories={selectableRepositories} mcpUrl={mcpUrl} />
+        )}
         {section === "preferences" && <PrefsPanel />}
         {section === "notifications" && <MorePanel />}
       </div>
@@ -361,7 +365,93 @@ const EXPIRY_OPTIONS = [
   { value: 365, labelKey: "create.expires365" },
 ] as const;
 
-function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string }) {
+/** 把"我有权访问的仓库"按组织分组，供选择器渲染成 org/repo 层级。 */
+function groupByOrganization(repos: SelectableRepository[]) {
+  const groups = new Map<string, { id: string; name: string; repos: SelectableRepository[] }>();
+  for (const repo of repos) {
+    const group = groups.get(repo.organizationId) ?? {
+      id: repo.organizationId,
+      name: repo.organizationName,
+      repos: [],
+    };
+    group.repos.push(repo);
+    groups.set(repo.organizationId, group);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * 仓库多选器：org/repo 层级展示，**只能勾选仓库**（组织行只做分组与"全选"批量操作）。
+ * 组织不承载权限，所以选择结果永远是一串 repo id。
+ */
+function RepositoryPicker({
+  groups,
+  selected,
+  onToggle,
+  onToggleGroup,
+  labels,
+}: {
+  groups: { id: string; name: string; repos: SelectableRepository[] }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  onToggleGroup: (ids: string[], next: boolean) => void;
+  labels: { selectAll: string; empty: string };
+}) {
+  if (groups.length === 0) {
+    return <p className="text-sm text-muted-foreground">{labels.empty}</p>;
+  }
+  return (
+    <div className="max-h-64 space-y-3 overflow-y-auto rounded-md border p-3">
+      {groups.map((group) => {
+        const ids = group.repos.map((r) => r.id);
+        const allSelected = ids.every((id) => selected.includes(id));
+        return (
+          <div key={group.id} className="space-y-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                className="size-4 rounded border"
+                checked={allSelected}
+                onChange={() => onToggleGroup(ids, !allSelected)}
+              />
+              {group.name}
+              <button
+                type="button"
+                className="text-xs font-normal text-muted-foreground hover:text-foreground"
+                onClick={() => onToggleGroup(ids, true)}
+              >
+                {labels.selectAll}
+              </button>
+            </label>
+            <div className="ml-6 space-y-1">
+              {group.repos.map((repo) => (
+                <label key={repo.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border"
+                    checked={selected.includes(repo.id)}
+                    onChange={() => onToggle(repo.id)}
+                  />
+                  {repo.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function KeysPanel({
+  keys,
+  selectableRepositories,
+  mcpUrl,
+}: {
+  keys: SecretKeySummary[];
+  selectableRepositories: SelectableRepository[];
+  mcpUrl: string;
+}) {
   const keysT = useTranslations("keys");
   const common = useTranslations("common");
   const locale = useLocale();
@@ -374,6 +464,55 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [rawKey, setRawKey] = React.useState<string | null>(null);
+  const [scopeMode, setScopeMode] = React.useState<"all" | "selected">("all");
+  const [selectedRepoIds, setSelectedRepoIds] = React.useState<string[]>([]);
+  const [editing, setEditing] = React.useState<SecretKeySummary | null>(null);
+  const [editRepoIds, setEditRepoIds] = React.useState<string[]>([]);
+  const [savingScope, setSavingScope] = React.useState(false);
+  const orgGroups = React.useMemo(
+    () => groupByOrganization(selectableRepositories),
+    [selectableRepositories],
+  );
+
+  const toggleId = (list: string[], id: string) =>
+    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+  const toggleGroup = (list: string[], ids: string[], next: boolean) =>
+    next ? [...new Set([...list, ...ids])] : list.filter((id) => !ids.includes(id));
+
+  function openGenerate() {
+    setName("");
+    setScopeMode("all");
+    setSelectedRepoIds([]);
+    setFormError(null);
+    setGenerateOpen(true);
+  }
+
+  function openEdit(key: SecretKeySummary) {
+    setEditing(key);
+    setEditRepoIds(key.repositoryIds);
+  }
+
+  async function saveScope(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingScope(true);
+    try {
+      const res = await fetch(`/api/keys/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repositoryIds: editRepoIds }),
+      });
+      if (res.ok) {
+        toast.success(keysT("scope.saved"));
+        setEditing(null);
+        router.refresh();
+        return;
+      }
+      toast.error(keysT("scope.failed"));
+    } finally {
+      setSavingScope(false);
+    }
+  }
   const [revokeTarget, setRevokeTarget] = React.useState<SecretKeySummary | null>(null);
   const [revoking, setRevoking] = React.useState(false);
 
@@ -391,7 +530,13 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, scopes, expiresInDays: expiresInDays || null }),
+        body: JSON.stringify({
+          name,
+          scopes,
+          expiresInDays: expiresInDays || null,
+          // 空数组 = 不限制（沿用用户全部可访问仓库）
+          repositoryIds: scopeMode === "all" ? [] : selectedRepoIds,
+        }),
       });
       if (res.ok) {
         const data = (await res.json()) as { rawKey: string };
@@ -441,7 +586,7 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
             <CardTitle className="text-base">{keysT("title")}</CardTitle>
             <CardDescription>{keysT("description")}</CardDescription>
           </div>
-          <Button type="button" onClick={() => setGenerateOpen(true)}>
+          <Button type="button" onClick={openGenerate}>
             <KeyRound className="size-4" />
             {keysT("generate")}
           </Button>
@@ -452,7 +597,7 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
               <KeyRound className="mb-4 size-12 text-muted-foreground/50" />
               <h3 className="mb-1 text-lg font-semibold">{keysT("empty.title")}</h3>
               <p className="mb-6 text-muted-foreground">{keysT("empty.description")}</p>
-              <Button type="button" onClick={() => setGenerateOpen(true)}>
+              <Button type="button" onClick={openGenerate}>
                 <KeyRound className="size-4" />
                 {keysT("generate")}
               </Button>
@@ -464,6 +609,7 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
                   <TableHead>{keysT("table.name")}</TableHead>
                   <TableHead>{keysT("table.prefix")}</TableHead>
                   <TableHead>{keysT("table.scopes")}</TableHead>
+                  <TableHead>{keysT("table.scope")}</TableHead>
                   <TableHead>{keysT("table.lastUsed")}</TableHead>
                   <TableHead>{keysT("table.expires")}</TableHead>
                   <TableHead className="text-right">{keysT("table.actions")}</TableHead>
@@ -486,6 +632,17 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
                           </Badge>
                         ))}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <button
+                        type="button"
+                        className="text-left underline-offset-4 hover:underline"
+                        onClick={() => openEdit(key)}
+                      >
+                        {key.repositoryIds.length === 0
+                          ? keysT("scope.allShort")
+                          : keysT("scope.count", { count: key.repositoryIds.length })}
+                      </button>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {key.lastUsedAt ? formatRelativeTime(key.lastUsedAt, locale) : keysT("never")}
@@ -595,6 +752,46 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
               </select>
             </div>
 
+            <div className="space-y-2">
+              <span className="text-sm font-medium">{keysT("scope.label")}</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="scope-mode"
+                    className="size-4"
+                    checked={scopeMode === "all"}
+                    onChange={() => setScopeMode("all")}
+                  />
+                  {keysT("scope.all")}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="scope-mode"
+                    className="size-4"
+                    checked={scopeMode === "selected"}
+                    onChange={() => setScopeMode("selected")}
+                  />
+                  {keysT("scope.selected")}
+                </label>
+              </div>
+              {scopeMode === "selected" ? (
+                <RepositoryPicker
+                  groups={orgGroups}
+                  selected={selectedRepoIds}
+                  onToggle={(id) => setSelectedRepoIds((prev) => toggleId(prev, id))}
+                  onToggleGroup={(ids, next) =>
+                    setSelectedRepoIds((prev) => toggleGroup(prev, ids, next))
+                  }
+                  labels={{ selectAll: keysT("scope.selectAll"), empty: keysT("scope.empty") }}
+                />
+              ) : null}
+              {scopeMode === "selected" && selectedRepoIds.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{keysT("scope.hint")}</p>
+              ) : null}
+            </div>
+
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
             <DialogFooter>
@@ -603,6 +800,36 @@ function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string 
               </Button>
               <Button type="submit" disabled={submitting}>
                 {keysT("create.submit")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑可访问范围 */}
+      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{keysT("scope.editTitle")}</DialogTitle>
+            <DialogDescription>
+              {editing ? keysT("scope.editDesc", { name: editing.name }) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={saveScope}>
+            <RepositoryPicker
+              groups={orgGroups}
+              selected={editRepoIds}
+              onToggle={(id) => setEditRepoIds((prev) => toggleId(prev, id))}
+              onToggleGroup={(ids, next) => setEditRepoIds((prev) => toggleGroup(prev, ids, next))}
+              labels={{ selectAll: keysT("scope.selectAll"), empty: keysT("scope.empty") }}
+            />
+            <p className="text-xs text-muted-foreground">{keysT("scope.editHint")}</p>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                {common("cancel")}
+              </Button>
+              <Button type="submit" disabled={savingScope}>
+                {keysT("scope.save")}
               </Button>
             </DialogFooter>
           </form>

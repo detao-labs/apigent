@@ -1,0 +1,1 @@
+ALTER TABLE "secret_keys" ADD COLUMN "repository_ids" text[] DEFAULT '{}' NOT NULL;

@@ -562,7 +562,18 @@ Key format: `apigent_sk_<random_hex>`
 
 Two implementation notes: store only a SHA-256 hash of the key (API keys are high-entropy — scrypt exists to slow down guessing of low-entropy passwords and would only make every verification slower), and throttle `last_used_at` writes (one update per key per minute is enough) so high-frequency MCP calls do not turn that row into a write hotspot.
 
+**A key's scopes do not carry content permissions.** They only say _which kinds of calls a key may make_ (`api:read` / `mcp:search` / …). Which repositories the caller can actually see is decided by the **key owner's** `repository_members` rows and Organization role, resolved per request exactly as for a browser session. The effective permission is the intersection — a key with `mcp:search` still sees nothing for a user with no repository role, and repository access is worthless through a key that lacks the scope. Two consequences for the not-yet-written `verifySecretKey()`: it must (a) reject keys whose **owner is disabled or deleted**, otherwise disabling an account would leave its machine credentials working, and (b) return only `userId` + `scopes`, leaving the content check to the normal RBAC path instead of re-implementing it.
+
 **V0 status:** issue / list / revoke are implemented in `packages/server/src/keys/` and surfaced at `/settings/keys` (`POST /api/keys`, `DELETE /api/keys/:id`) — the raw key is returned once, only its SHA-256 hash and a display prefix are stored, and revocation is a soft delete (`revoked_at`) so the row survives for troubleshooting. A user can only touch their own keys (the owner id comes from the session, never the request body). Verification is **not** written yet: its first consumer is the MCP Gateway, and a verifier with no caller is the kind of dead code this project has already deleted once.
+
+**Narrowing further: `repository_ids`.** Scopes say _what kind of call_; `repository_ids` says _which repositories_, and the two narrow independently. The picker shows the owner's accessible repositories grouped by Organization, but **only repositories can be picked** — an Organization row is grouping plus a "select all" convenience, never a scope itself. That keeps a single source of truth (a list of repository ids) and avoids the "does picking an org cover repositories added later?" question entirely.
+
+Rules that keep the intersection safe:
+
+1. **Empty = unrestricted**, which keeps existing keys working and makes the column a pure addition (migration `0004`). The UI never leans on that implicitly: it offers an explicit "all accessible repositories" vs "specific repositories" choice and requires at least one repository in the second case.
+2. **The server validates the selection** against the caller's current accessible set — picking a repository you cannot open is rejected (`invalid-repositories`), never stored for later. A key can only narrow its owner's permissions.
+3. **The scope is editable** (`PATCH /api/keys/:id`) — otherwise adding one repository would mean revoking the key and redistributing a fresh secret to Cursor/CLI. Clearing the selection restores unrestricted.
+4. **Deleting a repository cleans the scopes that point at it.** Array elements cannot carry a foreign key, so Postgres will not do this for us. When the id is removed and a key's list becomes empty, that key is **revoked** rather than left empty: empty means "unrestricted", so keeping it would silently widen a key that was scoped to exactly that repository.
 
 ---
 
@@ -612,6 +623,8 @@ These are **instance-level account operations** — a different axis from Organi
 The account-lifecycle capabilities (`admin:users:disable` / `admin:users:delete`) are implemented for `admin_super`. When a second admin tier (`admin_operator` / `admin_support`) is introduced, these are the capabilities it is most likely to hold first — the capability map already separates them from `admin:admins:manage`.
 
 **V0 status:** the list and detail page ship — `listUsers()` (searchable, with organization / repository counts) and `getUserDetail()`, gated by `admin:users:view`. Account lifecycle is implemented too: **disable / enable** (`admin:users:disable`) writes `users.disabled_at` and takes effect immediately — sign-in is refused and existing sessions die on the next request, because both apps re-read the user row per request (there is no session table to purge). **Delete** (`admin:users:delete`) is refused when the account still owns an Organization, when it is the last admin, or when it is your own; otherwise it removes memberships, keys and notifications, nulls the audit actor, and keeps the audit trail.
+
+**Self-protection.** An admin can never target their own account: disabling, deleting and revoking your own admin role are all refused (`self-not-allowed`, HTTP 400) regardless of how many other admins exist. The reasoning is asymmetric — an unrelated admin can be de-privileged deliberately, but locking yourself out is almost always a mis-click with no recovery path from inside the console. The UI also disables those controls on your own row; the API is the enforcement point.
 
 ## 4.4 Security Audit
 

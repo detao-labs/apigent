@@ -14,9 +14,10 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
-import { getDB, secretKeys } from "../db";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { getDB, organizations, repositories, secretKeys } from "../db";
 import { generateId } from "../id";
+import { listAccessibleRepositoryIds } from "../authz";
 
 /** 密钥前缀，同时是识别标志；`key_prefix` 列宽 20。 */
 export const SECRET_KEY_PREFIX = "apigent_sk_";
@@ -39,7 +40,9 @@ export function isKeyScope(value: unknown): value is KeyScope {
 }
 
 export class SecretKeyError extends Error {
-  constructor(public readonly code: "invalid-name" | "invalid-scopes" | "not-found") {
+  constructor(
+    public readonly code: "invalid-name" | "invalid-scopes" | "invalid-repositories" | "not-found",
+  ) {
     super(code);
     this.name = "SecretKeyError";
   }
@@ -51,6 +54,8 @@ export interface SecretKeySummary {
   /** 形如 `apigent_sk_ab12cd34`，用于识别与排错（不是密钥本身） */
   keyPrefix: string;
   scopes: KeyScope[];
+  /** 仓库白名单；空数组 = 不限制（沿用用户全部可访问仓库） */
+  repositoryIds: string[];
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
@@ -66,6 +71,56 @@ function hashKey(rawKey: string): string {
   return createHash("sha256").update(rawKey).digest("hex");
 }
 
+/**
+ * 校验仓库白名单：每个 id 都必须是调用者**当前可访问**的仓库。
+ *
+ * 这条在服务端做，不信前端。key 只能收窄用户已有的权限，永远不能放大——所以
+ * "选了一个自己没权限的仓库"必须直接拒绝，而不是存下去等校验时再挡。
+ * 返回去重后的 id 列表。
+ */
+async function assertRepositoriesSelectable(
+  userId: string,
+  repositoryIds: string[],
+): Promise<string[]> {
+  const unique = [...new Set(repositoryIds.filter((id) => typeof id === "string" && id !== ""))];
+  if (unique.length === 0) return [];
+
+  const accessible = new Set(await listAccessibleRepositoryIds(userId));
+  const unknown = unique.filter((id) => !accessible.has(id));
+  if (unknown.length > 0) throw new SecretKeyError("invalid-repositories");
+  return unique;
+}
+
+export interface SelectableRepository {
+  id: string;
+  name: string;
+  organizationId: string;
+  organizationName: string;
+}
+
+/**
+ * 当前用户**有权访问**的仓库（含所属组织名），供签发 / 编辑密钥时勾选。
+ *
+ * 注意不能用 Platform 的 `listRepos()`——那个是**全站目录**（所有登录用户都能
+ * 看到仓库名），这里要的是"我能打开内容的仓库"。
+ */
+export async function listSelectableRepositories(userId: string): Promise<SelectableRepository[]> {
+  const ids = await listAccessibleRepositoryIds(userId);
+  if (ids.length === 0) return [];
+
+  return getDB()
+    .select({
+      id: repositories.id,
+      name: repositories.name,
+      organizationId: repositories.organizationId,
+      organizationName: organizations.name,
+    })
+    .from(repositories)
+    .innerJoin(organizations, eq(organizations.id, repositories.organizationId))
+    .where(inArray(repositories.id, ids))
+    .orderBy(organizations.name, repositories.name);
+}
+
 /** 生成一把新密钥：`apigent_sk_` + 48 位十六进制（24 字节随机）。 */
 export function generateRawKey(): string {
   return `${SECRET_KEY_PREFIX}${randomBytes(24).toString("hex")}`;
@@ -76,6 +131,7 @@ function toSummary(row: {
   name: string;
   keyPrefix: string;
   scopes: string[] | null;
+  repositoryIds: string[];
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
@@ -86,6 +142,7 @@ function toSummary(row: {
     keyPrefix: row.keyPrefix,
     // 读库时把 text[] 收窄回合法 scope；不认识的值直接丢掉而不是原样透给前端
     scopes: (row.scopes ?? []).filter(isKeyScope),
+    repositoryIds: row.repositoryIds ?? [],
     lastUsedAt: row.lastUsedAt,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
@@ -96,6 +153,8 @@ export interface IssueSecretKeyInput {
   userId: string;
   name: string;
   scopes: string[];
+  /** 仓库白名单；空数组 = 不限制 */
+  repositoryIds?: string[];
   expiresAt?: Date | null;
 }
 
@@ -105,6 +164,8 @@ export async function issueSecretKey(input: IssueSecretKeyInput): Promise<Issued
 
   const scopes = input.scopes.filter(isKeyScope);
   if (scopes.length === 0) throw new SecretKeyError("invalid-scopes");
+
+  const repositoryIds = await assertRepositoriesSelectable(input.userId, input.repositoryIds ?? []);
 
   const rawKey = generateRawKey();
   const id = generateId("secretKey");
@@ -118,6 +179,7 @@ export async function issueSecretKey(input: IssueSecretKeyInput): Promise<Issued
       keyHash: hashKey(rawKey),
       keyPrefix: rawKey.slice(0, KEY_PREFIX_LENGTH),
       scopes,
+      repositoryIds,
       expiresAt: input.expiresAt ?? null,
     })
     .returning({
@@ -125,6 +187,7 @@ export async function issueSecretKey(input: IssueSecretKeyInput): Promise<Issued
       name: secretKeys.name,
       keyPrefix: secretKeys.keyPrefix,
       scopes: secretKeys.scopes,
+      repositoryIds: secretKeys.repositoryIds,
       lastUsedAt: secretKeys.lastUsedAt,
       expiresAt: secretKeys.expiresAt,
       createdAt: secretKeys.createdAt,
@@ -142,6 +205,7 @@ export async function listSecretKeys(userId: string): Promise<SecretKeySummary[]
       name: secretKeys.name,
       keyPrefix: secretKeys.keyPrefix,
       scopes: secretKeys.scopes,
+      repositoryIds: secretKeys.repositoryIds,
       lastUsedAt: secretKeys.lastUsedAt,
       expiresAt: secretKeys.expiresAt,
       createdAt: secretKeys.createdAt,
@@ -169,4 +233,44 @@ export async function revokeSecretKey(input: { userId: string; keyId: string }):
       ),
     );
   return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * 修改密钥的仓库白名单。
+ *
+ * 之所以需要它：仓库是选择单位，组织里新增仓库时不在白名单内。没有编辑就只能
+ * "吊销 + 重新签发"，而那意味着换一把明文密钥、重新分发到 agent 里——对"只是
+ * 想让它多看一个仓库"来说代价太大。
+ *
+ * 只能改自己的、且未被吊销的 key；白名单同样必须是自己可访问的仓库。
+ */
+export async function updateSecretKeyScope(input: {
+  userId: string;
+  keyId: string;
+  repositoryIds: string[];
+}): Promise<SecretKeySummary | null> {
+  const repositoryIds = await assertRepositoriesSelectable(input.userId, input.repositoryIds);
+
+  const [row] = await getDB()
+    .update(secretKeys)
+    .set({ repositoryIds })
+    .where(
+      and(
+        eq(secretKeys.id, input.keyId),
+        eq(secretKeys.userId, input.userId),
+        isNull(secretKeys.revokedAt),
+      ),
+    )
+    .returning({
+      id: secretKeys.id,
+      name: secretKeys.name,
+      keyPrefix: secretKeys.keyPrefix,
+      scopes: secretKeys.scopes,
+      repositoryIds: secretKeys.repositoryIds,
+      lastUsedAt: secretKeys.lastUsedAt,
+      expiresAt: secretKeys.expiresAt,
+      createdAt: secretKeys.createdAt,
+    });
+
+  return row ? toSummary(row) : null;
 }

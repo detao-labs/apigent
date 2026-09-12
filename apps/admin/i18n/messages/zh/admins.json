@@ -17,11 +17,13 @@
     "revoke": "移除",
     "revokeConfirm": "确定移除 {name} 的平台管理员权限吗？该账号将立即无法登录本控制台。",
     "revokeSuccess": "已移除平台管理员",
+    "selfRevoke": "不能移除自己的管理员权限——请让另一位管理员操作",
     "errors": {
       "userNotFound": "未找到该邮箱对应的用户",
       "alreadyAdmin": "该账号已经是管理员",
       "lastAdmin": "不能移除最后一个管理员——否则没有人能再授予管理员",
       "noPermission": "当前账号没有管理管理员的权限。",
+      "selfNotAllowed": "不能移除自己的管理员权限",
       "generic": "操作失败，请稍后重试"
     }
   }

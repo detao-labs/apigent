@@ -13,9 +13,13 @@
 //
 // 审计行**不删除**：只把 `repository_id` 置空，日志本身留在组织维度上继续可查
 // （仓库的删除事件本身也在其中，靠 summary 保留仓库名）。
+//
+// 另外要清理 **Secret Key 的仓库白名单**（`secret_keys.repository_ids`）：那是
+// `text[]`，数组元素没法加外键，数据库不会替我们清理；不清理的话密钥范围里会留
+// 下悬空 id，设置页的"N 个仓库"也会把已删仓库算进去。
 // ═══════════════════════════════════════════════════════════════════
 
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import {
   businessContexts,
   components,
@@ -30,6 +34,7 @@ import {
   repositories,
   repositoryMembers,
   repositoryTasks,
+  secretKeys,
   versionCommits,
   versionEntityLinks,
   versions,
@@ -118,6 +123,23 @@ export async function deleteRepository(
     await tx.delete(versionCommits).where(eq(versionCommits.repositoryId, repositoryId));
     await tx.delete(versions).where(eq(versions.repositoryId, repositoryId));
     await tx.delete(repositoryMembers).where(eq(repositoryMembers.repositoryId, repositoryId));
+
+    // 从各密钥的仓库白名单里摘掉这个仓库（数组元素没有外键约束，见文件头说明）。
+    //
+    // 注意：**空数组 = 不限制**。所以如果一个密钥的白名单里只有这一个仓库，摘掉
+    // 之后它会从"只看这一个仓库"变成"全部可访问"——那是静默提权。因此这种情况
+    // 直接吊销该密钥：它的作用域已经不存在了，让它失效比悄悄放宽安全得多。
+    await tx
+      .update(secretKeys)
+      .set({
+        repositoryIds: sql`array_remove(${secretKeys.repositoryIds}, ${repositoryId})`,
+        revokedAt: sql`case
+          when cardinality(array_remove(${secretKeys.repositoryIds}, ${repositoryId})) = 0
+          then now()
+          else ${secretKeys.revokedAt}
+        end`,
+      })
+      .where(sql`${repositoryId} = ANY(${secretKeys.repositoryIds})`);
 
     // 保留审计：只解除仓库关联，日志仍留在组织维度
     await tx

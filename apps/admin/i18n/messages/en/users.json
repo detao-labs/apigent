@@ -28,7 +28,7 @@
     "errors": {
       "lastAdmin": "Cannot disable or delete the last admin — nobody would be able to open the console",
       "ownsOrganizations": "This account still owns organizations — transfer or delete them first",
-      "cannotDeleteSelf": "You cannot delete your own account",
+      "selfNotAllowed": "You cannot delete or disable your own account — ask another admin",
       "notFound": "Account not found",
       "generic": "Operation failed, please try again"
     },

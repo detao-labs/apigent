@@ -11,17 +11,19 @@ export interface UserActionsProps {
   userId: string;
   userName: string;
   disabled: boolean;
+  /** 目标账号就是当前登录的管理员本人 */
+  isSelf: boolean;
 }
 
 /** 接口错误码 → 文案 key（见 admin/users.ts 的 AdminMemberErrorCode）。 */
 const ERROR_KEY = {
   "last-admin": "errors.lastAdmin",
   "owns-organizations": "errors.ownsOrganizations",
-  "cannot-delete-self": "errors.cannotDeleteSelf",
+  "self-not-allowed": "errors.selfNotAllowed",
   "user-not-found": "errors.notFound",
 } as const;
 
-export function UserActions({ userId, userName, disabled }: UserActionsProps) {
+export function UserActions({ userId, userName, disabled, isSelf }: UserActionsProps) {
   const t = useTranslations("users");
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
@@ -71,7 +73,14 @@ export function UserActions({ userId, userName, disabled }: UserActionsProps) {
 
   return (
     <div className="flex items-center justify-end gap-1">
-      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={toggleDisabled}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={busy || isSelf}
+        title={isSelf ? t("errors.selfNotAllowed") : undefined}
+        onClick={toggleDisabled}
+      >
         {disabled ? <CircleCheck className="size-3.5" /> : <Ban className="size-3.5" />}
         {disabled ? t("enable") : t("disable")}
       </Button>
@@ -79,7 +88,8 @@ export function UserActions({ userId, userName, disabled }: UserActionsProps) {
         type="button"
         variant="ghost"
         size="sm"
-        disabled={busy}
+        disabled={busy || isSelf}
+        title={isSelf ? t("errors.selfNotAllowed") : undefined}
         className="text-destructive hover:text-destructive"
         onClick={() => setDeleteOpen(true)}
       >

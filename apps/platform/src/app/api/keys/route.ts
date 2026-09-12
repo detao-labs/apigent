@@ -5,6 +5,7 @@ import { withRoute } from "@/lib/route";
 interface IssueBody {
   name?: unknown;
   scopes?: unknown;
+  repositoryIds?: unknown;
   expiresInDays?: unknown;
 }
 
@@ -28,9 +29,18 @@ export const POST = withRoute({ auth: true }, async ({ request, user }) => {
     : [];
   const days = typeof body.expiresInDays === "number" ? body.expiresInDays : null;
   const expiresAt = days && days > 0 ? new Date(Date.now() + days * 24 * 60 * 60 * 1000) : null;
+  const repositoryIds = Array.isArray(body.repositoryIds)
+    ? body.repositoryIds.filter((id): id is string => typeof id === "string")
+    : [];
 
   try {
-    const issued = await issueSecretKey({ userId: user.id, name, scopes, expiresAt });
+    const issued = await issueSecretKey({
+      userId: user.id,
+      name,
+      scopes,
+      repositoryIds,
+      expiresAt,
+    });
     return NextResponse.json(issued, { status: 201 });
   } catch (err) {
     if (err instanceof SecretKeyError) {

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/services/auth";
-import { listSecretKeys } from "@apigent/server/keys";
+import { listSecretKeys, listSelectableRepositories } from "@apigent/server/keys";
 import { SettingsView } from "@/components/settings-view";
 import { getMcpConfig } from "@/lib/mcp";
 
@@ -16,7 +16,11 @@ export default async function SettingsSectionPage({
   if (!SECTIONS.includes(section as Section)) redirect("/settings/account");
 
   const user = await requireUser();
-  const keys = await listSecretKeys(user.id);
+  // 只有 keys 分区需要"可勾选的仓库"，其它分区省掉这次查询
+  const [keys, selectableRepositories] = await Promise.all([
+    listSecretKeys(user.id),
+    section === "keys" ? listSelectableRepositories(user.id) : Promise.resolve([]),
+  ]);
   const mcpConfig = getMcpConfig();
 
   return (
@@ -24,6 +28,7 @@ export default async function SettingsSectionPage({
       user={user}
       section={section as Section}
       keys={keys}
+      selectableRepositories={selectableRepositories}
       mcpPath={mcpConfig.path}
       mcpPublicUrl={mcpConfig.publicUrl}
     />

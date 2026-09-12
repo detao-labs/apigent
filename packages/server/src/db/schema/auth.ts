@@ -41,6 +41,13 @@ export const secretKeys = pgTable("secret_keys", {
   keyHash: varchar("key_hash", { length: 255 }).notNull(),
   keyPrefix: varchar("key_prefix", { length: 20 }).notNull(),
   scopes: jsonb("scopes").$type<string[]>().default([]),
+  /**
+   * 该 key 允许访问的仓库白名单。**空数组 = 不限制**（沿用用户全部可访问仓库）。
+   *
+   * 只能收窄、不能放大：实际可见范围 = 用户的 `repository_members` 权限 ∩ 这里。
+   * 存的是仓库 id 列表（组织只是展示时的分组，不承载权限）。
+   */
+  repositoryIds: text("repository_ids").array().notNull().default([]),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),

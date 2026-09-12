@@ -182,6 +182,11 @@ export async function setUserDisabled(input: {
   disabled: boolean;
   actorId: string;
 }): Promise<{ email: string; disabled: boolean }> {
+  // 不能禁用自己：管理员把自己关掉之后就进不来控制台了
+  if (input.disabled && input.userId === input.actorId) {
+    throw new AdminMemberError("self-not-allowed");
+  }
+
   const target = await loadTarget(input.userId);
 
   const [adminRow] = await getDB()
@@ -231,9 +236,7 @@ export async function deleteUser(input: {
   userId: string;
   actorId: string;
 }): Promise<{ email: string }> {
-  if (input.userId === input.actorId) {
-    throw new AdminMemberError("cannot-delete-self");
-  }
+  if (input.userId === input.actorId) throw new AdminMemberError("self-not-allowed");
 
   const target = await loadTarget(input.userId);
 

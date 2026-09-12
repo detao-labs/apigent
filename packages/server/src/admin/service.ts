@@ -22,7 +22,8 @@ export type AdminMemberErrorCode =
   | "not-admin"
   | "last-admin"
   | "owns-organizations"
-  | "cannot-delete-self";
+  /** 不能对自己执行删除 / 禁用 / 撤销管理员——避免自我锁死，交给另一个管理员做 */
+  | "self-not-allowed";
 
 export class AdminMemberError extends Error {
   constructor(public readonly code: AdminMemberErrorCode) {
@@ -176,6 +177,10 @@ export async function revokeAdminRole(input: {
   userId: string;
   actorId: string;
 }): Promise<{ email: string }> {
+  // 不能撤销自己的管理员——否则一个手滑就把自己关在门外，正确做法是让另一个
+  // 管理员来操作。
+  if (input.userId === input.actorId) throw new AdminMemberError("self-not-allowed");
+
   const [target] = await getDB()
     .select({ userId: adminMembers.userId, role: adminMembers.role, email: users.email })
     .from(adminMembers)

@@ -36,10 +36,14 @@ export interface AdminMemberView {
 }
 
 /** 接口返回的错误码 → 文案 key。 */
-const ERROR_KEY: Record<string, "userNotFound" | "alreadyAdmin" | "lastAdmin" | "generic"> = {
+const ERROR_KEY: Record<
+  string,
+  "userNotFound" | "alreadyAdmin" | "lastAdmin" | "selfNotAllowed" | "generic"
+> = {
   "user-not-found": "userNotFound",
   "already-admin": "alreadyAdmin",
   "last-admin": "lastAdmin",
+  "self-not-allowed": "selfNotAllowed",
 };
 
 export function AdminsView({
@@ -164,6 +168,9 @@ export function AdminsView({
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
+                      // 不能移除自己的管理员（服务端同样会拒绝）
+                      disabled={member.userId === currentUserId}
+                      title={member.userId === currentUserId ? t("selfRevoke") : undefined}
                       onClick={() => setRevokeTarget(member)}
                     >
                       <Trash2 className="size-3.5" />

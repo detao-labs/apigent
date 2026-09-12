@@ -5,10 +5,13 @@ export {
   generateRawKey,
   isKeyScope,
   issueSecretKey,
+  listSelectableRepositories,
   listSecretKeys,
   revokeSecretKey,
+  updateSecretKeyScope,
   type IssuedSecretKey,
   type IssueSecretKeyInput,
   type KeyScope,
+  type SelectableRepository,
   type SecretKeySummary,
 } from "./service";
