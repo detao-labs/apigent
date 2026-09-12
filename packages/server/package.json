@@ -28,6 +28,7 @@
     "format": "prettier --write src/",
     "test": "vitest run",
     "seed": "tsx src/db/seed.ts",
+    "migrate": "tsx src/db/migrate.ts",
     "admin:grant": "tsx src/db/bootstrap-admin.ts"
   },
   "dependencies": {

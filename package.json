@@ -9,7 +9,7 @@
     "dev:open": "pnpm --filter @apigent/open dev",
     "build": "pnpm -r build",
     "db:generate": "pnpm --filter @apigent/server exec drizzle-kit generate",
-    "db:migrate": "pnpm --filter @apigent/server exec drizzle-kit migrate",
+    "db:migrate": "pnpm --filter @apigent/server migrate",
     "db:push": "pnpm --filter @apigent/server exec drizzle-kit push",
     "db:check": "pnpm --filter @apigent/server exec drizzle-kit check",
     "db:seed": "pnpm --filter @apigent/server seed",
@@ -19,6 +19,7 @@
     "lint": "pnpm -r lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "format:changed": "node scripts/format-changed.mjs",
     "test": "pnpm -r test"
   },
   "devDependencies": {

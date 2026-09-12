@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 测试用假值即可：现有测试不连库，但 loadConfig() 要求这两个变量非空，
+  # admin 平面还会校验 APIGENT_AUTH_ADMIN_SECRET（resolveAuthSecret 会抛）。
+  APIGENT_DATABASE_URL: postgresql://apigent:apigent@localhost:5432/apigent
+  APIGENT_AUTH_SECRET: ci-platform-secret-not-a-real-secret
+  APIGENT_AUTH_ADMIN_SECRET: ci-admin-secret-not-a-real-secret
+
+jobs:
+  static:
+    name: Typecheck / Lint / Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # format:changed 要跟 origin/main 做三点比较，浅克隆拿不到
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm -r lint
+      # 全仓仍有历史格式欠账，只检查本次改动（见 scripts/format-changed.mjs）
+      - run: pnpm format:changed
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r test
+
+  build:
+    name: Build apps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 客户端/服务端边界问题只在 webpack 构建期暴露（dev 走 turbopack 不报），
+      # 这个 job 是唯一能挡住它的地方。
+      - run: pnpm --filter @apigent/platform build
+      - run: pnpm --filter @apigent/admin build
+
+  db:
+    name: Migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # 迁移里有 CREATE EXTENSION vector，必须是带 pgvector 的镜像
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: apigent
+          POSTGRES_PASSWORD: apigent
+          POSTGRES_DB: apigent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APIGENT_DATABASE_URL: postgresql://apigent:apigent@localhost:5432/apigent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 迁移文件与 drizzle 快照是否一致（schema 改了但没生成迁移）
+      - run: pnpm db:check
+      # 从空库跑全部迁移；脚本会在条数对不上时非零退出
+      # （ drizzle-kit migrate 会静默失败并返回 0，所以换成了 src/db/migrate.ts ）
+      - run: pnpm db:migrate
+      # 断言表确实建出来了，而不只是"命令没报错"。
+      # 用仓库里已有的 pg 客户端，不依赖 runner 是否装了 psql。
+      - name: Assert schema exists
+        working-directory: packages/server
+        run: |
+          node -e "
+          const { Client } = require('pg');
+          (async () => {
+            const client = new Client({ connectionString: process.env.APIGENT_DATABASE_URL });
+            await client.connect();
+            const tables = await client.query(\"select count(*)::int as n from information_schema.tables where table_schema = 'public'\");
+            const vector = await client.query(\"select count(*)::int as n from pg_extension where extname = 'vector'\");
+            await client.end();
+            const tableCount = tables.rows[0].n;
+            const hasVector = vector.rows[0].n === 1;
+            console.log('public tables:', tableCount, '| pgvector:', hasVector);
+            if (tableCount < 20 || !hasVector) {
+              console.error('Migration output looks incomplete');
+              process.exit(1);
+            }
+          })().catch((err) => { console.error(err.message); process.exit(1); });
+          "
