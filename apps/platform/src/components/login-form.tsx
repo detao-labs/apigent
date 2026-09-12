@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { signIn } from "next-auth/react";
 import {
   Button,
   Card,
@@ -29,18 +30,14 @@ export function LoginForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (res.ok) {
+      // Auth.js 的 credentials 登录：redirect:false 让我们自己处理错误码
+      const res = await signIn("credentials", { email, password, redirect: false });
+      if (res?.ok) {
         router.push("/");
         router.refresh();
         return;
       }
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error === "invalid-credentials" ? errors("invalidCredentials") : errors("generic"));
+      setError(errors("invalidCredentials"));
     } catch {
       setError(errors("generic"));
     } finally {
@@ -92,7 +89,10 @@ export function LoginForm() {
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               {t("noAccount")}{" "}
-              <Link href="/register" className="font-medium underline underline-offset-4 hover:text-primary">
+              <Link
+                href="/register"
+                className="font-medium underline underline-offset-4 hover:text-primary"
+              >
                 {t("registerLink")}
               </Link>
             </p>

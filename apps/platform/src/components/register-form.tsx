@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { signIn } from "next-auth/react";
 import {
   Button,
   Card,
@@ -37,12 +38,14 @@ export function RegisterForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
       if (res.ok) {
+        // 注册不再自动签发会话（Auth.js 管登录），注册成功后直接用同一组凭据登录
+        await signIn("credentials", { email, password, redirect: false });
         router.push("/");
         router.refresh();
         return;
@@ -118,7 +121,10 @@ export function RegisterForm() {
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               {t("hasAccount")}{" "}
-              <Link href="/login" className="font-medium underline underline-offset-4 hover:text-primary">
+              <Link
+                href="/login"
+                className="font-medium underline underline-offset-4 hover:text-primary"
+              >
                 {t("loginLink")}
               </Link>
             </p>

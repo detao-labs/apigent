@@ -88,16 +88,16 @@ Apigent 由三个应用层组成：
 
 代表一个注册用户账号。
 
-| 字段            | 类型      | 说明                            |
-| --------------- | --------- | ------------------------------- |
-| `id`            | UUID      | 唯一标识                        |
-| `email`         | string    | 登录邮箱（唯一）                |
-| `password_hash` | string    | 密码哈希                        |
-| `sso_providers` | string[]  | 绑定 SSO 账号（github、google） |
-| `name`          | string    | 显示名称                        |
-| `avatar_url`    | string    | 头像 URL                        |
-| `created_at`    | timestamp | 注册时间                        |
-| `updated_at`    | timestamp | 最后更新时间                    |
+| 字段            | 类型      | 说明                                                           |
+| --------------- | --------- | -------------------------------------------------------------- |
+| `id`            | UUID      | 唯一标识                                                       |
+| `email`         | string    | 登录邮箱（唯一）                                               |
+| `password_hash` | string    | 密码哈希                                                       |
+| `sso_providers` | string[]  | 已绑定登录方式（展示缓存；事实来源是 `accounts` 表，见 5.4.9） |
+| `name`          | string    | 显示名称                                                       |
+| `avatar_url`    | string    | 头像 URL                                                       |
+| `created_at`    | timestamp | 注册时间                                                       |
+| `updated_at`    | timestamp | 最后更新时间                                                   |
 
 ## 2.3 Organization（组织）
 
@@ -383,13 +383,13 @@ pnpm --filter @apigent/server admin:grant -- --email=you@example.com
 
 ## 3.1 认证系统
 
-| 功能             | 说明                                                            | V0 状态                                     |
-| ---------------- | --------------------------------------------------------------- | ------------------------------------------- |
-| **邮箱注册**     | 邮箱 + 密码注册                                                 | ✅ 已实现（暂无邮箱验证）                   |
-| **邮箱登录**     | 在 `users` 表校验凭据，然后签发签名 Cookie                      | ✅ 已实现                                   |
-| **SSO 登录**     | GitHub OAuth、Google OAuth                                      | ⏳ 未实现（已预留 `auth.providers` 配置槽） |
-| **密码重置**     | 通过邮箱重置密码                                                | ⏳ 未实现                                   |
-| **Session 管理** | HMAC-SHA256 签名 httpOnly Cookie（`apigent_session`），登出清除 | ✅ 已实现（V0 无 Refresh Token / 吊销）     |
+| 功能             | 说明                                                                                                                   | V0 状态                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **邮箱注册**     | 邮箱 + 密码注册                                                                                                        | ✅ 已实现（暂无邮箱验证）               |
+| **邮箱登录**     | 在 `users` 表校验凭据，然后签发签名 Cookie                                                                             | ✅ 已实现                               |
+| **SSO 登录**     | GitHub OAuth、Google OAuth                                                                                             | ⏳ 计划中 — Auth.js v5，见 §5.4.9       |
+| **密码重置**     | 通过邮箱重置密码                                                                                                       | ⏳ 未实现                               |
+| **Session 管理** | 签名 httpOnly Cookie：Platform（`apigent.session-token`）与 Admin（`apigent-admin.session-token`）；登出只清自己那一个 | ✅ 已实现（V0 无 Refresh Token 与吊销） |
 
 ## 3.2 用户配置
 
@@ -566,13 +566,13 @@ Key 格式：`apigent_sk_<random_hex>`
 
 ## 4.1 认证
 
-| 功能               | 说明                                       | V0 状态                                                   |
-| ------------------ | ------------------------------------------ | --------------------------------------------------------- |
-| **管理员登录**     | 独立于 Platform Webapp 的登录流程          | ✅ 已实现（`apps/admin/src/app/login`）                   |
-| **管理员权限检查** | 仅 `admin_super` 持有者可访问（见 §2.8.5） | ✅ 已实现（`admin_members` + `(authed)` 布局守卫）        |
-| **Session 隔离**   | 管理员会话使用独立 Cookie 与独立签名密钥   | ✅ 已实现（`apigent_admin_session` + `auth.adminSecret`） |
+| 功能               | 说明                                       | V0 状态                                                         |
+| ------------------ | ------------------------------------------ | --------------------------------------------------------------- |
+| **管理员登录**     | 独立于 Platform Webapp 的登录流程          | ✅ 已实现（`apps/admin/src/app/login`）                         |
+| **管理员权限检查** | 仅 `admin_super` 持有者可访问（见 §2.8.5） | ✅ 已实现（`admin_members` + `(authed)` 布局守卫）              |
+| **Session 隔离**   | 管理员会话使用独立 Cookie 与独立签名密钥   | ✅ 已实现（`apigent-admin.session-token` + `auth.adminSecret`） |
 
-隔离由三层互相独立的手段保证，任意一层单独生效即可拦住跨平面使用：不同的 cookie 名、不同的 HMAC 密钥、以及 token 里的 `aud` 字段（由 `verifySessionToken(token, scope)` 强制校验）。这一点很关键——cookie 是按主机而非端口隔离的，在本机 `localhost` 上 Platform 的 cookie 会被物理发送给 Admin，反之亦然。
+隔离靠"命名空间 + 密钥"。两个 app 都跑 Auth.js v5 的 JWT 会话，各自持有独立的 cookie 命名空间（`apigent.*` 与 `apigent-admin.*`）和独立的签名密钥（`auth.secret` 与 `auth.adminSecret`，后者绝不回落到前者）。命名空间覆盖 Auth.js 写入的**每一个** cookie——不只是会话 token，还有 `csrf-token`、`callback-url`、`state`、`pkce.code_verifier`、`nonce`。这件事有两重意义：一是 cookie 按主机而非端口隔离，本机 `localhost` 上 Platform 的 cookie 会被物理发送给 Admin；二是若 csrf cookie 同名，第二次登录会以"密码正确但没有会话"失败，因为 CSRF token 是用各平面自己的密钥派生的。
 
 管理员资格每次请求都现查 `admin_members`，而不是写进 token：撤销后下一个请求立刻生效，不必等会话过期；手里那张仍然"有效"的 cookie 会被送到 `/forbidden`。
 
@@ -778,7 +778,7 @@ base64url(JSON { uid, iat, exp }) + "." + base64url(HMAC-SHA256(payload, auth.se
 
 ```ts
 // packages/server/src/auth/session.ts
-export const SESSION_COOKIE = "apigent_session";
+export const SESSION_COOKIE = "apigent.session-token";
 
 function sign(payload: string): string {
   return createHmac("sha256", getAuthConfig().secret).update(payload).digest("base64url");
@@ -792,7 +792,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
 }
 ```
 
-**配置（`apigent.config.yaml` + `.env`）：** `auth.providers: [credentials]`；签名密钥与有效期来自 `APIGENT_AUTH_SECRET`（`auth.secret`）与 `auth.sessionMaxAge`。OAuth 尚未实现——`auth.providers` 是为它预留的配置槽。
+**配置（`apigent.config.yaml` + `.env`）：** `auth.providers: [credentials]`；签名密钥与有效期来自 `APIGENT_AUTH_SECRET`（`auth.secret`）与 `auth.sessionMaxAge`。Admin Webapp 用独立的 `APIGENT_AUTH_ADMIN_SECRET`（`auth.adminSecret`）签名——绝不能与前者同值。OAuth 尚未实现：`auth.providers` 是为它预留的配置槽，`auth.registration` 与 `auth.oauth.allowedEmailDomains` 将随它一起落地（§5.4.9）。
 
 **会话 Payload：**
 
@@ -1005,7 +1005,7 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
 - ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。
 - ✅ **成员变更已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）以及 `org.create` / `repo.create` 的引导写入，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.*` 事件。
-- ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent_admin_session`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查统一走 `assertAdminCapability()`。第一个管理员由 `admin.grant` CLI 创建，审计行同事务落库。**仍未落地：** 门禁之后的所有页面都还是占位，应用内的授予 / 撤销 UI 也没有。
+- ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent-admin.session-token`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查统一走 `assertAdminCapability()`。第一个管理员由 `admin.grant` CLI 创建，审计行同事务落库。**仍未落地：** 门禁之后的所有页面都还是占位，应用内的授予 / 撤销 UI 也没有。
 
 **剩余缺口**，按应修复的顺序排列：
 
@@ -1017,7 +1017,11 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 
 ### 5.4.9 计划：引入第三方认证（NextAuth）
 
-V0 使用自研 credentials 认证。GitHub / Google 登录已排期，方向是采用 Auth.js / NextAuth，但**仅负责认证**部分——授权仍留在 `packages/server`，如本节所述。
+V0 使用自研 credentials 认证。GitHub / Google 登录已排期，方向是采用 **Auth.js / NextAuth v5**，但**仅负责认证**部分——授权仍留在 `packages/server`，如本节所述。
+
+**状态（2026-09-12）：迁移本身已落地。** 两个 app 都已通过 Auth.js v5（`5.0.0-beta.32`）的 credentials provider 登录，各自持有独立实例、cookie 命名空间与密钥（§4.1）；共享配置工厂在 `@apigent/auth`。会话读取仍走 `getSessionUser()` / `getAdminSessionUser()` 接缝，因此路由与 RBAC 代码一行未改。本节**尚未完成**的是 OAuth 那一半：provider、账号绑定、注册与白名单配置。
+
+**版本。** 目标是 `5.0.0-beta.x`（App Router 原生那条线）。`next-auth@latest` 至今仍是 `4.24.15`，v5 停留在 beta 标签上——两者在同一天发布（2026-07-20），说明 v5 在维护但尚未 stable。要锁定确切的 beta 版本，把升级当成一件需要单独排期的事。`packages/server/src/auth` 里的自研 HMAC 原语保留在仓库里：CLI 今天就在用它，而且它是 beta 出问题时的退路。
 
 | 决策                                          | 理由                                                                                           |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -1027,8 +1031,65 @@ V0 使用自研 credentials 认证。GitHub / Google 登录已排期，方向是
 | 共用 `users` 表，不建独立管理员用户体系       | 管理员本来就是持有平台角色的平台用户；独立身份源会破坏账号绑定                                 |
 | 保留邮箱 + 密码登录                           | 自托管部署需要本地兜底——这也是会话保持 JWT 形态的原因（Auth.js credentials 不支持 DB session） |
 | 角色永不写入 token                            | 授权每请求从数据库解析，角色变更立即生效                                                       |
+| Admin Webapp 只保留账密登录                   | 它是权限最高的界面：接上 OAuth 等于"GitHub 账号被盗 = 控制台沦陷"。要改必须有明确决策          |
 
 迁移成本被 `getSessionUser()` 这个接缝限制住：换的是"用户 id 从哪来"，而不是"怎么被消费"。
+
+**账号绑定：已验证邮箱自动绑定（方案 B）。** 首次用 OAuth 登录、且返回的邮箱已属于某个账号时，只有满足以下规则才合并：
+
+1. 绑定关系以 `(provider, providerAccountId)` 为主键，**不是邮箱字符串**——用户之后改 GitHub 邮箱，不该让绑定断开或指向别人。
+2. 只有当 provider 明确声明该邮箱**已验证**且与已有账号匹配时才自动绑定。Google 天然满足；GitHub 只能取 `/user/emails` 里 `verified` 的那条 primary 邮箱。GitHub 允许账号挂未验证邮箱，直接信 `user.email` 正是"用 GitHub 登录"预劫持攻击的成因。
+3. 拿不到已验证邮箱 → 不合并，提示用户先用密码登录、再到设置里绑定 GitHub。
+4. 每次自动绑定都发一条站内通知（"你的账号已通过 GitHub 登录绑定"），让账号主人能发现不是自己做的绑定。
+5. 设置页可以解绑某个 provider，但**不允许解绑最后一个登录凭据**，否则账号会变成谁也进不去的僵尸账号。
+
+**注册策略与 OAuth 邮箱域名白名单。** 两者都进社区版：把访问控制的开关放到付费墙后，等于让开源产物无法关上自己的门。两个正交的配置覆盖三种部署形态：
+
+| `auth.registration` | `auth.oauth.allowedEmailDomains` | 形态                                                    |
+| ------------------- | -------------------------------- | ------------------------------------------------------- |
+| `open`（默认）      | `[]`（不限制）                   | Demo / 试用：任何已验证的 GitHub 或 Google 账号都能注册 |
+| `open`              | 例如 `["acme.com"]`              | 内部实例：OAuth 的注册与登录都收敛到这些域名            |
+| `invite-only`       | 忽略                             | 账号只能被邀请创建；OAuth 退化为已有账号的额外登录方式  |
+
+几条关键规则：
+
+- 白名单只作用于**建号**，不作用于已有账号的登录——否则改一次列表就把现有用户锁在门外。
+- 只有白名单、没有注册开关等于装饰：`POST /api/auth/register` 今天接受任意邮箱且不做验证，受限的 OAuth 注册可以从那里绕过去。只收紧一头没有意义。
+- 默认开放，保证新克隆的实例十分钟内能用；一个**两项都没配**又对外可达的实例会在启动时打一条警告。
+
+**Demo 部署**要的不只是"关掉白名单"——demo 是一台默认会被滥用的部署。预留的接口位是 `deployment.mode: "self-hosted" | "demo"`，后续由它承载种子数据、账号 TTL 清理、注册与 AI 限流，以及"数据每日重置"的横幅。V0 一律不实现；把接口位和边界记在这里，是为了上面的默认值不被悄悄挪用去当 demo 用。另外注意 AI 生成（`businessContext.autoGenerate`、`POST /api/agent/run`）花的是真金白银的额度——公网 demo 要么关掉，要么限额。
+
+**数据模型改动**（无论先上哪个 provider 都要做）：
+
+| 改动                                                    | 原因                                                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 新增 `accounts(provider, providerAccountId, userId, …)` | 绑定、解绑、刷新令牌、provider 侧身份都需要逐行记录，`string[]` 存不下 |
+| `users.password_hash` 改为可空                          | 纯 OAuth 账号没有密码，而这一列现在是 `NOT NULL`                       |
+| 新增 `users.email_verified` 时间戳                      | Auth.js 期望它存在；上面的规则 2 也需要记录"何时见过已验证"            |
+| `users.sso_providers` 降级为派生展示缓存                | 事实来源变成 `accounts` 表；这个数组只在设置页需要廉价读取时保留       |
+
+**落地顺序。**（1）`packages/auth`：共享 provider 配置工厂 + `accounts` 模型与迁移；（2）Platform 的 credentials 换到 `getSessionUser()` 接缝之后——行为不变，已有会话等到期自然失效；（3）GitHub provider + 上面的绑定规则 + 设置页"已绑定账号"UI；（4）Google provider；（5）`auth.registration` + `auth.oauth.allowedEmailDomains`；（6）Admin app——无需改动，保持仅账密。
+
+**版本分界。** 静态的访问控制配置属于社区版；动态的身份生命周期属于企业版。
+
+| 能力                                          | 社区版 | 企业版 |
+| --------------------------------------------- | ------ | ------ |
+| 注册开关（`open` / `invite-only`）            | ✅     | ✅     |
+| OAuth 邮箱域名白名单（静态）                  | ✅     | ✅     |
+| OIDC / SAML / LDAP 对接真实 IdP               | —      | ✅     |
+| 组 → 角色映射（GitHub Org / Workspace group） | —      | ✅     |
+| SCIM / 定时同步，离职即失效                   | —      | ✅     |
+| 多域名、组织 + 域名双条件、IP 网段            | —      | ✅     |
+| 审计导出与保留策略                            | —      | ✅     |
+
+分界线是"你写下来的配置"与"平台跟踪的生命周期"。后者才有持续的维护成本，也是企业真正付费的部分；把静态白名单放进社区版，反而让这道差距可见而不是被藏起来——用超了它的部署，自然会撞上企业级 SSO 要解决的离职问题。
+
+**这次迁移中不能动的护栏：**
+
+1. 会话隔离保持三层（cookie 名、密钥、`aud`）。两个 NextAuth 实例不得共用 cookie 名或密钥。
+2. 角色永不进入 token——尤其是管理员资格仍然是每请求现查 `admin_members`，保证撤销立即生效。
+3. Hono 网关永不 import `next-auth`。目前 MCP / REST 只走 SecretKey，这条是免费的；如果将来网关承载面向浏览器的界面，它必须在不依赖 Auth.js 内部实现的前提下校验会话。
+4. 不使用 `middleware.ts` 做守卫——布局守卫留在原位（原因见 §5.4.4：middleware 无法携带日志上下文）。
 
 ## 5.5 可扩展架构
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { signIn } from "next-auth/react";
 import { ShieldCheck } from "lucide-react";
 import {
   Button,
@@ -29,19 +30,13 @@ export function AdminLoginForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (res.ok) {
+      const res = await signIn("credentials", { email, password, redirect: false });
+      if (res?.ok) {
         router.push("/");
         router.refresh();
         return;
       }
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (data?.error === "invalid-credentials") setError(errors("invalidCredentials"));
-      else if (data?.error === "not-admin") setError(errors("notAdmin"));
+      if (res?.code === "not-admin") setError(errors("notAdmin"));
       else setError(errors("generic"));
     } catch {
       setError(errors("generic"));

@@ -88,16 +88,16 @@ Shared, framework-agnostic logic lives in `packages/*` and is imported by these 
 
 Represents a registered user account.
 
-| Field           | Type      | Description                          |
-| --------------- | --------- | ------------------------------------ |
-| `id`            | UUID      | Unique identifier                    |
-| `email`         | string    | Login email (unique)                 |
-| `password_hash` | string    | Hashed password                      |
-| `sso_providers` | string[]  | Linked SSO accounts (github, google) |
-| `name`          | string    | Display name                         |
-| `avatar_url`    | string    | Avatar image URL                     |
-| `created_at`    | timestamp | Registration time                    |
-| `updated_at`    | timestamp | Last update time                     |
+| Field           | Type      | Description                                                                               |
+| --------------- | --------- | ----------------------------------------------------------------------------------------- |
+| `id`            | UUID      | Unique identifier                                                                         |
+| `email`         | string    | Login email (unique)                                                                      |
+| `password_hash` | string    | Hashed password                                                                           |
+| `sso_providers` | string[]  | Linked providers (display cache; the `accounts` table is the source of truth - see 5.4.9) |
+| `name`          | string    | Display name                                                                              |
+| `avatar_url`    | string    | Avatar image URL                                                                          |
+| `created_at`    | timestamp | Registration time                                                                         |
+| `updated_at`    | timestamp | Last update time                                                                          |
 
 ## 2.3 Organization
 
@@ -383,13 +383,13 @@ The main application for developers to manage their APIs as Agent-accessible kno
 
 ## 3.1 Authentication
 
-| Feature                | Description                                                              | V0 status                                            |
-| ---------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------- |
-| **Email Registration** | Sign up with email + password                                            | ✅ implemented (no email verification yet)           |
-| **Email Login**        | Verify credentials against `users`, then issue the signed cookie         | ✅ implemented                                       |
-| **SSO Login**          | GitHub OAuth, Google OAuth                                               | ⏳ not implemented (`auth.providers` config slot)    |
-| **Password Reset**     | Email-based password reset flow                                          | ⏳ not implemented                                   |
-| **Session Management** | HMAC-SHA256 signed httpOnly cookie (`apigent_session`); logout clears it | ✅ implemented (no refresh token / revocation in V0) |
+| Feature                | Description                                                                                                                            | V0 status                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Email Registration** | Sign up with email + password                                                                                                          | ✅ implemented (no email verification yet)            |
+| **Email Login**        | Verify credentials against `users`, then issue the signed cookie                                                                       | ✅ implemented                                        |
+| **SSO Login**          | GitHub OAuth, Google OAuth                                                                                                             | ⏳ planned — Auth.js v5, see §5.4.9                   |
+| **Password Reset**     | Email-based password reset flow                                                                                                        | ⏳ not implemented                                    |
+| **Session Management** | Signed httpOnly cookies: Platform (`apigent.session-token`) and Admin (`apigent-admin.session-token`); sign-out clears the one it owns | ✅ implemented (no refresh token or revocation in V0) |
 
 ## 3.2 User Profile
 
@@ -566,13 +566,13 @@ A separate application for the operator of this deployment. Accessible only to u
 
 ## 4.1 Authentication
 
-| Feature               | Description                                                        | V0 status                                                      |
-| --------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **Admin Login**       | Separate sign-in from the Platform Webapp                          | ✅ implemented (`apps/admin/src/app/login`)                    |
-| **Admin Role Check**  | Only `admin_super` holders can access (see §2.8.5)                 | ✅ implemented (`admin_members` + the `(authed)` layout guard) |
-| **Session Isolation** | Admin session is an independent cookie with its own signing secret | ✅ implemented (`apigent_admin_session` + `auth.adminSecret`)  |
+| Feature               | Description                                                        | V0 status                                                           |
+| --------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| **Admin Login**       | Separate sign-in from the Platform Webapp                          | ✅ implemented (`apps/admin/src/app/login`)                         |
+| **Admin Role Check**  | Only `admin_super` holders can access (see §2.8.5)                 | ✅ implemented (`admin_members` + the `(authed)` layout guard)      |
+| **Session Isolation** | Admin session is an independent cookie with its own signing secret | ✅ implemented (`apigent-admin.session-token` + `auth.adminSecret`) |
 
-Isolation has three independent layers, any one of which would already block cross-plane use: a different cookie name, a different HMAC secret, and an `aud` field inside the token that `verifySessionToken(token, scope)` enforces. This matters because cookies are scoped to the host, not the port — on `localhost` the Platform cookie is physically sent to the Admin app and vice versa.
+Isolation is namespace + secret. Both apps run Auth.js v5 with JWT sessions, and each gets its own cookie namespace (`apigent.*` vs `apigent-admin.*`) and its own signing secret (`auth.secret` vs `auth.adminSecret`, which never falls back to the other). The namespace covers **every** cookie Auth.js sets — not just the session token but `csrf-token`, `callback-url`, `state`, `pkce.code_verifier` and `nonce`. This matters twice over: cookies are scoped to the host rather than the port (on `localhost` the Platform cookie is physically sent to the Admin app), and a shared CSRF cookie name would make the second sign-in fail with "correct password, no session", because CSRF tokens are derived from each plane's own secret.
 
 Admin eligibility is re-read from `admin_members` on every request instead of being baked into the token: revoking an admin takes effect on their next request rather than waiting out the session, and a still-valid cookie lands on `/forbidden` instead of the console.
 
@@ -668,23 +668,23 @@ All tools are **plain request-response** — no streaming, no server push, no pe
 
 Each swappable component is defined by a **TypeScript interface** and shipped with a **default implementation**. Users can replace any component by implementing the interface and registering it via configuration. See [5.5 Extensibility Architecture](#55-extensibility-architecture) for details.
 
-| Layer               | Default                                      | Abstraction (Interface) | Rationale                                                                                                           |
-| ------------------- | -------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Webapp Frontend** | Next.js App Router, React, TypeScript        | —                       | SSR, streaming, Server Components, rich ecosystem                                                                   |
-| **Webapp Styling**  | Tailwind CSS                                 | —                       | Utility-first, rapid UI development                                                                                 |
-| **Platform API**    | Next.js Route Handlers + `@apigent/server`   | —                       | In-process with the Platform webapp: no HTTP hop, one deploy target in V0; services stay framework-agnostic         |
-| **Open Gateway**    | Hono (TypeScript)                            | —                       | Standalone process for machine-facing traffic (MCP); multi-runtime, Web standard `Request`/`Response`               |
-| **Type Bridge**     | Zod schemas + `zod-openapi`                  | —                       | Route Handlers validate with Zod; the OpenAPI 3.1 document is generated offline from the same schemas               |
-| **Database**        | PostgreSQL                                   | `DatabaseAdapter`       | V0 relational store; PostgreSQL only (Drizzle pg-core schema)                                                       |
-| **Vector Store**    | pgvector                                     | `VectorStore`           | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale                                                |
-| **ORM**             | Drizzle                                      | `DatabaseAdapter`       | SQL-first, type-safe; PostgreSQL (pg-core) for V0 — other dialects planned, not yet supported                       |
-| **Async Tasks**     | Postgres queue (V0) / BullMQ + Redis (scale) | `QueueProvider`         | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS via config                                   |
-| **Auth**            | Credentials + HMAC-signed cookie             | `AuthProvider`          | Email + password with a stateless signed httpOnly cookie in V0; the interface is the seam for OAuth/OIDC/LDAP later |
-| **LLM**             | Qwen API (Alibaba Cloud Model Studio)        | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models                                      |
-| **Embedding**       | Qwen Embedding (text-embedding-v4)           | `EmbeddingProvider`     | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models                                     |
-| **MCP**             | @modelcontextprotocol/sdk                    | —                       | Standard MCP implementation, Streamable HTTP transport                                                              |
-| **Storage**         | Local filesystem                             | `StorageProvider`       | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage                                                         |
-| **Diff**            | diff (or custom renderer)                    | —                       | Side-by-side comparison for version history and AI edits                                                            |
+| Layer               | Default                                           | Abstraction (Interface) | Rationale                                                                                                                       |
+| ------------------- | ------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Webapp Frontend** | Next.js App Router, React, TypeScript             | —                       | SSR, streaming, Server Components, rich ecosystem                                                                               |
+| **Webapp Styling**  | Tailwind CSS                                      | —                       | Utility-first, rapid UI development                                                                                             |
+| **Platform API**    | Next.js Route Handlers + `@apigent/server`        | —                       | In-process with the Platform webapp: no HTTP hop, one deploy target in V0; services stay framework-agnostic                     |
+| **Open Gateway**    | Hono (TypeScript)                                 | —                       | Standalone process for machine-facing traffic (MCP); multi-runtime, Web standard `Request`/`Response`                           |
+| **Type Bridge**     | Zod schemas + `zod-openapi`                       | —                       | Route Handlers validate with Zod; the OpenAPI 3.1 document is generated offline from the same schemas                           |
+| **Database**        | PostgreSQL                                        | `DatabaseAdapter`       | V0 relational store; PostgreSQL only (Drizzle pg-core schema)                                                                   |
+| **Vector Store**    | pgvector                                          | `VectorStore`           | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale                                                            |
+| **ORM**             | Drizzle                                           | `DatabaseAdapter`       | SQL-first, type-safe; PostgreSQL (pg-core) for V0 — other dialects planned, not yet supported                                   |
+| **Async Tasks**     | Postgres queue (V0) / BullMQ + Redis (scale)      | `QueueProvider`         | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS via config                                               |
+| **Auth**            | Credentials + signed cookie (NextAuth v5 planned) | `AuthProvider`          | Email + password with stateless signed httpOnly cookies in V0; Auth.js v5 adds OAuth while RBAC keeps taking a `userId` (5.4.9) |
+| **LLM**             | Qwen API (Alibaba Cloud Model Studio)             | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models                                                  |
+| **Embedding**       | Qwen Embedding (text-embedding-v4)                | `EmbeddingProvider`     | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models                                                 |
+| **MCP**             | @modelcontextprotocol/sdk                         | —                       | Standard MCP implementation, Streamable HTTP transport                                                                          |
+| **Storage**         | Local filesystem                                  | `StorageProvider`       | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage                                                                     |
+| **Diff**            | diff (or custom renderer)                         | —                       | Side-by-side comparison for version history and AI edits                                                                        |
 
 > **Implementation status:** LLM calls are live — product code (business-context generation, agent runtime) goes through `@apigent/server/ai` (`createAIModel()` on the Vercel AI SDK), while the DI container's `getLLM()` remains a fail-fast stub. The container registers only the `memory` vector store, `local` storage, and the Postgres queue; Embedding, pgvector, BullMQ and the MCP Gateway are defined in config/types but have no factory yet — `getEmbedding()`, `getVectorStore()` (non-`memory`), and `getQueue()` (non-`postgres`/`memory`) fail fast with `not implemented` (see `packages/core/src/di/container.test.ts`).
 
@@ -779,7 +779,7 @@ base64url(JSON { uid, iat, exp }) + "." + base64url(HMAC-SHA256(payload, auth.se
 
 ```ts
 // packages/server/src/auth/session.ts
-export const SESSION_COOKIE = "apigent_session";
+export const SESSION_COOKIE = "apigent.session-token";
 
 function sign(payload: string): string {
   return createHmac("sha256", getAuthConfig().secret).update(payload).digest("base64url");
@@ -793,7 +793,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
 }
 ```
 
-**Configuration (`apigent.config.yaml` + `.env`):** `auth.providers: [credentials]`; the signing secret and lifetime come from `APIGENT_AUTH_SECRET` (`auth.secret`) and `auth.sessionMaxAge`. OAuth providers are not implemented — `auth.providers` is the config slot for them.
+**Configuration (`apigent.config.yaml` + `.env`):** `auth.providers: [credentials]`; the signing secret and lifetime come from `APIGENT_AUTH_SECRET` (`auth.secret`) and `auth.sessionMaxAge`. The Admin Webapp signs with a separate `APIGENT_AUTH_ADMIN_SECRET` (`auth.adminSecret`) — never the same value. OAuth providers are not implemented yet: `auth.providers` is their config slot, and `auth.registration` / `auth.oauth.allowedEmailDomains` ship alongside them (§5.4.9).
 
 **Session payload:**
 
@@ -1006,7 +1006,7 @@ The model above is the target. **Already landed:**
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
 - ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4).
 - ✅ **Membership changes are audited** — every membership mutation (`member.*`, `repo.member_*`, `org.transfer`) and the `org.create` / `repo.create` bootstrap write their `operation_logs` row inside the same transaction as the business write, via `recordOperation(tx, …)`; read paths are `GET /api/repos/:id/operations` and `GET /api/orgs/:id/operations` (§5.4.7). **Still open:** import detail rows (`operation_log_details`), repository edit/delete, version activate/rollback, MCP toggle, secret keys, and the `admin.*` events.
-- ✅ **The Admin Webapp is gated** — `admin_members` exists (`0002_admin_members.sql`), sign-in is separate from Platform (`/login` → `apigent_admin_session` signed with `auth.adminSecret`), the guard sits in `apps/admin/src/app/(authed)/layout.tsx`, and capabilities are checked through `assertAdminCapability()`. The first admin is created by the `admin.grant` CLI, which writes its audit row in the same transaction. **Still open:** every page behind the gate is a placeholder, and there is no in-app grant/revoke UI yet.
+- ✅ **The Admin Webapp is gated** — `admin_members` exists (`0002_admin_members.sql`), sign-in is separate from Platform (`/login` → `apigent-admin.session-token` signed with `auth.adminSecret`), the guard sits in `apps/admin/src/app/(authed)/layout.tsx`, and capabilities are checked through `assertAdminCapability()`. The first admin is created by the `admin.grant` CLI, which writes its audit row in the same transaction. **Still open:** every page behind the gate is a placeholder, and there is no in-app grant/revoke UI yet.
 
 **Remaining gaps**, in the order they should be closed:
 
@@ -1018,7 +1018,11 @@ Suggested order: 1 → 2 → 3.
 
 ### 5.4.9 Planned: third-party authentication (NextAuth)
 
-V0 ships first-party credentials auth. GitHub / Google sign-in is planned, and the decision is to adopt Auth.js / NextAuth for the **authentication** part only — authorization stays in `packages/server` as described above.
+V0 ships first-party credentials auth. GitHub / Google sign-in is planned, and the decision is to adopt **Auth.js / NextAuth v5** for the **authentication** part only — authorization stays in `packages/server` as described above.
+
+**Status (2026-09-12): the migration itself has landed.** Both apps sign in through Auth.js v5 (`5.0.0-beta.32`) with the credentials provider, each with its own instance, cookie namespace and secret (§4.1); `@apigent/auth` holds the shared config factory. Session reads still go through the `getSessionUser()` / `getAdminSessionUser()` seams, so no route or RBAC code changed. What remains _in this section_ is the OAuth half: providers, account linking, and the registration / allowlist settings.
+
+**Version.** Target `5.0.0-beta.x` (the App-Router-native line). `next-auth@latest` is still `4.24.15` while v5 stays on the beta tag — both were published on the same day (2026-07-20), so v5 is maintained but not stable. Pin an exact beta and treat upgrades as a deliberate task. The custom HMAC primitives in `packages/server/src/auth` stay in the tree: the CLI uses them today, and they are the fallback if a beta regression blocks a release.
 
 | Decision                                                       | Rationale                                                                                                                                               |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1028,8 +1032,65 @@ V0 ships first-party credentials auth. GitHub / Google sign-in is planned, and t
 | Shared `users` table, no separate admin user store             | An admin is a platform user holding an admin role; separate identity stores break account linking                                                       |
 | Keep email + password login                                    | Self-hosted deployments need a local fallback — and it is why the session stays JWT-based, since Auth.js credentials does not support database sessions |
 | Roles never go into the token                                  | Authorization is resolved from the database per request, so role changes take effect immediately                                                        |
+| The Admin Webapp stays credentials-only                        | It is the highest-privilege surface: adding OAuth would make a stolen GitHub account a console compromise. Revisiting this needs an explicit decision   |
 
 Migration cost stays contained by the `getSessionUser()` seam: swapping its implementation changes where the user id comes from, not how it is consumed.
+
+**Account linking: verified-email auto-link.** When a first-time OAuth sign-in returns an email that already belongs to an account, the two are merged only under these rules:
+
+1. The link is keyed on `(provider, providerAccountId)`, never on the email string — a user changing their GitHub email must not break or re-target the link.
+2. Auto-link happens only when the provider explicitly reports the email as **verified** and it matches an existing account. Google always qualifies; GitHub qualifies only through the verified `primary` entry from `/user/emails`. GitHub lets an account carry an unverified address, and trusting `user.email` blindly is exactly how "Sign in with GitHub" pre-hijack attacks work.
+3. No verified match → no merge. The user is told to sign in with their password and link GitHub from Settings instead.
+4. Every auto-link sends an in-app notification ("your account was linked to GitHub sign-in"), so the owner can notice a link they did not make.
+5. Settings can unlink a provider, but never the last remaining credential — otherwise the account becomes unreachable.
+
+**Registration policy and the OAuth email-domain allowlist.** Both ship in the community edition: putting an access-control switch behind the paid tier would leave the open-source artifact unable to close its own door. Two orthogonal settings cover the deployment shapes:
+
+| `auth.registration` | `auth.oauth.allowedEmailDomains` | Shape                                                                                              |
+| ------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `open` (default)    | `[]` (unrestricted)              | Demo site / trial: any verified GitHub or Google account can sign up                               |
+| `open`              | e.g. `["acme.com"]`              | Internal instance: OAuth sign-up and sign-in are restricted to those domains                       |
+| `invite-only`       | ignored                          | Accounts are only created by invitation; OAuth becomes an extra login method for existing accounts |
+
+Rules that matter:
+
+- The allowlist applies to **account creation**, not to existing accounts signing in — otherwise editing the list locks people out.
+- An allowlist without the registration switch is decorative: `POST /api/auth/register` accepts any email today with no verification, so a restricted OAuth sign-up can be bypassed through it. Tightening one without the other buys nothing.
+- Default is open, so a fresh clone stays usable in ten minutes; an instance that is reachable with **neither** restriction configured logs a startup warning.
+
+**Demo deployments** need more than "allowlist off" — a demo is a deployment that is expected to be abused. The interface slot is `deployment.mode: "self-hosted" | "demo"`, which will later carry seeded data, account TTL cleanup, registration and AI rate limits, and a "data resets nightly" banner. None of that is implemented in V0; the slot and the boundary are recorded here so the defaults above are not quietly repurposed for demos. Note that AI generation (`businessContext.autoGenerate`, `POST /api/agent/run`) spends real provider credit — a public demo must either keep it off or cap it.
+
+**Data model deltas** (needed whichever provider ships first):
+
+| Change                                                   | Why                                                                                                          |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| New `accounts(provider, providerAccountId, userId, …)`   | Linking, unlinking, refresh tokens and provider-side identity each need a row; a `string[]` cannot hold them |
+| `users.password_hash` becomes nullable                   | An OAuth-only account has no password; the column is `NOT NULL` today                                        |
+| New `users.email_verified` timestamp                     | Auth.js expects it, and rule 2 needs a record of when verification was seen                                  |
+| `users.sso_providers` demoted to a derived display cache | The `accounts` table becomes the source of truth; keep the array only as a cheap read for the settings UI    |
+
+**Rollout order.** (1) `packages/auth` with the shared provider-config factory, plus the `accounts` model and migration; (2) Platform credentials moved behind the unchanged `getSessionUser()` seam — no behaviour change, existing sessions stay valid until they expire; (3) GitHub provider, the linking rules above, and the Settings "linked accounts" UI; (4) Google provider; (5) `auth.registration` + `auth.oauth.allowedEmailDomains`; (6) Admin app — nothing to do, it stays credentials-only.
+
+**Edition split.** Static access-control configuration belongs to the community edition; dynamic identity lifecycle is the enterprise tier.
+
+| Capability                                           | Community | Enterprise |
+| ---------------------------------------------------- | --------- | ---------- |
+| Registration switch (`open` / `invite-only`)         | ✅        | ✅         |
+| OAuth email-domain allowlist (static)                | ✅        | ✅         |
+| OIDC / SAML / LDAP against a real IdP                | —         | ✅         |
+| Group → role mapping (GitHub Org / Workspace group)  | —         | ✅         |
+| SCIM / scheduled sync, so offboarding takes effect   | —         | ✅         |
+| Multiple domains, org + domain conditions, IP ranges | —         | ✅         |
+| Audit export and retention policies                  | —         | ✅         |
+
+The dividing line is "configuration you write down" versus "lifecycle the platform tracks". The latter is what carries ongoing maintenance cost and what enterprises actually buy; shipping the static allowlist in the community edition makes the gap visible instead of hidden — a deployment that outgrows it hits the offboarding problem that enterprise SSO solves.
+
+**Guardrails that must not move during this migration:**
+
+1. Session isolation stays three-layered (cookie name, secret, `aud`). Two NextAuth instances must not share a cookie name or a secret.
+2. Roles never enter the token — admin eligibility in particular stays a per-request `admin_members` read, so revocation is immediate.
+3. The Hono gateway never imports `next-auth`. Today MCP/REST are SecretKey-only so this costs nothing; if a browser-facing surface ever lands on the gateway, it must verify the session without depending on Auth.js internals.
+4. No `middleware.ts` guard — the layout guard stays where it is (see §5.4.4 for why middleware cannot carry the logging context).
 
 ## 5.5 Extensibility Architecture
 
@@ -1068,14 +1129,14 @@ Apigent is an **open-source, self-hosted** platform. Different teams have differ
 
 ### 5.5.2 Swappable Components
 
-| Component              | Interface           | Default                               | Common Alternatives                                                       |
-| ---------------------- | ------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
-| **Vector Store**       | `VectorStore`       | pgvector                              | Milvus, Qdrant, Weaviate, Pinecone, Chroma                                |
-| **LLM Provider**       | `LLMProvider`       | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM                              |
-| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | Claude Embedding, OpenAI Embedding, Cohere, BGE (local)                   |
-| **Storage Provider**   | `StorageProvider`   | Local filesystem                      | AWS S3, MinIO, Google Cloud Storage, Azure Blob                           |
-| **Queue Provider**     | `QueueProvider`     | Postgres queue (`PgQueueProvider`)    | BullMQ + Redis, RabbitMQ, AWS SQS                                         |
-| **Auth Provider**      | `AuthProvider`      | Credentials + HMAC-signed cookie      | OAuth / OIDC, LDAP, SAML, Authentik (config slot exists, not implemented) |
+| Component              | Interface           | Default                               | Common Alternatives                                                        |
+| ---------------------- | ------------------- | ------------------------------------- | -------------------------------------------------------------------------- |
+| **Vector Store**       | `VectorStore`       | pgvector                              | Milvus, Qdrant, Weaviate, Pinecone, Chroma                                 |
+| **LLM Provider**       | `LLMProvider`       | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM                               |
+| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | Claude Embedding, OpenAI Embedding, Cohere, BGE (local)                    |
+| **Storage Provider**   | `StorageProvider`   | Local filesystem                      | AWS S3, MinIO, Google Cloud Storage, Azure Blob                            |
+| **Queue Provider**     | `QueueProvider`     | Postgres queue (`PgQueueProvider`)    | BullMQ + Redis, RabbitMQ, AWS SQS                                          |
+| **Auth Provider**      | `AuthProvider`      | Credentials + signed cookie           | OAuth / OIDC, LDAP, SAML, Authentik (OAuth via Auth.js v5 planned - 5.4.9) |
 
 ### 5.5.3 Vector Store Interface
 

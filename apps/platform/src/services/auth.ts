@@ -1,24 +1,20 @@
 // ═══════════════════════════════════════════════════════════════════
-// Platform Auth Service — register / login / session
+// Platform Auth Service — session 读取 + 注册
 // ═══════════════════════════════════════════════════════════════════
 //
-// App-level glue: reads the session cookie via next/headers and talks to
-// the shared auth primitives (@apigent/server/auth) + users table.
+// 登录 / 登出交给 Auth.js（见 src/auth.ts）。这里只保留两件事：
+//   - getSessionUser()：把 Auth.js 的会话翻译成"当前用户"，作为全平台唯一的
+//     会话接缝（调用方拿到的仍是 { id, email, name }）；
+//   - registerUser()：注册不属于 Auth.js 的职责范围。
 // ═══════════════════════════════════════════════════════════════════
 
 import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import {
-  SESSION_COOKIES,
-  createSessionToken,
-  hashPassword,
-  verifyPassword,
-  verifySessionToken,
-} from "@apigent/server/auth";
+import { hashPassword } from "@apigent/server/auth";
 import { getDB, users } from "@apigent/server/db";
 import { generateId } from "@apigent/server/id";
-import { loginBodySchema, registerBodySchema } from "@/lib/openapi-schemas";
+import { registerBodySchema } from "@/lib/openapi-schemas";
+import { auth } from "@/auth";
 import type { ZodError } from "zod/v4";
 
 export class AuthError extends Error {
@@ -34,12 +30,11 @@ export interface SessionUser {
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const token = (await cookies()).get(SESSION_COOKIES.platform)?.value;
-  if (!token) return null;
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return null;
 
-  const payload = verifySessionToken(token, "platform");
-  if (!payload) return null;
-
+  // token 里只有 uid：用户被删除、改名都以数据库为准，不缓存进 token
   const [user] = await getDB()
     .select({
       id: users.id,
@@ -47,7 +42,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       name: users.name,
     })
     .from(users)
-    .where(eq(users.id, payload.uid))
+    .where(eq(users.id, userId))
     .limit(1);
   return user ?? null;
 }
@@ -86,22 +81,6 @@ export async function registerUser(input: unknown): Promise<SessionUser> {
       name: users.name,
     });
   return user;
-}
-
-export async function loginUser(input: unknown): Promise<SessionUser> {
-  const parsed = loginBodySchema.safeParse(input);
-  if (!parsed.success) throw new AuthError("invalid-credentials");
-  const email = parsed.data.email.trim().toLowerCase();
-  const [user] = await getDB().select().from(users).where(eq(users.email, email)).limit(1);
-
-  if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
-    throw new AuthError("invalid-credentials");
-  }
-  return { id: user.id, email: user.email, name: user.name };
-}
-
-export function issueSessionToken(userId: string): string {
-  return createSessionToken(userId, "platform");
 }
 
 function mapRegisterIssue(error: ZodError): string {

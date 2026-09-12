@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { SidebarMenuButton } from "@apigent/ui";
 
@@ -11,7 +12,7 @@ export function LogoutButton() {
   const t = useTranslations("nav");
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    await signOut({ redirect: false }).catch(() => null);
     router.push("/login");
     router.refresh();
   }

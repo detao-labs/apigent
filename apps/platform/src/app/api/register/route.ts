@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
-import { AuthError, issueSessionToken, registerUser } from "@/services/auth";
-import { getSessionMaxAge, SESSION_COOKIES } from "@apigent/server/auth";
+import { AuthError, registerUser } from "@/services/auth";
 import { withRoute } from "@/lib/route";
 
+/**
+ * 注册。POST /api/register
+ *
+ * 从 `/api/auth/register` 挪出来：`/api/auth/*` 现在整个归 Auth.js（catch-all
+ * 路由），注册不属于它的职责。注册完成后由前端调用 Auth.js 的 credentials
+ * 登录，因此这里不再签发任何 cookie。
+ */
 export const POST = withRoute(async ({ request }) => {
   let body: unknown;
   try {
@@ -13,16 +19,7 @@ export const POST = withRoute(async ({ request }) => {
 
   try {
     const user = await registerUser(body);
-
-    const response = NextResponse.json({ user }, { status: 201 });
-    response.cookies.set(SESSION_COOKIES.platform, issueSessionToken(user.id), {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: getSessionMaxAge(),
-      secure: process.env.NODE_ENV === "production",
-    });
-    return response;
+    return NextResponse.json({ user }, { status: 201 });
   } catch (err) {
     if (err instanceof AuthError) {
       const status = err.code === "email-taken" ? 409 : 400;

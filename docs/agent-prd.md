@@ -19,27 +19,27 @@
 
 ### 采用
 
-| 层                | 选型                                                                                                                             | 现状                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Platform REST API | Next.js Route Handlers（`apps/platform/src/app/api/**`）+ `@apigent/server` 服务层，同进程调用                                   | 已实现（约 35 个路由文件）                         |
-| 独立网关          | Hono（`apps/open`，:3002）                                                                                                       | 仅 `/` 与 `/health`；MCP 未挂载                    |
-| Web 应用          | Next.js 15 App Router + React 19（Platform :3000 / Admin :3001）                                                                 | 已实现；`dev` 走 Turbopack                         |
-| 前端              | TypeScript + Tailwind CSS v4 + shadcn/ui                                                                                         | 已实现                                             |
-| 数据库            | PostgreSQL + Drizzle ORM（单个迁移 `0000_versioning_init`，含 pgvector 扩展）                                                    | 已实现                                             |
-| 版本模型          | 内容寻址 branch / commit / blob：`versions` / `version_commits` / `version_entity_links`                                         | 已实现                                             |
-| 向量 / 全文       | `knowledge_chunks` 含 `vector(1024)` + HNSW、`tsvector` + GIN                                                                    | 仅 schema；检索服务未接线                          |
-| LLM               | Vercel AI SDK（`@ai-sdk/openai-compatible`）→ qwen（DashScope 兼容端点）；openai / ollama 可切换                                 | 已用于业务上下文与助手运行时；claude / gemini 抛错 |
-| 队列              | Postgres 队列（`packages/server/src/queue/pg-queue.ts`）+ `repository_tasks`                                                     | 已实现；`memory` 仅测试；BullMQ / Redis 未实现     |
-| 认证              | 自研 credentials + HMAC-SHA256 签名 HttpOnly Cookie（`apigent_session`）；计划引入 NextAuth 支持 GitHub/Google                   | 已实现；第三方登录未实现                           |
-| 授权（租户）      | org_owner / org_admin / org_member + repo_owner / repo_admin / repo_member / repo_viewer（仓库目录全站可见，内容按仓库成员门禁） | 已实现（见 §6）                                    |
-| 授权（平台）      | 独立体系：`admin_super`（平台管理员的管理者）+ 全局只读；预留 `admin_operator` / `admin_support`                                 | 已实现（`admin_members` + 能力映射 + 独立会话）    |
-| API 密钥          | SecretKey（`api:*` / `mcp:*` scopes）                                                                                            | **仅 schema 与只读列表**；生成/校验/吊销未实现     |
-| 通知              | 站内通知（category / priority / i18n key）+ 用户偏好                                                                             | 已实现                                             |
-| i18n              | next-intl，zh / en，messages 按模块拆分                                                                                          | 已实现                                             |
-| OpenAPI 文档      | zod + zod-openapi，`openapi:export` 导出 `apps/platform/openapi/platform.json`                                                   | 已实现（文档不运行时 serve）                       |
-| 可观测            | pino 结构化日志 + reqId / taskId（AsyncLocalStorage）                                                                            | 已实现；指标 / 追踪未实现                          |
-| RAG 检索管线      | 自研（VectorStore / EmbeddingProvider 接口 + AI SDK），不引入 LangChain                                                          | 接口与配置槽已就位，实现未接线                     |
-| 生产构建          | `next build`（webpack）；dev 用 Turbopack；Hono 网关 tsx 直跑                                                                    | 已实现                                             |
+| 层                | 选型                                                                                                                                                                     | 现状                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Platform REST API | Next.js Route Handlers（`apps/platform/src/app/api/**`）+ `@apigent/server` 服务层，同进程调用                                                                           | 已实现（约 35 个路由文件）                               |
+| 独立网关          | Hono（`apps/open`，:3002）                                                                                                                                               | 仅 `/` 与 `/health`；MCP 未挂载                          |
+| Web 应用          | Next.js 15 App Router + React 19（Platform :3000 / Admin :3001）                                                                                                         | 已实现；`dev` 走 Turbopack                               |
+| 前端              | TypeScript + Tailwind CSS v4 + shadcn/ui                                                                                                                                 | 已实现                                                   |
+| 数据库            | PostgreSQL + Drizzle ORM（单个迁移 `0000_versioning_init`，含 pgvector 扩展）                                                                                            | 已实现                                                   |
+| 版本模型          | 内容寻址 branch / commit / blob：`versions` / `version_commits` / `version_entity_links`                                                                                 | 已实现                                                   |
+| 向量 / 全文       | `knowledge_chunks` 含 `vector(1024)` + HNSW、`tsvector` + GIN                                                                                                            | 仅 schema；检索服务未接线                                |
+| LLM               | Vercel AI SDK（`@ai-sdk/openai-compatible`）→ qwen（DashScope 兼容端点）；openai / ollama 可切换                                                                         | 已用于业务上下文与助手运行时；claude / gemini 抛错       |
+| 队列              | Postgres 队列（`packages/server/src/queue/pg-queue.ts`）+ `repository_tasks`                                                                                             | 已实现；`memory` 仅测试；BullMQ / Redis 未实现           |
+| 认证              | Auth.js v5（credentials provider）+ JWT 会话；Platform 与 Admin 两套独立实例（cookie 命名空间 `apigent.*` / `apigent-admin.*`，密钥 `auth.secret` / `auth.adminSecret`） | 已实现（双平面）；GitHub/Google 等第三方 provider 未接入 |
+| 授权（租户）      | org_owner / org_admin / org_member + repo_owner / repo_admin / repo_member / repo_viewer（仓库目录全站可见，内容按仓库成员门禁）                                         | 已实现（见 §6）                                          |
+| 授权（平台）      | 独立体系：`admin_super`（平台管理员的管理者）+ 全局只读；预留 `admin_operator` / `admin_support`                                                                         | 已实现（`admin_members` + 能力映射 + 独立会话）          |
+| API 密钥          | SecretKey（`api:*` / `mcp:*` scopes）                                                                                                                                    | **仅 schema 与只读列表**；生成/校验/吊销未实现           |
+| 通知              | 站内通知（category / priority / i18n key）+ 用户偏好                                                                                                                     | 已实现                                                   |
+| i18n              | next-intl，zh / en，messages 按模块拆分                                                                                                                                  | 已实现                                                   |
+| OpenAPI 文档      | zod + zod-openapi，`openapi:export` 导出 `apps/platform/openapi/platform.json`                                                                                           | 已实现（文档不运行时 serve）                             |
+| 可观测            | pino 结构化日志 + reqId / taskId（AsyncLocalStorage）                                                                                                                    | 已实现；指标 / 追踪未实现                                |
+| RAG 检索管线      | 自研（VectorStore / EmbeddingProvider 接口 + AI SDK），不引入 LangChain                                                                                                  | 接口与配置槽已就位，实现未接线                           |
+| 生产构建          | `next build`（webpack）；dev 用 Turbopack；Hono 网关 tsx 直跑                                                                                                            | 已实现                                                   |
 
 ### 不使用
 
@@ -49,7 +49,6 @@
 - 复杂 API 网关
 - turborepo / nx 构建编排：**V0 不引入**；当出现多包生产构建且构建耗时成为瓶颈时，优先采用 turborepo（轻量、契合 pnpm；nx 仅在需要代码生成 / 脚手架时再考虑）
 - Redis（V0；队列走 Postgres）
-- NextAuth.js（认证自研，见上表）
 - LangChain（RAG 自研）
 - MCP（V1 提供；V0 仅配置槽 + 前端连接卡）
 
@@ -108,7 +107,7 @@
 - Admin 租户级管理（org/repo 成员与内容管理一律在 Platform，Admin 不做）
 - 账号禁用 / 启用 / 删除（预留 `admin:users:disable` / `admin:users:delete`）
 - 知识图谱（V1+ 可选，默认关闭）
-- SSO
+- SSO / IdP 集成（OIDC、SAML、LDAP、组映射、SCIM —— 企业版；社区版提供 GitHub / Google OAuth 与域名白名单，见 §5.4.9）
 - 完整 Mock / 测试平台
 - BullMQ / Redis（留待企业定制版）
 
@@ -140,7 +139,7 @@
 - **Admin 功能面**：登录与门禁已实现（独立 cookie / 密钥 / `/login`）；门禁之后的仪表盘、审计、用户、管理员管理四个页面仍是占位
 - **操作审计（部分落地）**：成员类事件（`member.*` / `repo.member_*` / `org.transfer`）与创建类事件（`org.create` / `repo.create`）已与业务写同事务落库，仓库设置页与组织详情 Tab 可查看；导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP、密钥、`admin.*` 仍未接线
 - **SecretKey**：生成 / 校验 / 吊销均未实现；设置页按钮为禁用状态；无任何请求校验过 SecretKey
-- **认证**：GitHub / Google 第三方登录
+- **认证**：GitHub / Google 第三方登录（Auth.js v5，仅负责认证；详见 tech-design §5.4.9）。已定策略：已验证邮箱自动绑定（拿不到已验证邮箱则提示先用密码登录再绑定）、Admin 仅账密、`auth.registration` + `auth.oauth.allowedEmailDomains` 进社区版
 - 语义检索（RAG）：embedding provider、pgvector 检索、混合检索 + RRF、重排、查询改写；`knowledge_chunks` 表已建但无写入 / 检索服务
 - MCP 挂载（V1 提供）
 - Project
@@ -164,7 +163,7 @@
 7. 认证：注册 → 登录 → Session 生效。
 8. 越权防护：非组织成员访问该组织的组织 / 仓库资源返回 403；只读用户执行写操作返回 403；任何已登录用户携带他人 `repositoryId`（含用别的仓库前缀请求任务详情 / 重试）的请求必须被拒绝。实现已落地（入口守卫 + 任务按仓库过滤），尚缺「端点 × 角色」表驱动测试。
 9. 仓库成员管理：仓库目录对所有登录用户可见，但仓库内容严格按成员判定——无仓库角色且非组织管理员时返回 403。成员页能添加 / 改角色 / 移除显式成员，并把组织隐含成员单独标出；显式角色可以向下覆盖组织角色，非组织成员不可授予。
-10. Admin 门禁（已实现）：仅 `admin_super` 可进入 Admin——独立 cookie（`apigent_admin_session`）+ 独立密钥（`auth.adminSecret`）+ token 的 `aud` 三重隔离，Platform 的会话进不来、Admin 的会话也不被 Platform 接受；`admin_super` 不持有任何 `repo:*` / `org:*` 能力，因此无法创建 / 修改仓库内容与组织 / 仓库成员；第一个管理员由 CLI 授予并写入 `admin.grant` 审计。门禁之后的页面（仪表盘 / 审计 / 用户 / 管理员管理）仍是占位。
+10. Admin 门禁（已实现）：仅 `admin_super` 可进入 Admin——独立 cookie 命名空间（`apigent-admin.*`，含 Auth.js 的 csrf 等辅助 cookie）+ 独立密钥（`auth.adminSecret`）双重隔离，Platform 的会话进不来、Admin 的会话也不被 Platform 接受；`admin_super` 不持有任何 `repo:*` / `org:*` 能力，因此无法创建 / 修改仓库内容与组织 / 仓库成员；第一个管理员由 CLI 授予并写入 `admin.grant` 审计。门禁之后的页面（仪表盘 / 审计 / 用户 / 管理员管理）仍是占位。
 11. 审计（成员类已实现，其余待接线）：成员与权限变更在**同一事务**内写入 `operation_logs`，写入失败时业务操作一并回滚——`recordOperation(tx, …)` 只接受事务句柄，因此不存在"业务成功、日志缺失"的写法。仓库设置 →「操作日志」与组织详情「操作日志」Tab 可读。尚未接线：导入 / 版本 / MCP / 密钥 / `admin.*`，以及导入明细表。
 12. 界面：接口详情以内嵌分栏页呈现（参考 APIFox）；仓库导航 rail + Tab 子路由可直达；中英切换与深浅主题可用。
 13. RAG 评测（未实现）：预置 20 条标注查询，hit@3 ≥90%、MRR ≥0.7、P95 查询延迟 ≤2s、无召回率（空结果 / 回退）<5%。

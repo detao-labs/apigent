@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { signOut } from "next-auth/react";
 import {
   Avatar,
   AvatarFallback,
@@ -54,7 +55,7 @@ export function AppHeader({ user }: { user: { name: string; email: string } }) {
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await signOut({ redirect: false });
     router.push("/login");
     router.refresh();
   }
