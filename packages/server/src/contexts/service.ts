@@ -11,11 +11,7 @@ import { generateId } from "../id";
 import { getDB, repositories, repoTasks, versions } from "../db";
 import { logInfo } from "../logger";
 import { startContextWorker } from "./worker";
-import {
-  CONTEXT_QUEUE,
-  DuplicateContextTaskError,
-  RepoNotFoundError,
-} from "./common";
+import { CONTEXT_QUEUE, DuplicateContextTaskError, RepoNotFoundError } from "./common";
 
 export type ContextTaskTrigger = "auto" | "manual";
 export type ContextTaskStatus = "queued" | "running" | "succeeded" | "failed";
@@ -188,21 +184,27 @@ export async function createContextTask(
   };
 }
 
+/** 读取任务详情。按仓库过滤——任务 id 全局唯一，只校验仓库访问权不够。 */
 export async function getContextTask(
+  repoId: string,
   taskId: string,
 ): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
     .select(CONTEXT_FIELDS)
     .from(repoTasks)
-    .where(and(eq(repoTasks.id, taskId), eq(repoTasks.taskType, "context")))
+    .where(
+      and(
+        eq(repoTasks.repoId, repoId),
+        eq(repoTasks.id, taskId),
+        eq(repoTasks.taskType, "context"),
+      ),
+    )
     .limit(1);
   return row ? toSummary(row) : null;
 }
 
 /** 最近一次生成任务（前端轮询 / 仓库状态徽章）。 */
-export async function getLatestContextTask(
-  repoId: string,
-): Promise<ContextTaskSummary | null> {
+export async function getLatestContextTask(repoId: string): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
     .select(CONTEXT_FIELDS)
     .from(repoTasks)
@@ -214,6 +216,7 @@ export async function getLatestContextTask(
 
 /** 重试失败任务：状态复位 + 重新入队（payload 保留，scope 不变）。 */
 export async function retryContextTask(
+  repoId: string,
   taskId: string,
 ): Promise<ContextTaskSummary> {
   const db = getDB();
@@ -225,7 +228,13 @@ export async function retryContextTask(
       attempts: repoTasks.attempts,
     })
     .from(repoTasks)
-    .where(and(eq(repoTasks.id, taskId), eq(repoTasks.taskType, "context")))
+    .where(
+      and(
+        eq(repoTasks.repoId, repoId),
+        eq(repoTasks.id, taskId),
+        eq(repoTasks.taskType, "context"),
+      ),
+    )
     .limit(1);
   if (!row) throw new Error(`Context task not found: ${taskId}`);
   if (row.status !== "failed") {
@@ -253,7 +262,7 @@ export async function retryContextTask(
   });
   await db.update(repoTasks).set({ jobId }).where(eq(repoTasks.id, taskId));
 
-  const summary = await getContextTask(taskId);
+  const summary = await getContextTask(repoId, taskId);
   if (!summary) throw new Error(`Context task not found: ${taskId}`);
   return summary;
 }

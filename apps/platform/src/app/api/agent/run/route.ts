@@ -28,6 +28,7 @@ import {
 import { createAIModel } from "@/lib/ai";
 import { getRepoEndpoints } from "@/services/repos";
 import { saveEndpointContext } from "@/services/contexts";
+import { assertRepoAccess } from "@apigent/server/authz";
 import { withRoute } from "@/lib/route";
 import { generateId } from "@apigent/server/id";
 
@@ -56,6 +57,9 @@ registry.register(getEndpointSpecTool, async (ctx, input) => {
 
 registry.register(saveBusinessContextTool, async (ctx, input) => {
   if (!ctx.userId) throw new Error("unauthorized");
+  // repoId 来自模型生成的工具入参，必须按调用逐个校验（getEndpointSpecTool
+  // 走 getRepoEndpoints，内部已有同一断言）。
+  await assertRepoAccess(ctx.userId, input.repoId, "repo_editor");
   await saveEndpointContext(input.repoId, input.endpointId, input.context, {
     source: "ai",
   });

@@ -124,7 +124,9 @@ export async function createImportTask(
   });
 }
 
+/** 读取任务详情。按仓库 + 提交人过滤——任务 id 全局唯一。 */
 export async function getImportTask(
+  repoId: string,
   taskId: string,
   userId: string,
 ): Promise<ImportTaskSummary | null> {
@@ -141,6 +143,7 @@ export async function getImportTask(
     .from(repoTasks)
     .where(
       and(
+        eq(repoTasks.repoId, repoId),
         eq(repoTasks.id, taskId),
         eq(repoTasks.taskType, "import"),
         eq(repoTasks.userId, userId),
@@ -151,9 +154,7 @@ export async function getImportTask(
 }
 
 /** 仓库最近一次导入任务（供状态徽章 / 通知跳转）。 */
-export async function getLatestImportTask(
-  repoId: string,
-): Promise<ImportTaskSummary | null> {
+export async function getLatestImportTask(repoId: string): Promise<ImportTaskSummary | null> {
   const [row] = await getDB()
     .select({
       id: repoTasks.id,
@@ -173,6 +174,7 @@ export async function getLatestImportTask(
 
 /** 失败重试：复用已落盘的 spec 原文重新入队。 */
 export async function retryImportTask(
+  repoId: string,
   taskId: string,
   userId: string,
 ): Promise<ImportTaskSummary | null> {
@@ -182,6 +184,7 @@ export async function retryImportTask(
     .from(repoTasks)
     .where(
       and(
+        eq(repoTasks.repoId, repoId),
         eq(repoTasks.id, taskId),
         eq(repoTasks.taskType, "import"),
         eq(repoTasks.userId, userId),

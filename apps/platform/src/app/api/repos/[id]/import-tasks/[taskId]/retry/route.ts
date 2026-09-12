@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { retryImportTask } from "@apigent/server/imports";
+import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
 export const POST = withRoute({ auth: true }, async ({ params, user }) => {
-  const { taskId } = await params;
+  const { id, taskId } = await params;
+  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  if (denied) return denied;
+
   try {
-    const task = await retryImportTask(taskId, user.id);
+    const task = await retryImportTask(id, taskId, user.id);
     if (!task) {
       return NextResponse.json({ error: "task-not-found" }, { status: 404 });
     }

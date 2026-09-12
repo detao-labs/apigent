@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { RepoNotFoundError, previewImport } from "@/services/imports";
 import { importContentBodySchema } from "@/lib/openapi-schemas";
+import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
-export const POST = withRoute({ auth: true }, async ({ request, params }) => {
+export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
+  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  if (denied) return denied;
+
   let body: unknown;
   try {
     body = await request.json();

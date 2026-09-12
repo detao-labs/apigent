@@ -267,6 +267,8 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 1. 用户对某仓库的**有效角色**取继承角色与 `repo_permissions` 覆盖角色中**较高**者。`repo_viewer` 覆盖无法将 `org_owner` 降级。
 2. 仓库成员在 **Platform Webapp** 管理（仓库设置 → 成员），不在 Admin Webapp。页面分为两组：**继承**（组织成员，此处只读）与**覆盖**（显式授予的仓库角色，可编辑）。
+3. 覆盖**只能升权**，且必须严格高于继承角色——由于取 max，等于或低于继承角色的覆盖行是空操作，写入时直接拒绝（`422 override-not-effective`）。因此 `org_owner`（继承 `repo_admin`）永远没有可授予的覆盖角色。
+4. 覆盖的目标必须是**该组织的成员**；已经不在组织里但残留覆盖行的用户仍会列在界面上（否则那行权限只能靠数据库排查）。
 
 ### 2.8.5 平台角色
 
@@ -318,6 +320,8 @@ Organization 角色 (org_owner / org_admin / org_member)
 | `admin_super`                                        | 另一个 `admin_super`，或引导种子数据      |
 
 **第一个** `admin_super` 由显式的 seed 命令创建，绝不通过 Admin Webapp——否则没人能授予第一个管理员，形成引导死锁。
+
+> ⚠️ **`repo:manage_permissions` 当前等价于 `repo_admin`。** 组织管理员继承的是 `repo_editor`（§2.8.3），因此**组织管理员无法管理仓库成员**——只有 `org_owner` 和显式的 `repo_admin` 可以。这是 §5.4.8 待定项之一。
 
 ---
 
@@ -495,7 +499,8 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 | 功能           | 说明                                                                                               |
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | **按仓库覆盖** | 在任何仓库上，可将 `org_member` 提升为 `repo_admin` 或 `repo_editor`，无需改变其 Organization 角色 |
-| **覆盖展示**   | 仓库成员列表同时显示继承角色和显式覆盖（带视觉标记）                                               |
+| **管理入口**   | 仓库设置 → 成员（`/repos/:id/settings/members`）；组织成员管理仍在组织页，两者不混用               |
+| **覆盖展示**   | 页面分为「继承自组织」（只读）与「仓库级覆盖」（可编辑）两组                                       |
 | **有效权限**   | 每个仓库取继承权限和覆盖权限中较高者                                                               |
 
 ### 3.8.3 权限场景示例
@@ -957,17 +962,20 @@ apps/platform/src/lib/route.ts      # withRoute({ auth: true }) —— 业务逻
 
 ### 5.4.8 已知缺口与落地顺序
 
-上面的模型是目标态。当前缺口按应修复的顺序排列：
+上面的模型是目标态。**已落地：**
 
-1. **三个 service 缺少鉴权**——`imports`、`contexts`、`versions` 接收 `repoId` 却不校验调用者角色。任何已登录用户只要知道 `repoId`，就能预览/导入版本、读取并**写入**接口业务上下文、查看任意仓库的版本历史。目前只有 org/repo 的增删改查和少数版本路由受保护。
-2. **仓库成员无法管理**——`repo_permissions` 只有读取，全仓没有任何写入入口；Platform Webapp 需要仓库成员页（继承 vs 覆盖，§2.8.4）。
-3. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
-4. **审计未接线**——表已建，无人写入。
-5. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
-6. **版本权限不一致**——`/versions/:id/activate` 要求 `repo_admin`，而 `/versions/:id/rollback` 只要求 `repo_editor`，但两者都在改默认版本的指向。
-7. **待定项**——`org_admin` 的仓库权限（§2.8.3）；`admin_super` 能否读仓库内容（`admin:content:read`）；仓库覆盖是否允许授予非组织成员；SecretKey 的签发/校验是否先于外部接口落地。
+- ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repoId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_editor`、改默认版本指向 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repoId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
+- ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
+- ✅ **仓库成员可管理**——仓库设置 → 成员（`/repos/:id/settings/members`）支持继承 / 覆盖两组展示，以及授予、变更、撤销覆盖（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"覆盖只能升权"与"目标必须是组织成员"（§2.8.4）。**尚未接线审计**——`repo.permission_*` 事件要等下面第 1 项完成后补上。
 
-建议顺序：1 → 2 → 4 → 3 → 5 / 6 / 7。
+**剩余缺口**，按应修复的顺序排列：
+
+1. **审计未接线**——表已建，无人写入。成员与权限变更（`member.*`、`repo.permission_*`、`org.transfer`）都要与业务写在同一事务内落库。
+2. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
+3. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
+4. **待定项**——`org_admin` 的仓库权限（§2.8.3，当前导致组织管理员无法管理仓库成员）；`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地。
+
+建议顺序：1 → 2 → 3 / 4。
 
 ### 5.4.9 计划：引入第三方认证（NextAuth）
 

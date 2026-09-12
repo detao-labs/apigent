@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { getEndpointContext, saveEndpointContext } from "@/services/contexts";
+import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
-export const GET = withRoute({ auth: true }, async ({ params }) => {
+export const GET = withRoute({ auth: true }, async ({ params, user }) => {
   const { id, endpointId } = await params;
+  const denied = await guardRepoAccess(user.id, id, "repo_viewer");
+  if (denied) return denied;
+
   const context = await getEndpointContext(id, endpointId);
   if (!context) {
     return NextResponse.json({ error: "not-found" }, { status: 404 });
@@ -11,8 +15,11 @@ export const GET = withRoute({ auth: true }, async ({ params }) => {
   return NextResponse.json({ context });
 });
 
-export const PUT = withRoute({ auth: true }, async ({ request, params }) => {
+export const PUT = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id, endpointId } = await params;
+  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  if (denied) return denied;
+
   let body: unknown;
   try {
     body = await request.json();

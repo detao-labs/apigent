@@ -25,7 +25,7 @@ export const POST = withRoute({ auth: true }, async ({ request, params, user }) 
   }
 
   try {
-    await assertRepoAccess(user.id, id, "repo_editor");
+    await assertRepoAccess(user.id, id, "repo_admin");
     const commitId = await rollbackVersionSteps(id, versionId, parsed.data.steps ?? 1);
     return NextResponse.json({ ok: true, commitId });
   } catch (err) {

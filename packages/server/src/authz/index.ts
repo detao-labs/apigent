@@ -11,13 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { and, eq, inArray } from "drizzle-orm";
-import {
-  getDB,
-  organizationMembers,
-  organizations,
-  repoPermissions,
-  repositories,
-} from "../db";
+import { getDB, organizationMembers, organizations, repoPermissions, repositories } from "../db";
 import {
   ForbiddenError,
   isOrgRoleAtLeast,
@@ -28,7 +22,10 @@ import {
 } from "./roles";
 export {
   ForbiddenError,
+  REPO_ROLES,
+  assignableRepoRoles,
   isOrgRoleAtLeast,
+  isOverrideEffective,
   isRepoRoleAtLeast,
   orgRoleToRepoRole,
   resolveEffectiveRepoRole,
@@ -36,20 +33,12 @@ export {
   type RepoRole,
 } from "./roles";
 
-export async function getUserOrgRole(
-  userId: string,
-  orgId: string,
-): Promise<OrgRole | null> {
+export async function getUserOrgRole(userId: string, orgId: string): Promise<OrgRole | null> {
   const db = getDB();
   const [row] = await db
     .select({ role: organizationMembers.role })
     .from(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.userId, userId),
-        eq(organizationMembers.orgId, orgId),
-      ),
-    )
+    .where(and(eq(organizationMembers.userId, userId), eq(organizationMembers.orgId, orgId)))
     .limit(1);
   if (row) return row.role as OrgRole;
   // 组织 owner 视为隐式 org_owner（兼容缺失成员行的旧数据）
@@ -68,12 +57,7 @@ export async function getRepoOverrideRole(
   const [row] = await getDB()
     .select({ role: repoPermissions.role })
     .from(repoPermissions)
-    .where(
-      and(
-        eq(repoPermissions.userId, userId),
-        eq(repoPermissions.repoId, repoId),
-      ),
-    )
+    .where(and(eq(repoPermissions.userId, userId), eq(repoPermissions.repoId, repoId)))
     .limit(1);
   return (row?.role as RepoRole) ?? null;
 }

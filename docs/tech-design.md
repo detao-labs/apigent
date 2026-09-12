@@ -268,6 +268,8 @@ Organization Role (org_owner / org_admin / org_member)
 
 1. A user's effective repository role = the **higher** of the inherited Organization-role and any explicit `repo_permissions` override. A `repo_viewer` override cannot demote an `org_owner`.
 2. Repository members are managed in the **Platform Webapp** (repo settings → members), not in the Admin Webapp. The page shows two groups: **inherited** (Organization members, read-only there) and **overridden** (explicitly granted repo roles, editable).
+3. Overrides **only elevate**, and must be strictly higher than the inherited role — because the effective role takes the max, a row equal to or below the inherited role is a no-op and is rejected on write (`422 override-not-effective`). An `org_owner` (inheriting `repo_admin`) therefore has no assignable override role at all.
+4. Override targets must be **members of the Organization**; users who left the Organization but still carry a stale override row are still listed in the UI, otherwise that row would only be discoverable via the database.
 
 ### 2.8.5 Admin Roles
 
@@ -319,6 +321,8 @@ Permission names follow `admin:<domain>:<action>`.
 | `admin_super`                                           | Another `admin_super`, or the bootstrap seed      |
 
 The **first** `admin_super` is created by an explicit seed command, never through the Admin Webapp — otherwise there is no one able to grant the first admin (a bootstrapping deadlock).
+
+> ⚠️ **`repo:manage_permissions` currently equals `repo_admin`.** Organization admins inherit `repo_editor` (§2.8.3), so **an Organization admin cannot manage repository members** — only the `org_owner` and explicit `repo_admin` holders can. This is one of the open items in §5.4.8.
 
 ---
 
@@ -496,7 +500,8 @@ Apigent's RBAC model (defined in [2.8 RBAC Model](#28-rbac-model)) is surfaced i
 | Feature                  | Description                                                                                                                  |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | **Per-repo Override**    | On any Repository, an `org_member` can be promoted to `repo_admin` or `repo_editor` without changing their Organization role |
-| **Override Display**     | Repository member list shows both inherited role and explicit override (with visual indicator)                               |
+| **Where to manage**      | Repo settings → Members (`/repos/:id/settings/members`); Organization members stay on the Organization page                  |
+| **Override Display**     | Two groups: "inherited from Organization" (read-only) and "repository overrides" (editable)                                  |
 | **Effective Permission** | The higher of inherited + override applies per repository                                                                    |
 
 ### 3.8.3 Access Control in Practice
@@ -959,17 +964,20 @@ Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
 ### 5.4.8 Known Gaps & Rollout Order
 
-The model above is the target. Current gaps, in the order they should be closed:
+The model above is the target. **Already landed:**
 
-1. **Missing authorization on three services** — `imports`, `contexts` and `versions` accept a `repoId` without checking the caller's role, so any signed-in user who knows a `repoId` can preview/import versions, read and **write** endpoint business context, and list version history for any repository. Only org/repo CRUD plus a few version routes are protected today.
-2. **Repository members cannot be managed** — `repo_permissions` is read by the authorization layer but has no write path anywhere; the Platform Webapp needs a repo-members UI (inherited vs. overridden, §2.8.4).
-3. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
-4. **Audit logging is unwired** — the tables exist, nothing writes to them.
-5. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
-6. **Inconsistent version permissions** — `/versions/:id/activate` requires `repo_admin` while `/versions/:id/rollback` only requires `repo_editor`, although both move the default-version pointer.
-7. **Open items** — `org_admin`'s repo permissions (§2.8.3); whether `admin_super` may read repository content (`admin:content:read`); whether repo overrides may target users outside the Organization; whether the SecretKey issue/verify path ships before the external surfaces.
+- ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repoId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_editor`, moving the default-version pointer `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repoId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
+- ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
+- ✅ **Repository members can be managed** — repo settings → members (`/repos/:id/settings/members`) shows the inherited/override groups and supports granting, changing and revoking overrides (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes enforce "overrides only elevate" and "targets must be Organization members" (§2.8.4). **Audit is not wired yet** — the `repo.permission_*` events land with item 1 below.
 
-Suggested order: 1 → 2 → 4 → 3 → 5 / 6 / 7.
+**Remaining gaps**, in the order they should be closed:
+
+1. **Audit logging is unwired** — the tables exist, nothing writes to them. Member and permission changes (`member.*`, `repo.permission_*`, `org.transfer`) must be written in the same transaction as the business write.
+2. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
+3. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
+4. **Open items** — `org_admin`'s repo permissions (§2.8.3 — currently it prevents Organization admins from managing repository members); whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces.
+
+Suggested order: 1 → 2 → 3 / 4.
 
 ### 5.4.9 Planned: third-party authentication (NextAuth)
 

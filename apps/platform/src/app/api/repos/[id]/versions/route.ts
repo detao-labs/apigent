@@ -6,6 +6,7 @@ import {
   RepoNotFoundError,
 } from "@apigent/server/imports";
 import { importContentBodySchema } from "@/lib/openapi-schemas";
+import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
 /**
@@ -15,6 +16,8 @@ import { withRoute } from "@/lib/route";
  */
 export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
+  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  if (denied) return denied;
 
   let body: unknown;
   try {

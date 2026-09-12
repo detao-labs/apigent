@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ForbiddenError,
+  assignableRepoRoles,
   isOrgRoleAtLeast,
+  isOverrideEffective,
   isRepoRoleAtLeast,
   orgRoleToRepoRole,
   resolveEffectiveRepoRole,
@@ -59,5 +61,44 @@ describe("ForbiddenError", () => {
     const err = new ForbiddenError();
     expect(err.name).toBe("ForbiddenError");
     expect(err.message).toBe("Forbidden");
+  });
+});
+
+describe("isOverrideEffective", () => {
+  it("is effective when it elevates above the inherited role", () => {
+    expect(isOverrideEffective("org_member", "repo_editor")).toBe(true);
+    expect(isOverrideEffective("org_member", "repo_admin")).toBe(true);
+    expect(isOverrideEffective("org_admin", "repo_admin")).toBe(true);
+  });
+
+  it("is a no-op when equal to the inherited role", () => {
+    expect(isOverrideEffective("org_member", "repo_viewer")).toBe(false);
+    expect(isOverrideEffective("org_admin", "repo_editor")).toBe(false);
+  });
+
+  it("never demotes — an owner cannot be overridden downward", () => {
+    expect(isOverrideEffective("org_owner", "repo_viewer")).toBe(false);
+    expect(isOverrideEffective("org_owner", "repo_editor")).toBe(false);
+    expect(isOverrideEffective("org_owner", "repo_admin")).toBe(false);
+  });
+
+  it("accepts any role for a user outside the organization", () => {
+    expect(isOverrideEffective(null, "repo_viewer")).toBe(true);
+    expect(isOverrideEffective(null, "repo_admin")).toBe(true);
+  });
+});
+
+describe("assignableRepoRoles", () => {
+  it("excludes roles at or below the inherited rank", () => {
+    expect(assignableRepoRoles("org_member")).toEqual(["repo_editor", "repo_admin"]);
+    expect(assignableRepoRoles("org_admin")).toEqual(["repo_admin"]);
+  });
+
+  it("has nothing to assign to an org owner", () => {
+    expect(assignableRepoRoles("org_owner")).toEqual([]);
+  });
+
+  it("covers every role when there is no inherited role", () => {
+    expect(assignableRepoRoles(null)).toEqual(["repo_viewer", "repo_editor", "repo_admin"]);
   });
 });

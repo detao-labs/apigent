@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { retryContextTask } from "@apigent/server/contexts";
+import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
-export const POST = withRoute({ auth: true }, async ({ params }) => {
-  const { taskId } = await params;
+export const POST = withRoute({ auth: true }, async ({ params, user }) => {
+  const { id, taskId } = await params;
+  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  if (denied) return denied;
+
   try {
-    const task = await retryContextTask(taskId);
+    const task = await retryContextTask(id, taskId);
     return NextResponse.json({ task });
   } catch (err) {
     if (err instanceof Error && /not retryable|not found/.test(err.message)) {
