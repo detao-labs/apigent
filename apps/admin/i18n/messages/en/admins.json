@@ -1,0 +1,28 @@
+{
+  "admins": {
+    "title": "Admins",
+    "description": "Platform admins can sign in to this console. Only admin_super can grant or revoke",
+    "colUser": "Account",
+    "colRole": "Role",
+    "colGrantedAt": "Granted at",
+    "colGrantedBy": "Granted by",
+    "bySystem": "System (CLI bootstrap)",
+    "you": "(you)",
+    "grant": "Add admin",
+    "grantTitle": "Add a platform admin",
+    "grantDesc": "Enter the email of an existing user. The account must be registered first.",
+    "email": "Email",
+    "grantSubmit": "Grant",
+    "grantSuccess": "Platform admin granted",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke platform admin access for {name}? They lose access to this console immediately.",
+    "revokeSuccess": "Platform admin revoked",
+    "errors": {
+      "userNotFound": "No user with that email",
+      "alreadyAdmin": "That account is already an admin",
+      "lastAdmin": "Cannot revoke the last admin — nobody would be able to grant admins",
+      "noPermission": "This account cannot manage admins.",
+      "generic": "Operation failed, please try again"
+    }
+  }
+}

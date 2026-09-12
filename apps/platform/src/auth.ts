@@ -33,6 +33,8 @@ const nextAuth: NextAuthResult = NextAuth((request) =>
       const email = parsed.data.email.trim().toLowerCase();
       const [user] = await getDB().select().from(users).where(eq(users.email, email)).limit(1);
       if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) return null;
+      // 被平台管理员禁用的账号一律不能登录（已有会话由 getSessionUser 拦）
+      if (user.disabledAt) return null;
 
       return { id: user.id, email: user.email, name: user.name, image: user.avatarUrl ?? null };
     },

@@ -321,7 +321,7 @@ Apigent 由三个应用层组成：
 1. **写操作来自租户体系。** 租户内的内容与成员写入，唯一来源是 `org:*` / `repo:*` 权限。
 2. **平台体系绝不能持有内容写权限。** 用测试强制：任何 `admin_*` 角色都不得映射到 `repo:write`、`repo:import`、`repo:delete`、`repo:manage_members`、`repo:manage_mcp` 或任何 `org:*` 写权限。加了这样的映射应当让 CI 失败，而不是靠代码评审发现。
 3. **`admin_super` 不是数据超级用户。** 它唯一的写能力是 `admin:admins:manage`；既不能改内容，也不能增删 Organization / Repository 成员。
-4. **Secret Key 是独立平面。** MCP 工具与外部 REST API 由用户签发的 Secret Key 认证，携带 `mcp:*` / `api:*` 范围；租户或平台会话角色本身永远不够。（SecretKey 的签发 / 校验链路尚未实现——见 §5.4.8。）
+4. **Secret Key 是独立平面。** MCP 工具与外部 REST API 由用户签发的 Secret Key 认证，携带 `mcp:*` / `api:*` 范围；租户或平台会话角色本身永远不够。（签发 / 列表 / 吊销已实现，见 §3.10；校验与第一个消费它的网关端点一起落地。）
 5. **双层访问规则（V1+）：** Project 成员身份只决定"能否看到项目存在"；项目内任何 Repository 的内容访问始终走 `repo:*` 权限。
 
 ### 2.8.8 授予与引导
@@ -543,6 +543,8 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 | **用量监控**     | 按 Key 查看 MCP 调用次数和历史                                                                       |
 | **连接信息**     | 展示 MCP 端点 URL，用户配置到 Cursor/Claude 中                                                       |
 
+**状态与待定项。** `repo:manage_mcp` 刻意推迟：它的形态取决于一个尚未定论的问题——MCP 暴露的是**知识检索**（[modules/mcp-gateway.md](./modules/mcp-gateway.md) 里设计的那套：`search_apis` / `get_api_detail` / `get_project_context`），还是**接口调用**（每个 OpenAPI operation 变成一个 tool）。当前起点是：**仓库是 scope，不是 tool**——工具集固定，仓库级开关决定"这个仓库允不允许被检索"，可见范围继承 `repository_members` 与组织隐含角色，这样就不需要第二套授权模型。接口级过滤与 Project 维度的检索留到之后。与这个决定相关的取舍和两个风险（用户级 key 是全权；调用能力是 V2+ 的独立课题）记在 [modules/mcp-gateway.md](./modules/mcp-gateway.md)。
+
 ## 3.10 Secret Key 管理
 
 | 功能              | 说明                                        |
@@ -555,6 +557,12 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 | **用量追踪**      | 最后使用时间、调用次数                      |
 
 Key 格式：`apigent_sk_<random_hex>`
+
+**两半分别落在哪里。** _签发_ 属于 Platform 自助功能：key 归属于用户（`secret_keys.user_id`），所以 `/settings/keys` 只列出、创建、吊销自己的 key，用 session 认证。_校验_ 则不是 Platform 的事——调用方是机器客户端（Cursor / CLI），打的是 MCP Gateway 与未来的外部 REST，这些请求根本不带浏览器会话。因此校验属于 `packages/server` 的共享原语（`verifySecretKey(rawToken)` → userId + scopes；校验 hash、`revoked_at`、`expires_at` 与所需 scope），由 Hono 网关调用——与会话原语同一条规矩：_Auth 原语放在 `packages/server`，Webapp 与网关共用同一份代码_。Admin 不参与：`admin_super` 唯一的写能力是 `admin:admins:manage`。
+
+两个实现要点：只存 key 的 SHA-256 哈希（API key 是高熵随机串；scrypt 是为了拖慢低熵密码的猜测，用在这里只会让每次校验都变慢）；`last_used_at` 的写入要节流（同一把 key 一分钟更新一次足够），否则高频 MCP 调用会把这行变成写热点。
+
+**V0 状态：** 签发 / 列表 / 吊销已在 `packages/server/src/keys/` 实现，并通过 `/settings/keys` 暴露（`POST /api/keys`、`DELETE /api/keys/:id`）——明文只返回一次，库里只存 SHA-256 哈希与展示前缀；吊销是软删除（写 `revoked_at`），保留行以便排查。用户只能操作自己的密钥（owner 取自会话，绝不接受请求体传入）。**校验尚未实现**：它的第一个消费方是 MCP Gateway，而一个没有调用方的校验函数，正是这个项目已经删过一次的那类死代码。
 
 ---
 
@@ -601,9 +609,9 @@ Key 格式：`apigent_sk_<random_hex>`
 | **启用账号** | 重新激活已禁用的账号                    |
 | **删除账号** | 永久删除用户及其数据（需确认 + 冷却期） |
 
-账号生命周期能力（`admin:users:disable` / `admin:users:delete`）**已预留但 V0 不实现**——它们是把平台侧引入第二档管理员（`admin_operator` / `admin_support`）时最自然的第一批能力。
+账号生命周期能力（`admin:users:disable` / `admin:users:delete`）已对 `admin_super` 实现。将来引入第二档管理员（`admin_operator` / `admin_support`）时，这批能力最可能先分配给它们——能力映射已经把两者与 `admin:admins:manage` 分开。
 
-**V0 状态：** 只读列表与详情页已落地——`listUsers()`（支持搜索，带组织 / 仓库计数）与 `getUserDetail()`，能力 `admin:users:view`。
+**V0 状态：** 列表与详情页已落地——`listUsers()`（支持搜索，带组织 / 仓库计数）与 `getUserDetail()`，能力 `admin:users:view`。账号生命周期也已实现：**禁用 / 启用**（`admin:users:disable`）写 `users.disabled_at` 并**立即生效**——登录被拒、已有会话在下一个请求失效，因为两个 app 每请求都现查 users（没有 session 表可清）。**删除**（`admin:users:delete`）在"仍拥有组织""是最后一个管理员""删的是自己"三种情况下拒绝；其余情况会移除成员身份、密钥与通知，把审计 actor 置空，并保留审计链。
 
 ## 4.4 安全审计
 
@@ -984,7 +992,8 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 | `org.create` / `repo.create`                                         | 创建者                     | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入                                                         |
 | `org.delete` / `repo.delete`                                         | `org_owner` / `repo_owner` | ✅ 已接线 | 删仓库保留其审计行（只清 `repositoryId`）；删组织记一条平台级事件，并丢弃该组织自己的租户日志 |
 | `admin.grant` / `admin.revoke`                                       | `admin_super`              | ✅ 已接线 | CLI 引导与 Admin `/admins` 共用同一个服务                                                     |
-| `admin.login`                                                        | `admin_super`              | ⏳ 可选   | 平台方登录留痕                                                                                |
+| `admin.login`                                                        | `admin_super`              | ✅ 已接线 | 平台方登录留痕                                                                                |
+| `admin.user_disable` / `admin.user_enable` / `admin.user_delete`     | `admin_super`              | ✅ 已接线 | 账号生命周期；删除保留审计链，只把 actor 置空                                                 |
 | 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色         | ⏳ 待实现 | Phase A 剩余部分                                                                              |
 
 **已落地。** `packages/server/src/audit/` 提供 `recordOperation(tx, input)`——**必须传入事务句柄**，因此不可能在业务事务之外单独写审计行——以及 `withAuditTransaction(run)` 与 `listOperationLogs(filter)`。配套两个只读接口：`GET /api/repos/:id/operations`（`repo_viewer`）、`GET /api/orgs/:id/operations`（`org_member`），分别渲染在 `/repos/:id/settings/audit` 与组织详情的「操作日志」Tab。
@@ -998,13 +1007,13 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 - ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repositoryId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_member`、改默认版本指向与成员管理 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repositoryId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
 - ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。
-- ✅ **成员、创建与删除事件均已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）、`org.create` / `repo.create` 的引导写入，以及 `org.delete` / `repo.delete`，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.login`。
+- ✅ **成员、创建与删除事件均已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）、`org.create` / `repo.create` 的引导写入，以及 `org.delete` / `repo.delete`，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑、版本设为当前 / 回滚、MCP 开关、密钥校验。
 - ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent-admin.session-token`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查走 `roleHasAdminCapability()` / `requireAdminApi()`。第一个管理员由 `admin.grant` CLI 创建；之后每次授予 / 撤销都与 `admin.grant` / `admin.revoke` 审计行同事务落库。
-- ✅ **Admin 的只读面已全部落地**——`/audit`（平台级操作，`admin:audit:view`）、`/admins`（列表 / 按邮箱授予 / 撤销，`admin:admins:manage`）、仪表盘（`getPlatformStats()`，`admin:stats:view`）以及 `/users` 与 `/users/:id`（只读，`admin:users:view`）。撤销最后一个管理员会被拒绝（`canRevokeAdmin()`）。**仍未落地：** 账号禁用 / 删除（`admin:users:disable` / `admin:users:delete`）与 `admin.login` 事件。
+- ✅ **Admin 的只读面已全部落地**——`/audit`（平台级操作，`admin:audit:view`）、`/admins`（列表 / 按邮箱授予 / 撤销，`admin:admins:manage`）、仪表盘（`getPlatformStats()`，`admin:stats:view`）以及 `/users` 与 `/users/:id`（只读，`admin:users:view`）。撤销最后一个管理员会被拒绝（`canRevokeAdmin()`）。**仍未落地：** 这一面没有遗留——账号生命周期（`admin:users:disable` / `admin:users:delete`）与 `admin.login` 均已落地。
 
 **剩余缺口**，按应修复的顺序排列：
 
-1. **租户删除已接线，MCP 还没有**——`org:delete` / `repo:delete` 已落地，而 `repo:manage_mcp` 仍是纯前端开关，Gateway 也不存在。
+1. **MCP 的暴露粒度尚未定论**——`org:delete` / `repo:delete` 已落地；`repo:manage_mcp` 是**刻意推迟**的：MCP 到底是"检索知识"还是"调用接口"，决定了这个开关意味着什么（§3.9、[modules/mcp-gateway.md](./modules/mcp-gateway.md)）。Secret Key 的签发 / 吊销可以先落地；校验属于网关。
 2. **审计覆盖仍不完整**——成员与创建类事件已接线（§5.4.7）；导入、版本设为当前、MCP、密钥，以及应用内的 `admin.*` 事件未接线，导入明细（`operation_log_details`）仍为空。
 3. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`repo:manage_mcp` 是否实现（`org:delete` / `repo:delete` 已落地）。
 

@@ -29,6 +29,8 @@ describe("capability mapping", () => {
       "admin:stats:view",
       "admin:audit:view",
       "admin:users:view",
+      "admin:users:disable",
+      "admin:users:delete",
     ]);
   });
 

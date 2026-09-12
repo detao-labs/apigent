@@ -1,0 +1,42 @@
+{
+  "audit": {
+    "title": "审计日志",
+    "description": "查看平台操作记录",
+    "emptyTitle": "暂无审计记录",
+    "emptyDescription": "平台投入使用后，操作日志将在此展示。",
+    "total": "共 {count} 条",
+    "colTime": "时间",
+    "colActor": "操作者",
+    "colOperation": "操作",
+    "colTarget": "对象",
+    "colDetail": "详情",
+    "systemActor": "系统",
+    "noPermission": "当前账号没有查看审计日志的权限。",
+    "operations": {
+      "admin_grant": "授予平台管理员",
+      "admin_revoke": "移除平台管理员",
+      "admin_login": "平台登录",
+      "org_create": "创建组织",
+      "repo_create": "创建仓库",
+      "org_delete": "删除组织",
+      "repo_delete": "删除仓库",
+      "member_invite": "邀请组织成员",
+      "member_role_change": "变更组织成员角色",
+      "member_remove": "移除组织成员",
+      "repo_member_add": "添加仓库成员",
+      "repo_member_role_change": "变更仓库成员角色",
+      "repo_member_remove": "移除仓库成员",
+      "org_transfer": "转移组织所有权"
+    },
+    "roles": {
+      "admin_super": "超级管理员",
+      "org_owner": "所有者",
+      "org_admin": "管理员",
+      "org_member": "成员",
+      "repo_owner": "仓库所有者",
+      "repo_admin": "仓库管理员",
+      "repo_member": "仓库成员",
+      "repo_viewer": "仓库只读"
+    }
+  }
+}

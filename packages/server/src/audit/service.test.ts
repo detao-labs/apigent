@@ -95,6 +95,9 @@ describe("OPERATION_TYPES", () => {
       "admin.grant",
       "admin.revoke",
       "admin.login",
+      "admin.user_disable",
+      "admin.user_enable",
+      "admin.user_delete",
     ]);
   });
 });

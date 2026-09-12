@@ -1,0 +1,44 @@
+{
+  "users": {
+    "title": "Users",
+    "description": "Manage platform users and permissions",
+    "emptyTitle": "No users registered yet",
+    "emptyDescription": "User accounts will appear here once registration is enabled.",
+    "searchPlaceholder": "Search by email or name",
+    "total": "{count} accounts",
+    "colUser": "Account",
+    "colCreated": "Registered",
+    "colOrgs": "Organizations",
+    "colRepos": "Accessible repos",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "disable": "Disable",
+    "enable": "Enable",
+    "disabled": "Account disabled",
+    "enabled": "Account enabled",
+    "delete": "Delete account",
+    "cancel": "Cancel",
+    "deleteConfirm": "Permanently delete \"{name}\" with their organization / repository memberships, keys and notifications? This cannot be undone.",
+    "deleted": "Account deleted",
+    "detailDisableHint": "A disabled account cannot sign in, and existing sessions stop working on their next request.",
+    "noResults": "No matching accounts",
+    "noPermission": "This account cannot view users.",
+    "errors": {
+      "lastAdmin": "Cannot disable or delete the last admin — nobody would be able to open the console",
+      "ownsOrganizations": "This account still owns organizations — transfer or delete them first",
+      "cannotDeleteSelf": "You cannot delete your own account",
+      "notFound": "Account not found",
+      "generic": "Operation failed, please try again"
+    },
+    "detail": {
+      "back": "Back to users",
+      "profile": "Account",
+      "memberships": "Organization memberships",
+      "ownedOrganizations": "Owned",
+      "none": "None",
+      "notFound": "User not found"
+    }
+  }
+}

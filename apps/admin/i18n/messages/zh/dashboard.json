@@ -1,0 +1,19 @@
+{
+  "dashboard": {
+    "title": "仪表盘",
+    "description": "管理后台概览",
+    "recentActivity": "最近活动",
+    "recentActivityEmpty": "暂无活动记录。平台投入使用后，活动将在此展示。",
+    "stats": {
+      "users": "用户",
+      "usersDesc": "注册用户总数 · 近 7 天新增 {count}",
+      "orgs": "组织",
+      "orgsDesc": "活跃组织",
+      "repos": "仓库",
+      "reposDesc": "仓库总数 · 已开启 MCP {count}",
+      "endpoints": "接口",
+      "endpointsDesc": "全平台端点总数",
+      "noPermission": "当前账号没有查看平台统计的权限。"
+    }
+  }
+}

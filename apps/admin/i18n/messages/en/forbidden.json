@@ -1,0 +1,6 @@
+{
+  "forbidden": {
+    "title": "No admin access",
+    "description": "This account is not a platform admin, or the admin role was revoked."
+  }
+}

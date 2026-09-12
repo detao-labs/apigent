@@ -1,0 +1,19 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Admin console overview",
+    "recentActivity": "Recent Activity",
+    "recentActivityEmpty": "No recent activity to display. Activity will appear here once the platform is in use.",
+    "stats": {
+      "users": "Users",
+      "usersDesc": "Total registered · {count} new in 7 days",
+      "orgs": "Organizations",
+      "orgsDesc": "Active orgs",
+      "repos": "Repositories",
+      "reposDesc": "Total repos · {count} with MCP enabled",
+      "endpoints": "Endpoints",
+      "endpointsDesc": "Across every repository",
+      "noPermission": "This account cannot view platform statistics."
+    }
+  }
+}

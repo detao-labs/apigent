@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "title": "Settings",
+    "description": "Manage global platform configuration",
+    "configTitle": "Configuration",
+    "configFileHint": "Platform settings are managed through <yaml>apigent.config.yaml</yaml> and environment variables. See <example>apigent.config.example.yaml</example> for available options."
+  }
+}

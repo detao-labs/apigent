@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "auditLog": "Audit Log",
+    "settings": "Settings",
+    "brandSubtitle": "Admin",
+    "adminGroup": "Administration",
+    "adminFooter": "Platform Admin",
+    "roleSuper": "Super admin",
+    "logout": "Sign out",
+    "admins": "Admins"
+  }
+}

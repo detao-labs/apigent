@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "title": "系统设置",
+    "description": "管理平台全局配置",
+    "configTitle": "配置",
+    "configFileHint": "平台设置通过 <yaml>apigent.config.yaml</yaml> 和环境变量管理。可用选项参见 <example>apigent.config.example.yaml</example>。"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "dashboard": "仪表盘",
+    "users": "用户",
+    "auditLog": "审计日志",
+    "settings": "设置",
+    "brandSubtitle": "管理后台",
+    "adminGroup": "管理",
+    "adminFooter": "平台管理员",
+    "roleSuper": "超级管理员",
+    "logout": "退出登录",
+    "admins": "管理员"
+  }
+}

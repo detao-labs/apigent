@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { getUserDetail } from "@apigent/server/admin";
 import { roleHasAdminCapability } from "@apigent/server/authz";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@apigent/ui";
+import { UserActions } from "@/components/user-actions";
 import { requireAdmin } from "@/services/auth";
 
 export default async function AdminUserDetailPage({
@@ -28,6 +29,9 @@ export default async function AdminUserDetailPage({
 
   const detail = await getUserDetail(userId);
   if (!detail) notFound();
+  const canManage =
+    roleHasAdminCapability(admin.role, "admin:users:disable") &&
+    roleHasAdminCapability(admin.role, "admin:users:delete");
 
   const locale = await getLocale();
   const fmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "zh-CN", {
@@ -46,8 +50,29 @@ export default async function AdminUserDetailPage({
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold">{detail.name}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">{detail.name}</h1>
+          <Badge
+            className={
+              detail.disabledAt
+                ? "bg-destructive/10 text-destructive"
+                : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+            }
+          >
+            {detail.disabledAt ? t("statusDisabled") : t("statusActive")}
+          </Badge>
+        </div>
         <p className="text-muted-foreground">{detail.email}</p>
+        {canManage ? (
+          <div className="mt-3 space-y-2">
+            <UserActions
+              userId={detail.id}
+              userName={detail.name}
+              disabled={detail.disabledAt !== null}
+            />
+            <p className="text-xs text-muted-foreground">{t("detailDisableHint")}</p>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

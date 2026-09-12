@@ -16,7 +16,13 @@ import { getDB, adminMembers, users } from "../db";
 import { recordOperation, withAuditTransaction } from "../audit";
 import { isAdminRole, type AdminRole } from "../authz/admin-capabilities";
 
-export type AdminMemberErrorCode = "user-not-found" | "already-admin" | "not-admin" | "last-admin";
+export type AdminMemberErrorCode =
+  | "user-not-found"
+  | "already-admin"
+  | "not-admin"
+  | "last-admin"
+  | "owns-organizations"
+  | "cannot-delete-self";
 
 export class AdminMemberError extends Error {
   constructor(public readonly code: AdminMemberErrorCode) {

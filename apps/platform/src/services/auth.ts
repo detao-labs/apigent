@@ -8,7 +8,7 @@
 //   - registerUser()：注册不属于 Auth.js 的职责范围。
 // ═══════════════════════════════════════════════════════════════════
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { hashPassword } from "@apigent/server/auth";
 import { getDB, users } from "@apigent/server/db";
@@ -34,7 +34,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const userId = session?.user?.id;
   if (!userId) return null;
 
-  // token 里只有 uid：用户被删除、改名都以数据库为准，不缓存进 token
+  // token 里只有 uid：账号被删除 / 禁用、改名都以数据库为准，不缓存进 token。
+  // 这也是"禁用立即生效"的实现方式——没有 session 表可清，靠每请求查库。
   const [user] = await getDB()
     .select({
       id: users.id,
@@ -42,7 +43,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       name: users.name,
     })
     .from(users)
-    .where(eq(users.id, userId))
+    .where(and(eq(users.id, userId), isNull(users.disabledAt)))
     .limit(1);
   return user ?? null;
 }

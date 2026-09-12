@@ -13,6 +13,8 @@ export const users = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     avatarUrl: text("avatar_url"),
     ssoProviders: jsonb("sso_providers").$type<string[]>().default([]),
+    /** 非空 = 账号被平台管理员禁用；登录与已有会话都会在下一个请求失效 */
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()

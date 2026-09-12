@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/services/auth";
-import { listApiKeys } from "@/services/keys";
+import { listSecretKeys } from "@apigent/server/keys";
 import { SettingsView } from "@/components/settings-view";
 import { getMcpConfig } from "@/lib/mcp";
 
@@ -16,7 +16,7 @@ export default async function SettingsSectionPage({
   if (!SECTIONS.includes(section as Section)) redirect("/settings/account");
 
   const user = await requireUser();
-  const keys = await listApiKeys(user.id);
+  const keys = await listSecretKeys(user.id);
   const mcpConfig = getMcpConfig();
 
   return (

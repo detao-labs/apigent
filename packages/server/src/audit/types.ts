@@ -30,6 +30,10 @@ export const OPERATION_TYPES = [
   "admin.grant",
   "admin.revoke",
   "admin.login",
+  /** 平台侧账号生命周期 */
+  "admin.user_disable",
+  "admin.user_enable",
+  "admin.user_delete",
 ] as const;
 
 export type OperationType = (typeof OPERATION_TYPES)[number];

@@ -15,6 +15,13 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  ConfirmDialog,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   Table,
   TableBody,
@@ -39,12 +46,8 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { useTheme } from "@/hooks/use-theme";
 import { formatRelativeTime } from "@/lib/format";
-import {
-  curlSnippet,
-  mcpConfigSnippet,
-  useMcpServiceUrl,
-} from "@/hooks/use-mcp-service-url";
-import type { ApiKeySummary } from "@/services/keys";
+import { curlSnippet, mcpConfigSnippet, useMcpServiceUrl } from "@/hooks/use-mcp-service-url";
+import type { SecretKeySummary } from "@apigent/server/keys";
 
 const SECTIONS = ["account", "keys", "preferences", "notifications"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -65,7 +68,7 @@ export function SettingsView({
 }: {
   user: { name: string; email: string };
   section: Section;
-  keys: ApiKeySummary[];
+  keys: SecretKeySummary[];
   mcpPath: string;
   mcpPublicUrl: string;
 }) {
@@ -147,18 +150,10 @@ export function SettingsView({
   );
 }
 
-function RailGroup({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function RailGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <p className="px-3 pb-1.5 text-xs font-medium text-muted-foreground">
-        {label}
-      </p>
+      <p className="px-3 pb-1.5 text-xs font-medium text-muted-foreground">{label}</p>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -258,11 +253,7 @@ function AccountPanel({ user }: { user: { name: string; email: string } }) {
             <label htmlFor="profileName" className="text-sm font-medium">
               {t("name")}
             </label>
-            <Input
-              id="profileName"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <Input id="profileName" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
             <label htmlFor="profileEmail" className="text-sm font-medium">
@@ -340,9 +331,7 @@ function AccountPanel({ user }: { user: { name: string; email: string } }) {
             {pwdStatus && (
               <span
                 className={`text-sm ${
-                  pwdStatus.type === "success"
-                    ? "text-muted-foreground"
-                    : "text-destructive"
+                  pwdStatus.type === "success" ? "text-muted-foreground" : "text-destructive"
                 }`}
               >
                 {pwdStatus.text}
@@ -355,10 +344,94 @@ function AccountPanel({ user }: { user: { name: string; email: string } }) {
   );
 }
 
-function KeysPanel({ keys, mcpUrl }: { keys: ApiKeySummary[]; mcpUrl: string }) {
+// 客户端组件里只能用类型导入：从 @apigent/server/keys 引值会把 pg 拖进浏览器包
+// （CLAUDE.md 的客户端边界规则）。scope 列表因此在这里本地声明一份。
+const KEY_SCOPE_OPTIONS = [
+  { value: "api:read", labelKey: "create.scopeApiRead" },
+  { value: "api:write", labelKey: "create.scopeApiWrite" },
+  { value: "mcp:search", labelKey: "create.scopeMcpSearch" },
+  { value: "mcp:detail", labelKey: "create.scopeMcpDetail" },
+  { value: "mcp:context", labelKey: "create.scopeMcpContext" },
+] as const;
+
+const EXPIRY_OPTIONS = [
+  { value: 0, labelKey: "create.expiresNever" },
+  { value: 30, labelKey: "create.expires30" },
+  { value: 90, labelKey: "create.expires90" },
+  { value: 365, labelKey: "create.expires365" },
+] as const;
+
+function KeysPanel({ keys, mcpUrl }: { keys: SecretKeySummary[]; mcpUrl: string }) {
   const keysT = useTranslations("keys");
   const common = useTranslations("common");
   const locale = useLocale();
+  const router = useRouter();
+
+  const [generateOpen, setGenerateOpen] = React.useState(false);
+  const [name, setName] = React.useState("");
+  const [scopes, setScopes] = React.useState<string[]>(["mcp:search", "mcp:detail"]);
+  const [expiresInDays, setExpiresInDays] = React.useState<number>(0);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const [rawKey, setRawKey] = React.useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = React.useState<SecretKeySummary | null>(null);
+  const [revoking, setRevoking] = React.useState(false);
+
+  function toggleScope(value: string) {
+    setScopes((prev) =>
+      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value],
+    );
+  }
+
+  async function generate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, scopes, expiresInDays: expiresInDays || null }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { rawKey: string };
+        setGenerateOpen(false);
+        setName("");
+        setRawKey(data.rawKey);
+        router.refresh();
+        return;
+      }
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setFormError(
+        data?.error === "invalid-name"
+          ? keysT("errors.invalid-name")
+          : data?.error === "invalid-scopes"
+            ? keysT("errors.invalid-scopes")
+            : keysT("create.failed"),
+      );
+    } catch {
+      setFormError(keysT("create.failed"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function revoke() {
+    if (!revokeTarget) return;
+    setRevoking(true);
+    try {
+      const res = await fetch(`/api/keys/${revokeTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success(keysT("revoked"));
+        router.refresh();
+      } else {
+        toast.error(keysT("revokeFailed"));
+      }
+    } finally {
+      setRevoking(false);
+      setRevokeTarget(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -368,7 +441,7 @@ function KeysPanel({ keys, mcpUrl }: { keys: ApiKeySummary[]; mcpUrl: string }) 
             <CardTitle className="text-base">{keysT("title")}</CardTitle>
             <CardDescription>{keysT("description")}</CardDescription>
           </div>
-          <Button type="button" disabled title={common("backendPending")}>
+          <Button type="button" onClick={() => setGenerateOpen(true)}>
             <KeyRound className="size-4" />
             {keysT("generate")}
           </Button>
@@ -379,7 +452,7 @@ function KeysPanel({ keys, mcpUrl }: { keys: ApiKeySummary[]; mcpUrl: string }) 
               <KeyRound className="mb-4 size-12 text-muted-foreground/50" />
               <h3 className="mb-1 text-lg font-semibold">{keysT("empty.title")}</h3>
               <p className="mb-6 text-muted-foreground">{keysT("empty.description")}</p>
-              <Button type="button" disabled title={common("backendPending")}>
+              <Button type="button" onClick={() => setGenerateOpen(true)}>
                 <KeyRound className="size-4" />
                 {keysT("generate")}
               </Button>
@@ -415,22 +488,17 @@ function KeysPanel({ keys, mcpUrl }: { keys: ApiKeySummary[]; mcpUrl: string }) 
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {key.lastUsedAt
-                        ? formatRelativeTime(key.lastUsedAt, locale)
-                        : keysT("never")}
+                      {key.lastUsedAt ? formatRelativeTime(key.lastUsedAt, locale) : keysT("never")}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {key.expiresAt
-                        ? formatRelativeTime(key.expiresAt, locale)
-                        : "—"}
+                      {key.expiresAt ? formatRelativeTime(key.expiresAt, locale) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        disabled
-                        title={common("backendPending")}
+                        onClick={() => setRevokeTarget(key)}
                         className="text-destructive"
                       >
                         {keysT("revoke")}
@@ -470,6 +538,109 @@ function KeysPanel({ keys, mcpUrl }: { keys: ApiKeySummary[]; mcpUrl: string }) 
           </div>
         </CardContent>
       </Card>
+
+      {/* 生成密钥 */}
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{keysT("create.title")}</DialogTitle>
+            <DialogDescription>{keysT("create.description")}</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={generate}>
+            <div className="space-y-2">
+              <label htmlFor="key-name" className="text-sm font-medium">
+                {keysT("create.name")}
+              </label>
+              <Input
+                id="key-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={keysT("create.namePlaceholder")}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-sm font-medium">{keysT("create.scopes")}</span>
+              <div className="space-y-1.5">
+                {KEY_SCOPE_OPTIONS.map((option) => (
+                  <label key={option.value} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border"
+                      checked={scopes.includes(option.value)}
+                      onChange={() => toggleScope(option.value)}
+                    />
+                    {keysT(option.labelKey)}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="key-expires" className="text-sm font-medium">
+                {keysT("create.expires")}
+              </label>
+              <select
+                id="key-expires"
+                value={expiresInDays}
+                onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                className="w-full rounded-md border bg-transparent px-2 py-1.5 text-sm"
+              >
+                {EXPIRY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {keysT(option.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setGenerateOpen(false)}>
+                {common("cancel")}
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {keysT("create.submit")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 明文只显示一次 */}
+      <Dialog open={rawKey !== null} onOpenChange={(open) => !open && setRawKey(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{keysT("create.rawTitle")}</DialogTitle>
+            <DialogDescription>{keysT("create.rawDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs">
+              {rawKey}
+            </code>
+            <CopyButton text={rawKey ?? ""} label={keysT("examples.copy")} />
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={() => setRawKey(null)}>
+              {keysT("create.rawDone")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onOpenChange={(open) => !open && setRevokeTarget(null)}
+        title={keysT("revoke")}
+        description={keysT("revokeConfirm", { name: revokeTarget?.name ?? "" })}
+        confirmText={keysT("revoke")}
+        cancelText={common("cancel")}
+        destructive
+        loading={revoking}
+        onConfirm={revoke}
+      />
     </div>
   );
 }
@@ -608,10 +779,7 @@ function MorePanel() {
         </CardHeader>
         <CardContent className="divide-y">
           {items.map((item) => (
-            <div
-              key={item.key}
-              className="flex items-center justify-between py-3 text-sm"
-            >
+            <div key={item.key} className="flex items-center justify-between py-3 text-sm">
               <span>{item.label}</span>
               <PrefSwitch
                 checked={prefs?.[item.key] ?? true}
@@ -629,14 +797,8 @@ function MorePanel() {
           <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
         <CardContent className="divide-y">
-          {[
-            { label: t("sessions") },
-            { label: t("apiPrefs") },
-          ].map((row) => (
-            <div
-              key={row.label}
-              className="flex items-center justify-between py-3 text-sm"
-            >
+          {[{ label: t("sessions") }, { label: t("apiPrefs") }].map((row) => (
+            <div key={row.label} className="flex items-center justify-between py-3 text-sm">
               <span>{row.label}</span>
               <Badge variant="secondary">{common("comingSoon")}</Badge>
             </div>

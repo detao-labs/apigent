@@ -69,7 +69,15 @@ const candidates = checkAll ? null : changedFiles();
 const targets =
   candidates === null
     ? ["."]
-    : candidates.filter((f) => f && EXTENSIONS.test(f) && !IGNORED.test(f));
+    : candidates.filter(
+        (f) =>
+          f &&
+          EXTENSIONS.test(f) &&
+          !IGNORED.test(f) &&
+          // 已删除的文件不能再传给 prettier：它会以 "No files matching the
+          // pattern" 非零退出，让任何删文件的 PR 都变红
+          existsSync(f),
+      );
 
 if (targets.length === 0) {
   console.log("[format:changed] no changed files to check");

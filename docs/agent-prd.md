@@ -33,7 +33,7 @@
 | 认证              | Auth.js v5（credentials provider）+ JWT 会话；Platform 与 Admin 两套独立实例（cookie 命名空间 `apigent.*` / `apigent-admin.*`，密钥 `auth.secret` / `auth.adminSecret`） | 已实现（双平面）；GitHub/Google 等第三方 provider 未接入 |
 | 授权（租户）      | org_owner / org_admin / org_member + repo_owner / repo_admin / repo_member / repo_viewer（仓库目录全站可见，内容按仓库成员门禁）                                         | 已实现（见 §6）                                          |
 | 授权（平台）      | 独立体系：`admin_super`（平台管理员的管理者）+ 全局只读；预留 `admin_operator` / `admin_support`                                                                         | 已实现（`admin_members` + 能力映射 + 独立会话）          |
-| API 密钥          | SecretKey（`api:*` / `mcp:*` scopes）                                                                                                                                    | **仅 schema 与只读列表**；生成/校验/吊销未实现           |
+| API 密钥          | SecretKey（`api:*` / `mcp:*` scopes）                                                                                                                                    | 签发 / 列表 / 吊销已实现；校验待网关（MCP / 外部 REST）  |
 | 通知              | 站内通知（category / priority / i18n key）+ 用户偏好                                                                                                                     | 已实现                                                   |
 | i18n              | next-intl，zh / en，messages 按模块拆分                                                                                                                                  | 已实现                                                   |
 | OpenAPI 文档      | zod + zod-openapi，`openapi:export` 导出 `apps/platform/openapi/platform.json`                                                                                           | 已实现（文档不运行时 serve）                             |
@@ -136,9 +136,9 @@
 
 - **鉴权的声明式收敛**：仓库级断言已落在每个路由入口（`apps/platform/src/lib/repo-guard.ts`），尚未收敛为 `withRoute({ repo: … })` 的声明式写法（见 tech-design §5.4.4）
 - **端点 × 角色测试**：鉴权已有实现，但缺少表驱动的自动化覆盖（`apps/platform` 尚无测试基建）
-- **Admin 功能面**：登录与门禁、仪表盘（平台级统计）、审计页（`/audit`）、用户列表与详情（`/users`）、管理员管理（`/admins`）均已实现；账号禁用 / 删除仍为预留
+- **Admin 功能面**：登录与门禁、仪表盘（平台级统计）、审计页（`/audit`）、用户列表与详情（`/users`）、管理员管理（`/admins`）、账号禁用 / 启用 / 删除与 `admin.login` 留痕均已实现
 - **操作审计（部分落地）**：成员类事件（`member.*` / `repo.member_*` / `org.transfer`）与创建类事件（`org.create` / `repo.create`）已与业务写同事务落库，仓库设置页与组织详情 Tab 可查看；导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP、密钥、`admin.*` 仍未接线
-- **SecretKey**：生成 / 校验 / 吊销均未实现；设置页按钮为禁用状态；无任何请求校验过 SecretKey
+- **SecretKey**：签发 / 列表 / 吊销已实现（设置页 `/settings/keys`，明文只显示一次、库里只存 SHA-256）；**校验尚未实现**——它的第一个消费方是还不存在的 MCP Gateway，将与该端点一起落地
 - **认证**：GitHub / Google 第三方登录（Auth.js v5，仅负责认证；详见 tech-design §5.4.9）。已定策略：已验证邮箱自动绑定（拿不到已验证邮箱则提示先用密码登录再绑定）、Admin 仅账密、`auth.registration` + `auth.oauth.allowedEmailDomains` 进社区版
 - 语义检索（RAG）：embedding provider、pgvector 检索、混合检索 + RRF、重排、查询改写；`knowledge_chunks` 表已建但无写入 / 检索服务
 - MCP 挂载（V1 提供）
@@ -178,5 +178,5 @@
 4. 语义检索是否作为 V0 发布阻塞项：若 V0 必须交付检索，则 embedding provider 与 pgvector 检索应排最高优先级。
 5. 版本化交互默认值：多版本管理默认隐藏、开启后才允许新建 / 切换分支（原 V1 技术方案设计，现已落地）是否保持？
 6. 仓库成员是否允许**非组织成员**（访客）？本轮按建议限制为组织成员，`repository_members` 表结构已容得下，如需放开请告知。
-7. `repo:manage_mcp` 是否要在 V0 实现？`org:delete` / `repo:delete` 已落地（仓库删除保留审计、组织删除要求先清空仓库）；MCP 开关目前仍是纯前端 state，Gateway 未实现。
+7. `repo:manage_mcp` 的形态待定，本期不实现：先要回答 MCP 暴露的是**知识检索**（`search_apis` / `get_api_detail` / `get_project_context`）还是**接口调用**（每个 operation 一个 tool）。当前倾向是「仓库作为 scope 而非 tool」——工具集固定，仓库级开关决定能否被检索，可见范围继承仓库成员权限；接口级过滤与 Project 维度留后。`org:delete` / `repo:delete` 已落地（仓库删除保留审计、组织删除要求先清空仓库）。
 8. `admin_super` 是否允许读取任意仓库的接口内容（`admin:content:read`）？建议默认不给。

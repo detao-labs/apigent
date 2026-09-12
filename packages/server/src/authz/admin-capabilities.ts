@@ -30,13 +30,20 @@ export const ADMIN_ROLES: readonly AdminRole[] = ["admin_super"];
 
 /** 平台能力名：`admin:<domain>:<action>`。 */
 export type AdminCapability =
-  "admin:admins:manage" | "admin:stats:view" | "admin:audit:view" | "admin:users:view";
+  | "admin:admins:manage"
+  | "admin:stats:view"
+  | "admin:audit:view"
+  | "admin:users:view"
+  | "admin:users:disable"
+  | "admin:users:delete";
 
 export const ADMIN_CAPABILITIES: readonly AdminCapability[] = [
   "admin:admins:manage",
   "admin:stats:view",
   "admin:audit:view",
   "admin:users:view",
+  "admin:users:disable",
+  "admin:users:delete",
 ];
 
 /**

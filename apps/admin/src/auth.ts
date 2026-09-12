@@ -15,6 +15,7 @@ import type { NextAuthResult } from "next-auth";
 import { CredentialsSignin } from "next-auth";
 import { eq } from "drizzle-orm";
 import { createAuthConfig, resolveAuthSecret, resolveSessionMaxAge } from "@apigent/auth";
+import { recordOperation, withAuditTransaction } from "@apigent/server/audit";
 import { verifyPassword } from "@apigent/server/auth";
 import { getDB, users } from "@apigent/server/db";
 import { getAdminRole } from "@apigent/server/authz";
@@ -45,10 +46,24 @@ const nextAuth: NextAuthResult = NextAuth((request) =>
 
       const [user] = await getDB().select().from(users).where(eq(users.email, email)).limit(1);
       if (!user || !verifyPassword(password, user.passwordHash)) return null;
+      // 被禁用的账号不能进控制台（已有会话由 getAdminIdentity 拦）
+      if (user.disabledAt) return null;
 
       // 准入的唯一依据：admin_members 里有没有这一行
       const role = await getAdminRole(user.id);
       if (!role) throw new NotAdminError();
+
+      // 平台方登录留痕（`admin.login`）。审计写入要求事务句柄，这里单开一个只含
+      // 审计行的事务——登录没有可捆绑的业务写。
+      await withAuditTransaction(async (tx) => {
+        await recordOperation(tx, {
+          actorId: user.id,
+          operationType: "admin.login",
+          resourceType: "user",
+          resourceId: user.id,
+          summary: { targetUserId: user.id, targetEmail: user.email, role },
+        });
+      });
 
       return { id: user.id, email: user.email, name: user.name, image: user.avatarUrl ?? null };
     },

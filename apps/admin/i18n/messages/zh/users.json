@@ -1,0 +1,44 @@
+{
+  "users": {
+    "title": "用户管理",
+    "description": "管理平台用户和权限",
+    "emptyTitle": "暂无注册用户",
+    "emptyDescription": "开放注册后，用户账号将在此展示。",
+    "searchPlaceholder": "搜索邮箱或姓名",
+    "total": "共 {count} 个账号",
+    "colUser": "账号",
+    "colCreated": "注册时间",
+    "colOrgs": "组织",
+    "colRepos": "可访问仓库",
+    "colStatus": "状态",
+    "colActions": "操作",
+    "statusActive": "正常",
+    "statusDisabled": "已禁用",
+    "disable": "禁用",
+    "enable": "启用",
+    "disabled": "账号已禁用",
+    "enabled": "账号已启用",
+    "delete": "删除账号",
+    "cancel": "取消",
+    "deleteConfirm": "永久删除「{name}」及其组织 / 仓库成员身份、密钥与通知，且无法恢复。确定删除吗？",
+    "deleted": "账号已删除",
+    "detailDisableHint": "禁用后该账号无法登录，已有会话在下一个请求失效。",
+    "noResults": "没有匹配的账号",
+    "noPermission": "当前账号没有查看用户的权限。",
+    "errors": {
+      "lastAdmin": "不能禁用或删除最后一个管理员——否则没有人能再进入控制台",
+      "ownsOrganizations": "该账号仍是某些组织的 owner，请先转移或删除这些组织",
+      "cannotDeleteSelf": "不能删除自己的账号",
+      "notFound": "账号不存在",
+      "generic": "操作失败，请稍后重试"
+    },
+    "detail": {
+      "back": "返回用户列表",
+      "profile": "账号信息",
+      "memberships": "组织成员身份",
+      "ownedOrganizations": "拥有（owner）",
+      "none": "无",
+      "notFound": "用户不存在"
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { listUsers } from "@apigent/server/admin";
 import { roleHasAdminCapability } from "@apigent/server/authz";
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -15,6 +16,7 @@ import {
   TableRow,
 } from "@apigent/ui";
 import { requireAdmin } from "@/services/auth";
+import { UserActions } from "@/components/user-actions";
 
 export default async function UsersPage({
   searchParams,
@@ -35,6 +37,9 @@ export default async function UsersPage({
   }
 
   const { q } = await searchParams;
+  const canManage =
+    roleHasAdminCapability(admin.role, "admin:users:disable") &&
+    roleHasAdminCapability(admin.role, "admin:users:delete");
   const page = await listUsers({ search: q, limit: 50 });
   const locale = await getLocale();
   const fmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "zh-CN", {
@@ -81,6 +86,10 @@ export default async function UsersPage({
                   <TableHead>{t("colCreated")}</TableHead>
                   <TableHead className="text-right">{t("colOrgs")}</TableHead>
                   <TableHead className="text-right">{t("colRepos")}</TableHead>
+                  <TableHead>{t("colStatus")}</TableHead>
+                  {canManage ? (
+                    <TableHead className="text-right">{t("colActions")}</TableHead>
+                  ) : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -101,6 +110,26 @@ export default async function UsersPage({
                     <TableCell className="text-right tabular-nums">
                       {user.repositoryCount}
                     </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          user.disabledAt
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                        }
+                      >
+                        {user.disabledAt ? t("statusDisabled") : t("statusActive")}
+                      </Badge>
+                    </TableCell>
+                    {canManage ? (
+                      <TableCell className="text-right">
+                        <UserActions
+                          userId={user.id}
+                          userName={user.name}
+                          disabled={user.disabledAt !== null}
+                        />
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>

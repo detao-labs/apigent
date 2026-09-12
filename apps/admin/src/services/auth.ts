@@ -11,7 +11,7 @@
 // 手里那张还没过期的 cookie 会被送到 /forbidden。
 // ═══════════════════════════════════════════════════════════════════
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getDB, users } from "@apigent/server/db";
 import { getAdminRole, type AdminRole } from "@apigent/server/authz";
@@ -36,7 +36,7 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
   const [user] = await getDB()
     .select({ id: users.id, email: users.email, name: users.name })
     .from(users)
-    .where(eq(users.id, userId))
+    .where(and(eq(users.id, userId), isNull(users.disabledAt)))
     .limit(1);
   return user ?? null;
 }
