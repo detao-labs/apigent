@@ -32,18 +32,12 @@ import {
   versionCommits,
   versionEntityLinks,
   versions,
-  repoTasks,
+  repositoryTasks,
 } from "../db";
 import { notifySafely } from "../notifications";
 import { logError, logInfo } from "../logger";
 import { createContextTask } from "../contexts";
-import {
-  hasFatalIssue,
-  ImportError,
-  issueCounts,
-  moduleCount,
-  createTimer,
-} from "./common";
+import { hasFatalIssue, ImportError, issueCounts, moduleCount, createTimer } from "./common";
 
 type TaskStatus = "queued" | "running" | "succeeded" | "failed";
 
@@ -74,9 +68,9 @@ async function updateTask(
   },
 ): Promise<void> {
   await getDB()
-    .update(repoTasks)
+    .update(repositoryTasks)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(repoTasks.id, taskId));
+    .where(eq(repositoryTasks.id, taskId));
 }
 
 /** 解析目标版本：payload.versionId 优先，否则取默认主版本。 */
@@ -130,7 +124,11 @@ export async function executeImportTask(taskId: string): Promise<void> {
   const timer = createTimer();
   const db = getDB();
 
-  const [task] = await db.select().from(repoTasks).where(eq(repoTasks.id, taskId)).limit(1);
+  const [task] = await db
+    .select()
+    .from(repositoryTasks)
+    .where(eq(repositoryTasks.id, taskId))
+    .limit(1);
   if (!task) throw new Error(`Import task not found: ${taskId}`);
   if (task.status !== "queued") {
     logInfo("openapi.import.skipped", { taskId, repoId: task.repoId, status: task.status });
@@ -201,7 +199,11 @@ export async function executeImportTask(taskId: string): Promise<void> {
 
       if (parentCommitId) {
         const parentLinks = await tx
-          .select({ entityType: versionEntityLinks.entityType, identityKey: versionEntityLinks.identityKey, entityId: versionEntityLinks.entityId })
+          .select({
+            entityType: versionEntityLinks.entityType,
+            identityKey: versionEntityLinks.identityKey,
+            entityId: versionEntityLinks.entityId,
+          })
           .from(versionEntityLinks)
           .where(eq(versionEntityLinks.commitId, parentCommitId));
         for (const link of parentLinks) {
@@ -234,7 +236,9 @@ export async function executeImportTask(taskId: string): Promise<void> {
           const responsesMeta = api.responses
             .slice()
             .sort((a, b) =>
-              `${a.statusCode}:${a.contentType ?? ""}`.localeCompare(`${b.statusCode}:${b.contentType ?? ""}`),
+              `${a.statusCode}:${a.contentType ?? ""}`.localeCompare(
+                `${b.statusCode}:${b.contentType ?? ""}`,
+              ),
             )
             .map((r) => ({
               hash: hashResponse(r),
@@ -298,11 +302,19 @@ export async function executeImportTask(taskId: string): Promise<void> {
             contentHash,
             name: schema.name,
             schemaType: schema.type ?? null,
-            schemaRaw: { type: schema.type ?? null, properties: schema.properties ?? {}, required: schema.required ?? [] },
+            schemaRaw: {
+              type: schema.type ?? null,
+              properties: schema.properties ?? {},
+              required: schema.required ?? [],
+            },
             description: schema.description ?? null,
           });
         }
-        const row: LinkRow = { entityType: "data_model", identityKey: schema.name, entityId: blobId };
+        const row: LinkRow = {
+          entityType: "data_model",
+          identityKey: schema.name,
+          entityId: blobId,
+        };
         const key = linkKey(row.entityType, row.identityKey);
         newLinks.set(key, row);
       }
@@ -329,7 +341,11 @@ export async function executeImportTask(taskId: string): Promise<void> {
             payload: c.payload ?? {},
           });
         }
-        const row: LinkRow = { entityType: "component", identityKey: `${c.kind}::${c.name}`, entityId: blobId };
+        const row: LinkRow = {
+          entityType: "component",
+          identityKey: `${c.kind}::${c.name}`,
+          entityId: blobId,
+        };
         const key = linkKey(row.entityType, row.identityKey);
         newLinks.set(key, row);
       }
@@ -345,11 +361,11 @@ export async function executeImportTask(taskId: string): Promise<void> {
 
       // 7) change_summary + 更新 head
       const summary = buildChangeSummary(parentKeys, newLinks, parentBlobs);
-      await tx.update(versionCommits).set({ changeSummary: summary }).where(eq(versionCommits.id, commitId));
       await tx
-        .update(versions)
-        .set({ headCommitId: commitId })
-        .where(eq(versions.id, versionId));
+        .update(versionCommits)
+        .set({ changeSummary: summary })
+        .where(eq(versionCommits.id, commitId));
+      await tx.update(versions).set({ headCommitId: commitId }).where(eq(versions.id, versionId));
       timer.mark("pointer");
 
       return {
@@ -402,7 +418,10 @@ export async function executeImportTask(taskId: string): Promise<void> {
         trigger: "auto",
         dependsOn: taskId,
       }).catch((err) => {
-        logError("business.context.auto_trigger_failed", err, { repoId: task.repoId, importTaskId: taskId });
+        logError("business.context.auto_trigger_failed", err, {
+          repoId: task.repoId,
+          importTaskId: taskId,
+        });
       });
     }
 
@@ -438,7 +457,12 @@ export async function executeImportTask(taskId: string): Promise<void> {
       priority: "high",
       titleKey: "notifications.import.failed",
       titleParams: { repoName: task.repoId, error: message },
-      payload: { href: `/repos/${task.repoId}/versions`, repoId: task.repoId, taskId, versionId: null },
+      payload: {
+        href: `/repos/${task.repoId}/versions`,
+        repoId: task.repoId,
+        taskId,
+        versionId: null,
+      },
       metadata: { orgId: null },
     });
     logError("openapi.import.failed", err, {

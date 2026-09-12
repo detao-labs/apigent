@@ -32,7 +32,7 @@ export const versions = pgTable(
   "versions",
   {
     id: text("id").primaryKey(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** v1 / v2 / main —— 版本线名 */
@@ -46,8 +46,8 @@ export const versions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("versions_repo_name_idx").on(table.repoId, table.name),
-    uniqueIndex("versions_repo_default_idx")
+    uniqueIndex("versions_repository_name_idx").on(table.repoId, table.name),
+    uniqueIndex("versions_repository_default_idx")
       .on(table.repoId)
       .where(sql`${table.isDefault}`),
   ],
@@ -73,7 +73,7 @@ export const versionCommits = pgTable(
   "version_commits",
   {
     id: text("id").primaryKey(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     versionId: text("version_id")
@@ -96,13 +96,14 @@ export const versionCommits = pgTable(
     /** merge 来源 */
     mergeSource: jsonb("merge_source").$type<MergeSource>(),
     /** tag 名称 → 描述/排序（modules 派生用） */
-    tagMeta: jsonb("tag_meta").$type<Record<string, { description?: string; sortOrder?: number }>>(),
+    tagMeta:
+      jsonb("tag_meta").$type<Record<string, { description?: string; sortOrder?: number }>>(),
     /** 该 commit 引入的增/改/删 identity */
     changeSummary: jsonb("change_summary").$type<ChangeSummary>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    index("version_commits_repo_version_idx").on(table.repoId, table.versionId),
+    index("version_commits_repository_version_idx").on(table.repoId, table.versionId),
     index("version_commits_parent_idx").on(table.parentCommitId),
   ],
 );
@@ -126,7 +127,10 @@ export const versionEntityLinks = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.commitId, table.entityType, table.identityKey] }),
-    index("vel_commit_type_idx").on(table.commitId, table.entityType),
-    check("vel_entity_type_check", sql`${table.entityType} IN ('endpoint','data_model','component')`),
+    index("version_entity_links_commit_type_idx").on(table.commitId, table.entityType),
+    check(
+      "vel_entity_type_check",
+      sql`${table.entityType} IN ('endpoint','data_model','component')`,
+    ),
   ],
 );

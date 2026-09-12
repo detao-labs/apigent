@@ -35,14 +35,14 @@
 
 ## 2. 概念模型（git 类比）
 
-| Git | Apigent | 说明 |
-|---|---|---|
-| Branch | `versions`（活线） | 用户眼中的"版本"，v1/v2/main |
-| Commit | `version_commits`（快照） | 不可变历史，带 `parent_commit_id` |
-| Path | `identity_key` | `operationId ?? METHOD:PATH`（接口）/ `name`（模型）/ `kind::name`（组件） |
-| Blob | `endpoints` / `data_models` / `components`（版本无关内容块） | 内容寻址，`content_hash` 去重 |
-| Tree | `version_entity_links` | commit 到 identity 到 blob |
-| HEAD | 主分支头 / 指定版本 | "当前"= 主分支 `head_commit_id`，使用时可显式指定 |
+| Git    | Apigent                                                      | 说明                                                                       |
+| ------ | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Branch | `versions`（活线）                                           | 用户眼中的"版本"，v1/v2/main                                               |
+| Commit | `version_commits`（快照）                                    | 不可变历史，带 `parent_commit_id`                                          |
+| Path   | `identity_key`                                               | `operationId ?? METHOD:PATH`（接口）/ `name`（模型）/ `kind::name`（组件） |
+| Blob   | `endpoints` / `data_models` / `components`（版本无关内容块） | 内容寻址，`content_hash` 去重                                              |
+| Tree   | `version_entity_links`                                       | commit 到 identity 到 blob                                                 |
+| HEAD   | 主分支头 / 指定版本                                          | "当前"= 主分支 `head_commit_id`，使用时可显式指定                          |
 
 关键原则：
 
@@ -58,21 +58,21 @@
 
 > ID 统一用 `generateId(prefix)`，格式 `前缀_10位`（见 `packages/server/src/id.ts`）。
 > 需要新增 id 前缀：`commit: cmt_`；其余复用 `ver_ / api_ / data_ / comp_ / rsp_`。
-> 内容表复用为**版本无关的内容块（blob）**：加 `content_hash`（按 `repo_id` 去重）、去掉对单一 version 的绑定；`version_entity_links` 承担"commit → identity → blob"。
+> 内容表复用为**版本无关的内容块（blob）**：加 `content_hash`（按 `repository_id` 去重）、去掉对单一 version 的绑定；`version_entity_links` 承担"commit → identity → blob"。
 
 ### 3.1 `versions` —— 活线（branch）
 
 ```ts
 versions
   id                text PK        // ver_
-  repo_id           text FK        // repositories
+  repository_id           text FK        // repositories
   name              text NOT NULL  // v1 / v2 / main
   parent_version_id text NULL      // 基于哪条线 fork；空树新建为 NULL
   head_commit_id    text NULL      // 当前最新快照；空树分支 = 指向"空 commit"（见 §5.3）
   is_default        boolean NOT NULL DEFAULT false
   created_at        timestamp
-  UNIQUE (repo_id, name)
-  UNIQUE (repo_id) WHERE is_default   // 唯一主分支
+  UNIQUE (repository_id, name)
+  UNIQUE (repository_id) WHERE is_default   // 唯一主分支
 ```
 
 > **新建仓库即创建默认 `main` 版本**（`name='main'`, `is_default=true`, `head_commit_id=NULL`，首个导入前无 commit），保证每仓始终有一条基线、无需在代码里处理"无版本"空态。用户**开启"多版本管理"**后才允许再新建/切换额外分支，并在 UI 层显隐（默认隐藏）。
@@ -82,7 +82,7 @@ versions
 ```ts
 version_commits
   id                text PK        // cmt_
-  repo_id           text FK        // repositories
+  repository_id           text FK        // repositories
   version_id        text FK        // versions
   parent_commit_id  text NULL      // FK version_commits.id；父快照，用于历史回溯/回滚
   label             text NULL      // 展示名（导入序号/描述）
@@ -95,7 +95,7 @@ version_commits
   tag_meta          jsonb NULL     // tag 名称 → 描述/排序（modules 派生用）
   change_summary    jsonb NULL     // { added: [identity_key], updated: [identity_key], removed: [identity_key] }
   created_at        timestamp
-  INDEX (repo_id, version_id)
+  INDEX (repository_id, version_id)
   INDEX (parent_commit_id)
 ```
 
@@ -127,7 +127,7 @@ version_entity_links
 ```ts
 endpoints
   id                   text PK      // api_
-  repo_id              text FK      // repositories
+  repository_id              text FK      // repositories
   content_hash         text NOT NULL // sha256(规范化 head + sorted responses[].hash)
   operation_id         text NULL
   method               text NOT NULL
@@ -142,7 +142,7 @@ endpoints
   security             jsonb NOT NULL  // SecurityRequirement[]
   responses_meta       jsonb NOT NULL  // [{hash, status_code, content_type}] 廉价索引
   created_at           timestamp
-  UNIQUE (repo_id, content_hash)
+  UNIQUE (repository_id, content_hash)
   -- 原 version_id 移除；原 UNIQUE(version_id, method, path) 移除，改由 version_entity_links 表达"哪个 commit 用哪个 blob"
 ```
 
@@ -151,7 +151,7 @@ endpoints
 ```ts
 endpoint_responses
   id           text PK       // rsp_
-  repo_id      text FK       // repositories
+  repository_id      text FK       // repositories
   endpoint_id  text FK       // endpoints.id（blob）
   resp_hash    text NOT NULL // sha256(规范化 response)
   status_code  text NOT NULL
@@ -170,25 +170,25 @@ endpoint_responses
 ```ts
 data_models
   id           text PK      // data_
-  repo_id      text FK
+  repository_id      text FK
   content_hash text NOT NULL
   name         text NOT NULL
   type         text NULL    // schema_type
   schema_raw   jsonb NOT NULL // { type, properties, required }
   description  text NULL
-  UNIQUE (repo_id, content_hash)
+  UNIQUE (repository_id, content_hash)
   -- 原 version_id 移除
 
 components
   id           text PK      // comp_
-  repo_id      text FK
+  repository_id      text FK
   content_hash text NOT NULL
   kind         text NOT NULL
   name         text NOT NULL
   def_type     text NULL
   payload      jsonb NOT NULL
   description  text NULL
-  UNIQUE (repo_id, content_hash)
+  UNIQUE (repository_id, content_hash)
   -- 原 version_id 移除
 ```
 
@@ -263,7 +263,7 @@ components
 1. 解析 → [{ identity_key, endpoint_def }, ...] + schemas + components
 2. 新建 commit C（记录 spec_title/version/description/storage_path/tag_meta）
 3. 遍历文件实体：
-   content_hash → 命中已有 blob（repo_id, content_hash）? 复用 : 新建 endpoints/data_models/components
+   content_hash → 命中已有 blob（repository_id, content_hash）? 复用 : 新建 endpoints/data_models/components
    upsert endpoint_responses（按 resp_hash 归并到 blob）
    写 link(C, entity_type, identity_key, blob.id)
 4. 删除（整仓）：当前 head commit（即本提交的父 commit）的 links 里 identity_key 不在文件实体集 → 不写入 C
@@ -343,11 +343,11 @@ components
 
 ## 10. 分阶段落地
 
-| 阶段 | 范围 | 内容 |
-|---|---|---|
-| **Phase A** | 接口 | `versions/version_commits/version_entity_links` + `endpoints`（作为 blob）/`endpoint_responses`（加 resp_hash）；导入两模式；手动删除；版本对比；接口读取路径 |
-| **Phase B** | 模型/组件 | `data_models` / `components` 同构改造为 blob |
-| **Phase C / V2** | 归属与清理 | `source` 归属 + 增量·清理（按源删）+ 跨源冲突 |
+| 阶段             | 范围       | 内容                                                                                                                                                          |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase A**      | 接口       | `versions/version_commits/version_entity_links` + `endpoints`（作为 blob）/`endpoint_responses`（加 resp_hash）；导入两模式；手动删除；版本对比；接口读取路径 |
+| **Phase B**      | 模型/组件  | `data_models` / `components` 同构改造为 blob                                                                                                                  |
+| **Phase C / V2** | 归属与清理 | `source` 归属 + 增量·清理（按源删）+ 跨源冲突                                                                                                                 |
 
 ---
 

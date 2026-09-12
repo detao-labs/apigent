@@ -22,7 +22,7 @@ export const endpoints = pgTable(
   "endpoints",
   {
     id: text("id").primaryKey(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** sha256(规范化 head + sorted responses[].hash)，用于复用/对比 */
@@ -47,7 +47,9 @@ export const endpoints = pgTable(
       .default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("endpoints_repo_content_hash_idx").on(table.repoId, table.contentHash)],
+  (table) => [
+    uniqueIndex("endpoints_repository_content_hash_idx").on(table.repoId, table.contentHash),
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════
@@ -62,7 +64,7 @@ export const endpointResponses = pgTable(
   "endpoint_responses",
   {
     id: text("id").primaryKey(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     endpointId: text("endpoint_id")
@@ -95,7 +97,7 @@ export const dataModels = pgTable(
   "data_models",
   {
     id: text("id").primaryKey(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     contentHash: text("content_hash").notNull(),
@@ -105,7 +107,9 @@ export const dataModels = pgTable(
     description: text("description"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("data_models_repo_content_hash_idx").on(table.repoId, table.contentHash)],
+  (table) => [
+    uniqueIndex("data_models_repository_content_hash_idx").on(table.repoId, table.contentHash),
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════
@@ -162,7 +166,7 @@ export const endpointRelationships = pgTable(
       .notNull()
       .references(() => endpoints.id),
     relationType: varchar("relation_type", { length: 50 }).notNull(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     versionId: text("version_id")

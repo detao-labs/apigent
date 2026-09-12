@@ -7,7 +7,7 @@
 // 模块（tag 分组）由 endpoints.tags 派生，不再有 modules 表。
 // ═══════════════════════════════════════════════════════════════════
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   components,
   dataModels,
@@ -15,6 +15,7 @@ import {
   endpoints,
   getDB,
   organizations,
+  repositoryMembers,
   repositories,
   users,
   versionCommits,
@@ -40,6 +41,8 @@ export interface RepoSummary {
   currentVersion: string | null;
   mcpEnabled: boolean;
   updatedAt: Date;
+  /** 当前用户能否打开这个仓库的内容（目录是全站可见的） */
+  canOpen: boolean;
 }
 
 export class OrgNotFoundError extends Error {
@@ -101,6 +104,14 @@ export async function createRepo(
     headCommitId: null,
   });
 
+  // 创建者自动成为该仓库 owner——仓库内容是显式成员制，否则新仓库没有第一位
+  // 成员，org_member 建完之后自己都打不开。
+  await db.insert(repositoryMembers).values({
+    repoId: repo.id,
+    userId,
+    role: "repo_owner",
+  });
+
   return {
     ...repo,
     mcpEnabled: Boolean(repo.mcpEnabled ?? false),
@@ -113,7 +124,7 @@ export async function updateRepo(
   input: { name?: string; description?: string },
   userId: string,
 ) {
-  await assertRepoAccess(userId, repoId, "repo_editor");
+  await assertRepoAccess(userId, repoId, "repo_member");
   const db = getDB();
   const [repo] = await db
     .update(repositories)
@@ -140,9 +151,9 @@ export async function updateRepo(
 }
 
 export async function listRepos(userId: string): Promise<RepoSummary[]> {
-  const accessible = await listAccessibleRepoIds(userId);
-  if (accessible.length === 0) return [];
   const db = getDB();
+  // 仓库目录全站可见——筛选发生在"能不能打开内容"上，而不是"能不能看到"。
+  const accessible = new Set(await listAccessibleRepoIds(userId));
 
   const rows = await db
     .select({
@@ -164,14 +175,19 @@ export async function listRepos(userId: string): Promise<RepoSummary[]> {
     .from(repositories)
     .leftJoin(organizations, eq(repositories.orgId, organizations.id))
     .leftJoin(versions, and(eq(versions.repoId, repositories.id), eq(versions.isDefault, true)))
-    .where(inArray(repositories.id, accessible))
     .orderBy(desc(repositories.updatedAt));
 
-  return rows.map((row) => ({
-    ...row,
-    mcpEnabled: Boolean(row.mcpEnabled ?? false),
-    endpointCount: Number(row.endpointCount ?? 0),
-  }));
+  return rows.map((row) => {
+    const canOpen = accessible.has(row.id);
+    return {
+      ...row,
+      mcpEnabled: Boolean(row.mcpEnabled ?? false),
+      // 打不开的仓库不下发版本号与接口数——那些已经属于内容元数据
+      currentVersion: canOpen ? row.currentVersion : null,
+      endpointCount: canOpen ? Number(row.endpointCount ?? 0) : 0,
+      canOpen,
+    };
+  });
 }
 
 export interface RepoVersionSummary {
@@ -219,7 +235,11 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
     .limit(1);
   if (!repo) return null;
 
-  const allVersions = await db.select().from(versions).where(eq(versions.repoId, id)).orderBy(desc(versions.createdAt));
+  const allVersions = await db
+    .select()
+    .from(versions)
+    .where(eq(versions.repoId, id))
+    .orderBy(desc(versions.createdAt));
   const defaultVersion = allVersions.find((v) => v.isDefault) ?? null;
   const headCommitId = defaultVersion?.headCommitId ?? null;
 
@@ -228,13 +248,23 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
       ? db
           .select({ value: sql<number>`count(*)::int` })
           .from(versionEntityLinks)
-          .where(and(eq(versionEntityLinks.commitId, headCommitId), eq(versionEntityLinks.entityType, "endpoint")))
+          .where(
+            and(
+              eq(versionEntityLinks.commitId, headCommitId),
+              eq(versionEntityLinks.entityType, "endpoint"),
+            ),
+          )
       : undefined,
     headCommitId
       ? db
           .select({ value: sql<number>`count(*)::int` })
           .from(versionEntityLinks)
-          .where(and(eq(versionEntityLinks.commitId, headCommitId), eq(versionEntityLinks.entityType, "data_model")))
+          .where(
+            and(
+              eq(versionEntityLinks.commitId, headCommitId),
+              eq(versionEntityLinks.entityType, "data_model"),
+            ),
+          )
       : undefined,
   ]);
 
@@ -283,13 +313,13 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
     versionCount: allVersions.length,
     currentVersion: defaultVersion?.name ?? null,
     currentSpecVersion: headCommitId
-      ? (
+      ? ((
           await db
             .select({ specVersion: versionCommits.specVersion })
             .from(versionCommits)
             .where(eq(versionCommits.id, headCommitId))
             .limit(1)
-        )[0]?.specVersion ?? null
+        )[0]?.specVersion ?? null)
       : null,
     versions: verCounts,
   };
@@ -399,7 +429,12 @@ export async function getRepoEndpoints(repoId: string, userId: string): Promise<
       })
       .from(versionEntityLinks)
       .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
-      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
+      .where(
+        and(
+          eq(versionEntityLinks.commitId, commitId),
+          eq(versionEntityLinks.entityType, "endpoint"),
+        ),
+      )
       .orderBy(endpoints.path, endpoints.method),
     db
       .select({
@@ -413,7 +448,12 @@ export async function getRepoEndpoints(repoId: string, userId: string): Promise<
       .from(endpointResponses)
       .innerJoin(endpoints, eq(endpoints.id, endpointResponses.endpointId))
       .innerJoin(versionEntityLinks, eq(versionEntityLinks.entityId, endpoints.id))
-      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
+      .where(
+        and(
+          eq(versionEntityLinks.commitId, commitId),
+          eq(versionEntityLinks.entityType, "endpoint"),
+        ),
+      )
       .orderBy(endpointResponses.statusCode),
   ]);
 
@@ -469,7 +509,12 @@ export async function getRepoDataModels(repoId: string, userId: string): Promise
     })
     .from(versionEntityLinks)
     .innerJoin(dataModels, eq(dataModels.id, versionEntityLinks.entityId))
-    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "data_model")))
+    .where(
+      and(
+        eq(versionEntityLinks.commitId, commitId),
+        eq(versionEntityLinks.entityType, "data_model"),
+      ),
+    )
     .orderBy(dataModels.name);
 
   return rows.map((row) => ({
@@ -507,7 +552,10 @@ export async function getRepoComponentDefs(
   const commitId = await defaultHeadCommitId(repoId);
   if (!commitId) return [];
 
-  const conditions = [eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "component")];
+  const conditions = [
+    eq(versionEntityLinks.commitId, commitId),
+    eq(versionEntityLinks.entityType, "component"),
+  ];
   if (kind) conditions.push(eq(components.kind, kind));
 
   const rows = await db

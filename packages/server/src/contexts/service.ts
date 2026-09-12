@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════
-// Context Task Service — 上下文生成任务（基于统一 repo_tasks）
+// Context Task Service — 上下文生成任务（基于统一 repository_tasks）
 // ═══════════════════════════════════════════════════════════════════
 //
 // task_type = "context"；payload = { trigger, endpointIds?, force? }；
@@ -8,7 +8,7 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { generateId } from "../id";
-import { getDB, repositories, repoTasks, versions } from "../db";
+import { getDB, repositories, repositoryTasks, versions } from "../db";
 import { logInfo } from "../logger";
 import { startContextWorker } from "./worker";
 import { CONTEXT_QUEUE, DuplicateContextTaskError, RepoNotFoundError } from "./common";
@@ -89,14 +89,14 @@ function toSummary(row: ContextTaskRow): ContextTaskSummary {
 }
 
 const CONTEXT_FIELDS = {
-  id: repoTasks.id,
-  status: repoTasks.status,
-  progress: repoTasks.progress,
-  payload: repoTasks.payload,
-  result: repoTasks.result,
-  error: repoTasks.error,
-  createdAt: repoTasks.createdAt,
-  finishedAt: repoTasks.finishedAt,
+  id: repositoryTasks.id,
+  status: repositoryTasks.status,
+  progress: repositoryTasks.progress,
+  payload: repositoryTasks.payload,
+  result: repositoryTasks.result,
+  error: repositoryTasks.error,
+  createdAt: repositoryTasks.createdAt,
+  finishedAt: repositoryTasks.finishedAt,
 } as const;
 
 /**
@@ -130,13 +130,13 @@ export async function createContextTask(
   const versionId = defVersion?.headCommitId ?? null;
 
   const [active] = await db
-    .select({ id: repoTasks.id })
-    .from(repoTasks)
+    .select({ id: repositoryTasks.id })
+    .from(repositoryTasks)
     .where(
       and(
-        eq(repoTasks.repoId, repoId),
-        eq(repoTasks.taskType, "context"),
-        inArray(repoTasks.status, ["queued", "running"]),
+        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.taskType, "context"),
+        inArray(repositoryTasks.status, ["queued", "running"]),
       ),
     )
     .limit(1);
@@ -148,7 +148,7 @@ export async function createContextTask(
     trigger,
     ...options.scope,
   };
-  await db.insert(repoTasks).values({
+  await db.insert(repositoryTasks).values({
     id: taskId,
     repoId,
     versionId,
@@ -163,7 +163,7 @@ export async function createContextTask(
     name: CONTEXT_QUEUE,
     data: { taskId },
   });
-  await db.update(repoTasks).set({ jobId }).where(eq(repoTasks.id, taskId));
+  await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
   logInfo("business.context.queued", { taskId, repoId, userId, jobId, trigger });
   return {
@@ -191,12 +191,12 @@ export async function getContextTask(
 ): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
     .select(CONTEXT_FIELDS)
-    .from(repoTasks)
+    .from(repositoryTasks)
     .where(
       and(
-        eq(repoTasks.repoId, repoId),
-        eq(repoTasks.id, taskId),
-        eq(repoTasks.taskType, "context"),
+        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.id, taskId),
+        eq(repositoryTasks.taskType, "context"),
       ),
     )
     .limit(1);
@@ -207,9 +207,9 @@ export async function getContextTask(
 export async function getLatestContextTask(repoId: string): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
     .select(CONTEXT_FIELDS)
-    .from(repoTasks)
-    .where(and(eq(repoTasks.repoId, repoId), eq(repoTasks.taskType, "context")))
-    .orderBy(desc(repoTasks.createdAt))
+    .from(repositoryTasks)
+    .where(and(eq(repositoryTasks.repoId, repoId), eq(repositoryTasks.taskType, "context")))
+    .orderBy(desc(repositoryTasks.createdAt))
     .limit(1);
   return row ? toSummary(row) : null;
 }
@@ -222,17 +222,17 @@ export async function retryContextTask(
   const db = getDB();
   const [row] = await db
     .select({
-      id: repoTasks.id,
-      status: repoTasks.status,
-      userId: repoTasks.userId,
-      attempts: repoTasks.attempts,
+      id: repositoryTasks.id,
+      status: repositoryTasks.status,
+      userId: repositoryTasks.userId,
+      attempts: repositoryTasks.attempts,
     })
-    .from(repoTasks)
+    .from(repositoryTasks)
     .where(
       and(
-        eq(repoTasks.repoId, repoId),
-        eq(repoTasks.id, taskId),
-        eq(repoTasks.taskType, "context"),
+        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.id, taskId),
+        eq(repositoryTasks.taskType, "context"),
       ),
     )
     .limit(1);
@@ -242,7 +242,7 @@ export async function retryContextTask(
   }
 
   await db
-    .update(repoTasks)
+    .update(repositoryTasks)
     .set({
       status: "queued",
       progress: 0,
@@ -253,14 +253,14 @@ export async function retryContextTask(
       finishedAt: null,
       updatedAt: new Date(),
     })
-    .where(eq(repoTasks.id, taskId));
+    .where(eq(repositoryTasks.id, taskId));
 
   const queue = startContextWorker();
   const jobId = await queue.enqueue(CONTEXT_QUEUE, {
     name: CONTEXT_QUEUE,
     data: { taskId },
   });
-  await db.update(repoTasks).set({ jobId }).where(eq(repoTasks.id, taskId));
+  await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
   const summary = await getContextTask(repoId, taskId);
   if (!summary) throw new Error(`Context task not found: ${taskId}`);

@@ -21,8 +21,8 @@ User Query: "退款接口在哪里？"
 │    → rewritten query + sub_queries + entities         │
 ├──────────────────────────────────────────────────────┤
 │ 2. Permission Pre-filter                             │
-│    → accessible_repo_ids FROM RBAC                    │
-│    → WHERE repo_id IN (...)                           │
+│    → accessible_repository_ids FROM RBAC             │
+│    → WHERE repository_id IN (...)                    │
 ├──────────────────────────────────────────────────────┤
 │ 3. Multi-path Retrieval（并行，0 LLM 调用）            │
 │    ├── Embedding (Dense)  → top-50                    │
@@ -48,16 +48,16 @@ User Query: "退款接口在哪里？"
 
 ## 输入
 
-| 字段           | 类型               | 说明                                                                 |
-| -------------- | ------------------ | -------------------------------------------------------------------- |
-| `query`        | `string`           | 自然语言查询："查找与退款相关的 API"                                 |
-| `repo_id?`     | `string`           | 限定搜索范围（Repo）                                                 |
-| `org_id?`      | `string`           | 限定搜索范围（Organization 下所有 Repo）                             |
-| `project_id?`  | `string`           | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
-| `top_k?`       | `number`           | 返回数量，默认 10                                                    |
-| `filter?`      | `SearchFilter`     | HTTP 方法、tag、路径前缀等筛选条件                                   |
-| `user_id`      | `string`           | 当前用户 ID（用于权限过滤）                                          |
-| `search_mode?` | `"fast" \| "deep"` | `fast`: 跳过 Query Rewriting（默认）；`deep`: 完整流程               |
+| 字段               | 类型               | 说明                                                                 |
+| ------------------ | ------------------ | -------------------------------------------------------------------- |
+| `query`            | `string`           | 自然语言查询："查找与退款相关的 API"                                 |
+| `repository_id?`   | `string`           | 限定搜索范围（Repo）                                                 |
+| `organization_id?` | `string`           | 限定搜索范围（Organization 下所有 Repo）                             |
+| `project_id?`      | `string`           | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
+| `top_k?`           | `number`           | 返回数量，默认 10                                                    |
+| `filter?`          | `SearchFilter`     | HTTP 方法、tag、路径前缀等筛选条件                                   |
+| `user_id`          | `string`           | 当前用户 ID（用于权限过滤）                                          |
+| `search_mode?`     | `"fast" \| "deep"` | `fast`: 跳过 Query Rewriting（默认）；`deep`: 完整流程               |
 
 ## 输出
 
@@ -74,7 +74,7 @@ interface SearchResult {
 
 interface ScoredAPI {
   api_id: string;
-  repo_id: string;
+  repository_id: string;
   path: string;
   method: string;
   summary: string;
@@ -187,7 +187,7 @@ if (cachedRewrite) return cachedRewrite;
 pgvector 查询：
   SELECT id, content, 1 - (embedding <=> $query_vector) AS score
   FROM chunks
-  WHERE repo_id = ANY($accessible_repo_ids)    ← 权限前置过滤
+  WHERE repository_id = ANY($accessible_repository_ids)    ← 权限前置过滤
   ORDER BY embedding <=> $query_vector
   LIMIT 50
 ```
@@ -227,7 +227,7 @@ CREATE INDEX ON chunks USING GIN (search_vector);
 -- 2. 检索时
 SELECT id, content, ts_rank(search_vector, websearch_to_tsquery('english', :query)) AS bm25_score
 FROM chunks
-WHERE repo_id = ANY($accessible_repo_ids)
+WHERE repository_id = ANY($accessible_repository_ids)
   AND search_vector @@ websearch_to_tsquery('english', :query)
 ORDER BY bm25_score DESC
 LIMIT 50;
@@ -269,7 +269,7 @@ Repository (repo-level)
   │
   ├── Chunk L0: Project Context（全局约定、认证方式、分页格式）
   │     ≈ 300 tokens
-  │     metadata: { level: "project", repo_id, org_id }
+  │     metadata: { level: "project", repository_id, organization_id }
   │
   ├── Tag Group（tag="订单管理"）
   │   ├── Chunk L1: Tag Summary（该 tag 下接口的业务概述）
@@ -279,7 +279,7 @@ Repository (repo-level)
   │   ├── API Endpoint（POST /orders/refund）
   │   │   ├── Chunk L2: Endpoint Full ★ 检索主单元
   │   │   │     ≈ 800-1500 tokens
-  │   │   │     metadata: { level: "endpoint", repo_id, method, path, tag }
+  │   │   │     metadata: { level: "endpoint", repository_id, method, path, tag }
   │   │   │     包含: method + path + summary + description
   │   │   │          + 全部参数（名称+类型+必填+业务含义）
   │   │   │          + 响应字段（名称+类型+业务含义）
@@ -330,8 +330,8 @@ Repository (repo-level)
 ```ts
 interface ChunkMetadata {
   level: "project" | "tag" | "workflow" | "endpoint" | "schema" | "rules";
-  repo_id: string; // 用于权限过滤
-  org_id: string; // 冗余，加速 org 级查询
+  repository_id: string; // 用于权限过滤
+  organization_id: string; // 冗余，加速 org 级查询
   method?: string;
   path?: string;
   tag?: string;
@@ -369,8 +369,8 @@ POST /orders/refund
          worst case: top-50 全是无权限结果 → 用户得到 0 条
 
 ✅ 检索前过滤（正确做法）：
-   查用户 effective permissions → accessible_repo_ids
-   → 向量搜索 (WHERE repo_id IN (...)) → top-30 chunks
+   查用户 effective permissions → accessible_repository_ids
+   → 向量搜索 (WHERE repository_id IN (...)) → top-30 chunks
    → 精排 → top-10
 ```
 
@@ -384,10 +384,10 @@ async function retrieveWithPermission(
 ): Promise<ChunkResult[]> {
   // 1. 查用户有权访问的仓库列表
   const accessibleRepos = await getAccessibleRepoIds(userId);
-  // → SELECT org_id, role FROM org_members WHERE user_id = $1
-  // → SELECT repo_id, role FROM repo_permissions WHERE user_id = $1
-  // → 合并 Organization 继承权限 + Repo 覆盖权限
-  // → 返回 repo_id 集合
+  // → SELECT repository_id FROM repository_members WHERE user_id = $1     （显式成员）
+  // → SELECT id FROM repositories WHERE organization_id IN (我作为 org_admin/owner 的组织)
+  // → 合并两者；org_member 不隐含任何仓库访问权
+  // → 返回 repository_id 集合
 
   if (accessibleRepos.length === 0) return [];
 
@@ -395,7 +395,7 @@ async function retrieveWithPermission(
   const results = await vectorStore.search(queryVector, {
     topK: topK * 3, // 多召回，给 RRF + 精排留余量
     filter: {
-      repo_id: { $in: accessibleRepos }, // ← 权限在此过滤
+      repository_id: { $in: accessibleRepos }, // ← 权限在此过滤
     },
   });
 
@@ -405,22 +405,22 @@ async function retrieveWithPermission(
 
 ## 4.3 权限过滤的 Granularity
 
-| 搜索入口                  | 过滤维度                                                   | 说明                                       |
-| ------------------------- | ---------------------------------------------------------- | ------------------------------------------ |
-| **平台全局搜索**          | `WHERE repo_id IN (user_accessible_repos)`                 | 用户有权限的所有 repo                      |
-| **Organization 内搜索**   | `WHERE org_id = :org_id AND repo_id IN (...)`              | 限定 organization + 权限双重过滤           |
-| **单 Repo 搜索**          | `WHERE repo_id = :repo_id` + RBAC check                    | 先检查用户对该 repo 的权限，无权限直接拒绝 |
-| **Project 内搜索（V1+）** | `WHERE repo_id IN (project_repos ∩ user_accessible_repos)` | 双层规则：项目过滤 + 仓库权限              |
-| **MCP search_apis**       | `WHERE repo_id IN (key_scoped_repos)` + RBAC               | Secret Key scopes 限定 + 用户权限          |
+| 搜索入口                  | 过滤维度                                                              | 说明                                       |
+| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------ |
+| **平台全局搜索**          | `WHERE repository_id IN (user_accessible_repos)`                      | 用户有权限的所有 repo                      |
+| **Organization 内搜索**   | `WHERE organization_id = :organization_id AND repository_id IN (...)` | 限定 organization + 权限双重过滤           |
+| **单 Repo 搜索**          | `WHERE repository_id = :repository_id` + RBAC check                   | 先检查用户对该 repo 的权限，无权限直接拒绝 |
+| **Project 内搜索（V1+）** | `WHERE repository_id IN (project_repos ∩ user_accessible_repos)`      | 双层规则：项目过滤 + 仓库权限              |
+| **MCP search_apis**       | `WHERE repository_id IN (key_scoped_repos)` + RBAC                    | Secret Key scopes 限定 + 用户权限          |
 
 ## 4.4 额外安全措施
 
-| 措施                     | 说明                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| **审计日志**             | 记录每次搜索：`(user_id, query, repo_filter, timestamp, latency_ms)`             |
-| **Rate Limiting**        | 每用户每分钟最多 30 次搜索；MCP 调用按 Key 限流                                  |
-| **敏感字段 Mask**        | LLM 回答 Prompt 中不注入完整 Schema 值，只注入名称 + 类型 + 描述                 |
-| **Chunk 级 org_id 冗余** | repo 迁移 organization 后，chunk 的 org_id 保持不变（snapshot 语义避免数据泄露） |
+| 措施                              | 说明                                                                                      |
+| --------------------------------- | ----------------------------------------------------------------------------------------- |
+| **审计日志**                      | 记录每次搜索：`(user_id, query, repo_filter, timestamp, latency_ms)`                      |
+| **Rate Limiting**                 | 每用户每分钟最多 30 次搜索；MCP 调用按 Key 限流                                           |
+| **敏感字段 Mask**                 | LLM 回答 Prompt 中不注入完整 Schema 值，只注入名称 + 类型 + 描述                          |
+| **Chunk 级 organization_id 冗余** | repo 迁移 organization 后，chunk 的 organization_id 保持不变（snapshot 语义避免数据泄露） |
 
 ---
 

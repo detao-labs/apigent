@@ -1,11 +1,4 @@
-import {
-  pgTable,
-  text,
-  varchar,
-  jsonb,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { repositories } from "./repo";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -22,7 +15,7 @@ export const components = pgTable(
   "components",
   {
     id: text("id").primaryKey(),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** sha256(规范化定义)，用于复用/对比 */
@@ -34,15 +27,13 @@ export const components = pgTable(
     defType: varchar("def_type", { length: 50 }),
     description: text("description"),
     payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
-    uniqueIndex("components_repo_content_hash_idx").on(table.repoId, table.contentHash),
+    uniqueIndex("components_repository_content_hash_idx").on(table.repoId, table.contentHash),
   ],
 );

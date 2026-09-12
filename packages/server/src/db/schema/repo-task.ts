@@ -25,13 +25,13 @@ import { implQueueJobs } from "./queue";
 // 调度投递由 impl_queue_jobs 负责（job_id 关联）；任务业务状态在本表持久化。
 // ═══════════════════════════════════════════════════════════════════
 
-export const repoTasks = pgTable(
-  "repo_tasks",
+export const repositoryTasks = pgTable(
+  "repository_tasks",
   {
     id: text("id").primaryKey(),
     /** 关联 impl_queue_jobs（调度投递），入队后回填 */
     jobId: text("job_id").references(() => implQueueJobs.id),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** import→产出版本；context→目标版本 */
@@ -50,7 +50,7 @@ export const repoTasks = pgTable(
     /** 类型专属结果与统计 */
     result: jsonb("result").$type<unknown>(),
     /** 同一 repo 的前置任务 id（顺序依赖） */
-    dependsOn: text("depends_on").references((): AnyPgColumn => repoTasks.id),
+    dependsOn: text("depends_on").references((): AnyPgColumn => repositoryTasks.id),
     error: text("error"),
     attempts: integer("attempts").notNull().default(0),
     enqueuedAt: timestamp("enqueued_at", { withTimezone: true }).defaultNow().notNull(),
@@ -64,10 +64,10 @@ export const repoTasks = pgTable(
   },
   (table) => [
     // 重复任务检查：repo 下进行中的任务
-    index("repo_tasks_repo_status_idx").on(table.repoId, table.status),
+    index("repository_tasks_repository_status_idx").on(table.repoId, table.status),
     // 用户任务列表
-    index("repo_tasks_user_idx").on(table.userId, table.createdAt.desc()),
+    index("repository_tasks_user_idx").on(table.userId, table.createdAt.desc()),
     // 按类型过滤（任务中心 / 状态徽章）
-    index("repo_tasks_type_status_idx").on(table.taskType, table.status),
+    index("repository_tasks_type_status_idx").on(table.taskType, table.status),
   ],
 );

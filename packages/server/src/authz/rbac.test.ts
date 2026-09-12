@@ -1,39 +1,46 @@
 import { describe, expect, it } from "vitest";
 import {
   ForbiddenError,
-  assignableRepoRoles,
   isOrgRoleAtLeast,
-  isOverrideEffective,
   isRepoRoleAtLeast,
   orgRoleToRepoRole,
   resolveEffectiveRepoRole,
 } from "./roles";
 
 describe("orgRoleToRepoRole", () => {
-  it("maps org roles to inherited repo roles", () => {
-    expect(orgRoleToRepoRole("org_owner")).toBe("repo_admin");
-    expect(orgRoleToRepoRole("org_admin")).toBe("repo_editor");
-    expect(orgRoleToRepoRole("org_member")).toBe("repo_viewer");
+  it("maps admins and owners to their implied repo role", () => {
+    expect(orgRoleToRepoRole("org_owner")).toBe("repo_owner");
+    expect(orgRoleToRepoRole("org_admin")).toBe("repo_admin");
+  });
+
+  it("implies nothing for plain members — repo access is explicit", () => {
+    expect(orgRoleToRepoRole("org_member")).toBeNull();
+    expect(orgRoleToRepoRole(null)).toBeNull();
   });
 });
 
 describe("resolveEffectiveRepoRole", () => {
-  it("inherits from org role when no override", () => {
-    expect(resolveEffectiveRepoRole("org_owner", null)).toBe("repo_admin");
-    expect(resolveEffectiveRepoRole("org_admin", null)).toBe("repo_editor");
-    expect(resolveEffectiveRepoRole("org_member", null)).toBe("repo_viewer");
+  it("falls back to the org role when there is no membership row", () => {
+    expect(resolveEffectiveRepoRole("org_owner", null)).toBe("repo_owner");
+    expect(resolveEffectiveRepoRole("org_admin", null)).toBe("repo_admin");
   });
 
-  it("applies override when higher than inherited", () => {
+  it("leaves a plain org member without any repo access", () => {
+    expect(resolveEffectiveRepoRole("org_member", null)).toBeNull();
+  });
+
+  it("prefers the membership role over the org role", () => {
+    expect(resolveEffectiveRepoRole("org_member", "repo_owner")).toBe("repo_owner");
     expect(resolveEffectiveRepoRole("org_member", "repo_admin")).toBe("repo_admin");
-    expect(resolveEffectiveRepoRole("org_member", "repo_editor")).toBe("repo_editor");
   });
 
-  it("keeps inherited when override is lower", () => {
-    expect(resolveEffectiveRepoRole("org_admin", "repo_viewer")).toBe("repo_editor");
+  it("lets an explicit row override the org role downward", () => {
+    expect(resolveEffectiveRepoRole("org_admin", "repo_viewer")).toBe("repo_viewer");
+    expect(resolveEffectiveRepoRole("org_owner", "repo_member")).toBe("repo_member");
+    expect(resolveEffectiveRepoRole("org_admin", "repo_owner")).toBe("repo_owner");
   });
 
-  it("supports explicit override without org membership", () => {
+  it("supports explicit membership without org membership", () => {
     expect(resolveEffectiveRepoRole(null, "repo_viewer")).toBe("repo_viewer");
   });
 
@@ -45,7 +52,7 @@ describe("resolveEffectiveRepoRole", () => {
 describe("role ranking guards", () => {
   it("isRepoRoleAtLeast", () => {
     expect(isRepoRoleAtLeast("repo_admin", "repo_viewer")).toBe(true);
-    expect(isRepoRoleAtLeast("repo_editor", "repo_admin")).toBe(false);
+    expect(isRepoRoleAtLeast("repo_member", "repo_admin")).toBe(false);
     expect(isRepoRoleAtLeast(null, "repo_viewer")).toBe(false);
   });
 
@@ -61,44 +68,5 @@ describe("ForbiddenError", () => {
     const err = new ForbiddenError();
     expect(err.name).toBe("ForbiddenError");
     expect(err.message).toBe("Forbidden");
-  });
-});
-
-describe("isOverrideEffective", () => {
-  it("is effective when it elevates above the inherited role", () => {
-    expect(isOverrideEffective("org_member", "repo_editor")).toBe(true);
-    expect(isOverrideEffective("org_member", "repo_admin")).toBe(true);
-    expect(isOverrideEffective("org_admin", "repo_admin")).toBe(true);
-  });
-
-  it("is a no-op when equal to the inherited role", () => {
-    expect(isOverrideEffective("org_member", "repo_viewer")).toBe(false);
-    expect(isOverrideEffective("org_admin", "repo_editor")).toBe(false);
-  });
-
-  it("never demotes — an owner cannot be overridden downward", () => {
-    expect(isOverrideEffective("org_owner", "repo_viewer")).toBe(false);
-    expect(isOverrideEffective("org_owner", "repo_editor")).toBe(false);
-    expect(isOverrideEffective("org_owner", "repo_admin")).toBe(false);
-  });
-
-  it("accepts any role for a user outside the organization", () => {
-    expect(isOverrideEffective(null, "repo_viewer")).toBe(true);
-    expect(isOverrideEffective(null, "repo_admin")).toBe(true);
-  });
-});
-
-describe("assignableRepoRoles", () => {
-  it("excludes roles at or below the inherited rank", () => {
-    expect(assignableRepoRoles("org_member")).toEqual(["repo_editor", "repo_admin"]);
-    expect(assignableRepoRoles("org_admin")).toEqual(["repo_admin"]);
-  });
-
-  it("has nothing to assign to an org owner", () => {
-    expect(assignableRepoRoles("org_owner")).toEqual([]);
-  });
-
-  it("covers every role when there is no inherited role", () => {
-    expect(assignableRepoRoles(null)).toEqual(["repo_viewer", "repo_editor", "repo_admin"]);
   });
 });

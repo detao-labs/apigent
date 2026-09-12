@@ -115,11 +115,11 @@ Apigent 由三个应用层组成：
 
 关联用户与组织及其角色。
 
-| 字段      | 类型   | 说明                                            |
-| --------- | ------ | ----------------------------------------------- |
-| `user_id` | UUID   | 用户引用                                        |
-| `org_id`  | UUID   | 组织引用                                        |
-| `role`    | string | 角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
+| 字段              | 类型   | 说明                                            |
+| ----------------- | ------ | ----------------------------------------------- |
+| `user_id`         | UUID   | 用户引用                                        |
+| `organization_id` | UUID   | 组织引用                                        |
+| `role`            | string | 角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
 
 **组织级角色：**
 
@@ -136,7 +136,7 @@ Apigent 由三个应用层组成：
 | 字段                 | 类型      | 说明                                                                           |
 | -------------------- | --------- | ------------------------------------------------------------------------------ |
 | `id`                 | UUID      | 唯一标识                                                                       |
-| `org_id`             | UUID      | 所属 Organization                                                              |
+| `organization_id`    | UUID      | 所属 Organization                                                              |
 | `name`               | string    | 仓库名称                                                                       |
 | `description`        | string    | 仓库描述（支持 LLM 辅助生成）                                                  |
 | `capability_context` | object    | 能力上下文（V0）：能力意图、约束、副作用、示例——由 Business Context Agent 产出 |
@@ -153,23 +153,26 @@ Apigent 由三个应用层组成：
 - 支持回滚到历史版本
 - 支持导出任意版本的 OpenAPI JSON/YAML
 
-## 2.6 RepositoryPermission（仓库权限）
+## 2.6 RepositoryMember（仓库成员）
 
-针对特定仓库的用户角色。设置后**覆盖**从 Organization 级角色继承的默认权限。
+仓库自己的成员表。**仓库目录全站可见，仓库内容由这张表决定**——表里没有行、也不是所属 Organization 的 admin/owner，访问内容一律 403（详见 [2.8 RBAC 模型](#28-rbac-模型)）。
 
-| 字段      | 类型   | 说明                                                  |
-| --------- | ------ | ----------------------------------------------------- |
-| `user_id` | UUID   | 用户引用                                              |
-| `repo_id` | UUID   | 仓库引用                                              |
-| `role`    | string | 仓库级角色标识（详见 [2.8 RBAC 模型](#28-rbac-模型)） |
+| 字段            | 类型      | 说明                                        |
+| --------------- | --------- | ------------------------------------------- |
+| `repository_id` | string    | 仓库引用（与 `user_id` 组成复合主键）       |
+| `user_id`       | string    | 用户引用                                    |
+| `role`          | string    | 仓库角色标识（详见 [2.8.1](#281-租户角色)） |
+| `granted_at`    | timestamp | 加入时间                                    |
+| `granted_by`    | string    | 授予人（审计用）；系统写入时为 NULL         |
 
-**仓库级角色：**
+**仓库角色（四级阶梯，严格嵌套）：**
 
-| 角色          | 能力                                   |
-| ------------- | -------------------------------------- |
-| `repo_admin`  | 管理权限、配置 MCP、删除仓库、导入版本 |
-| `repo_editor` | 编辑 API 描述、导入新版本              |
-| `repo_viewer` | 查看 API、模型和描述                   |
+| 角色          | 能力                                                        |
+| ------------- | ----------------------------------------------------------- |
+| `repo_owner`  | 仓库全部操作，含删除仓库                                    |
+| `repo_admin`  | 仓库设置（MCP 开关等）+ 成员管理                            |
+| `repo_member` | 基本信息修改、接口导入/导出、业务上下文编辑、建分支与删实体 |
+| `repo_viewer` | 仓库只读                                                    |
 
 ## 2.7 SecretKey（密钥）
 
@@ -191,84 +194,91 @@ Apigent 由三个应用层组成：
 
 授权拆成**两套互相独立的体系**。它们共用身份（`users`），但不共用词汇：租户角色永远不会授予平台能力，平台角色也永远不会授予租户内容权限。
 
-| 体系          | 作用域                         | 使用方          | 存储位置                                   |
-| ------------- | ------------------------------ | --------------- | ------------------------------------------ |
-| **租户 RBAC** | 单个 Organization / Repository | Platform Webapp | `organization_members`、`repo_permissions` |
-| **平台 RBAC** | 整个部署（实例级）             | Admin Webapp    | `admin_members`                            |
+| 体系          | 作用域                         | 使用方          | 存储位置                                     |
+| ------------- | ------------------------------ | --------------- | -------------------------------------------- |
+| **租户 RBAC** | 单个 Organization / Repository | Platform Webapp | `organization_members`、`repository_members` |
+| **平台 RBAC** | 整个部署（实例级）             | Admin Webapp    | `admin_members`                              |
 
 > **为什么是两套：** 租户角色回答"你在这个租户里能做什么"，平台角色回答"作为这个部署的运营方你能做什么"。两者是正交的——单一角色层级**无法**表达"能管理平台管理员、但不能修改仓库内容"，而这恰好是平台运营角色必须具备（且必须不越界）的形态。
 
 ### 2.8.1 租户角色
 
-| 角色 ID          | 级别           | 说明                                        |
-| ---------------- | -------------- | ------------------------------------------- |
-| `org_owner`      | Organization   | 完全控制 Organization 及其所有仓库          |
-| `org_admin`      | Organization   | 管理成员和组织内所有仓库                    |
-| `org_member`     | Organization   | 基础组织成员；仓库访问由继承 / 覆盖角色决定 |
-| `repo_admin`     | Repository     | 完全控制特定仓库                            |
-| `repo_editor`    | Repository     | 编辑 API 描述与业务上下文、导入新版本       |
-| `repo_viewer`    | Repository     | 只读访问 API 和模型                         |
-| `project_owner`  | Project（V1+） | 完全控制 Project 及其 Repository 关联       |
-| `project_admin`  | Project（V1+） | 管理 Project 成员与 Repository 关联         |
-| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文           |
+| 角色 ID          | 级别           | 说明                                                                        |
+| ---------------- | -------------- | --------------------------------------------------------------------------- |
+| `org_owner`      | Organization   | 完全控制 Organization（含删除）；隐式持有组织内所有仓库的 `repo_owner`      |
+| `org_admin`      | Organization   | 修改组织信息与成员，**不可删除组织**；隐式持有组织内所有仓库的 `repo_admin` |
+| `org_member`     | Organization   | 组织信息只读；**不隐含任何仓库角色**                                        |
+| `repo_owner`     | Repository     | 仓库全部操作，含删除仓库                                                    |
+| `repo_admin`     | Repository     | 仓库设置（MCP 开关等）+ 成员管理                                            |
+| `repo_member`    | Repository     | 基本信息修改、接口导入/导出、业务上下文编辑、建分支与删实体                 |
+| `repo_viewer`    | Repository     | 仓库只读                                                                    |
+| `project_owner`  | Project（V1+） | 完全控制 Project 及其 Repository 关联                                       |
+| `project_admin`  | Project（V1+） | 管理 Project 成员与 Repository 关联                                         |
+| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文                                           |
 
-### 2.8.2 租户权限枚举
+仓库角色是**四级全嵌套**的阶梯（`viewer ⊂ member ⊂ admin ⊂ owner`），因此判定用等级比较即可。
 
-| 权限                      | 级别           | 说明                                  |
-| ------------------------- | -------------- | ------------------------------------- |
-| `org:manage_members`      | Organization   | 邀请、移除和修改成员角色              |
-| `org:delete`              | Organization   | 删除 Organization                     |
-| `org:manage_settings`     | Organization   | 编辑 Organization 名称、slug 和设置   |
-| `repo:read`               | Repository     | 查看 API、模型和描述                  |
-| `repo:write`              | Repository     | 编辑 API 描述和能力上下文             |
-| `repo:import`             | Repository     | 导入新 OpenAPI 版本                   |
-| `repo:delete`             | Repository     | 删除仓库                              |
-| `repo:manage_permissions` | Repository     | 分配和修改**仓库级**角色（覆盖层）    |
-| `repo:manage_mcp`         | Repository     | 开启/关闭 MCP、配置工具暴露范围       |
-| `project:read`            | Project（V1+） | 查看 Project 及其聚合的使用上下文     |
-| `project:manage`          | Project（V1+） | 管理 Project 设置与成员               |
-| `project:link_repo`       | Project（V1+） | 将 Repository 关联/取消关联到 Project |
-| `api:read`                | REST API       | 访问外部 REST 端点（只读）            |
-| `api:write`               | REST API       | 访问外部 REST 端点（写入）            |
-| `mcp:search`              | MCP            | 访问 `search_apis` 工具               |
-| `mcp:detail`              | MCP            | 访问 `get_api_detail` 工具            |
-| `mcp:context`             | MCP            | 访问 `get_project_context` 工具       |
+### 2.8.2 权限命名约定
+
+**当前判定是角色等级比较**（`isRepoRoleAtLeast` / `isOrgRoleAtLeast`），还没有 capability 层——因为租户侧的能力目前是**真嵌套**的，等级比较足够。
+
+| 权限                    | 级别           | 说明                                  |
+| ----------------------- | -------------- | ------------------------------------- |
+| `org:manage_members`    | Organization   | 邀请、移除和修改成员角色              |
+| `org:manage_settings`   | Organization   | 编辑 Organization 名称与描述          |
+| `org:delete`            | Organization   | 删除 Organization（需先删完其下仓库） |
+| `repo:read`             | Repository     | 查看 API、模型与业务上下文            |
+| `repo:write`            | Repository     | 编辑 API 描述、业务上下文、删实体     |
+| `repo:import`           | Repository     | 导入新 OpenAPI 版本、建分支           |
+| `repo:activate_version` | Repository     | 激活 / 回滚（改默认版本指向）         |
+| `repo:manage_members`   | Repository     | 增删改仓库成员                        |
+| `repo:manage_mcp`       | Repository     | 开启/关闭 MCP、配置工具暴露范围       |
+| `repo:delete`           | Repository     | 删除仓库                              |
+| `project:read`          | Project（V1+） | 查看 Project 及其聚合的使用上下文     |
+| `project:manage`        | Project（V1+） | 管理 Project 设置与成员               |
+| `project:link_repo`     | Project（V1+） | 将 Repository 关联/取消关联到 Project |
+| `api:read`              | REST API       | 访问外部 REST 端点（只读）            |
+| `api:write`             | REST API       | 访问外部 REST 端点（写入）            |
+| `mcp:search`            | MCP            | 访问 `search_apis` 工具               |
+| `mcp:detail`            | MCP            | 访问 `get_api_detail` 工具            |
+| `mcp:context`           | MCP            | 访问 `get_project_context` 工具       |
 
 ### 2.8.3 租户角色 → 权限映射
 
-| 角色             | 权限                                                                              |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `org_owner`      | `org:*`、`repo:*`（该 Organization 所有仓库）                                     |
-| `org_admin`      | `org:manage_members`、`org:manage_settings`、`repo:*`（该 Organization 所有仓库） |
-| `org_member`     | `repo:read`（仅在分配了仓库级角色的仓库）                                         |
-| `repo_admin`     | `repo:*`（特定仓库）                                                              |
-| `repo_editor`    | `repo:read`、`repo:write`、`repo:import`                                          |
-| `repo_viewer`    | `repo:read`                                                                       |
-| `project_owner`  | `project:*`（V1+）                                                                |
-| `project_admin`  | `project:read`、`project:manage`、`project:link_repo`（V1+）                      |
-| `project_viewer` | `project:read`（V1+）                                                             |
+| 角色             | 权限                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `org_owner`      | `org:*`；组织内所有仓库的全部 `repo:*`                                                                      |
+| `org_admin`      | `org:manage_members`、`org:manage_settings`；组织内所有仓库除 `repo:delete` 外的 `repo:*`                   |
+| `org_member`     | 无组织和仓库写权限；**也不隐含任何仓库读权限**——仓库内容必须靠下面的仓库角色                                |
+| `repo_owner`     | 该仓库全部 `repo:*`                                                                                         |
+| `repo_admin`     | `repo:read`、`repo:write`、`repo:import`、`repo:activate_version`、`repo:manage_members`、`repo:manage_mcp` |
+| `repo_member`    | `repo:read`、`repo:write`、`repo:import`                                                                    |
+| `repo_viewer`    | `repo:read`                                                                                                 |
+| `project_owner`  | `project:*`（V1+）                                                                                          |
+| `project_admin`  | `project:read`、`project:manage`、`project:link_repo`（V1+）                                                |
+| `project_viewer` | `project:read`（V1+）                                                                                       |
 
-> ⚠️ **待定项 —— `org_admin` 与 `repo:*`：** 上表以本文档为准，但实现里 `org_admin → repo_editor`，**不含** `repo:manage_permissions`、`repo:delete`、`repo:manage_mcp`。按当前代码，Organization 管理员**无法**管理组织内任何仓库的成员——除非在每个仓库上被单独授予 `repo_admin`。要么改代码对齐本表（一行），要么收窄本表——见 §5.4.8。
+### 2.8.4 仓库目录与仓库内容
 
-### 2.8.4 继承与覆盖（租户）
+**目录全站可见，内容按角色门禁。** 这是本节最重要的一条：能"发现"一个仓库，和能"打开"它是两件事。
 
 ```
-Organization 角色 (org_owner / org_admin / org_member)
-        │
-        ├──→ 默认仓库级权限从 Organization 角色继承
-        │      org_owner  → repo_admin（所有仓库）
-        │      org_admin  → repo_editor（所有仓库）
-        │      org_member → repo_viewer（所有仓库）
-        │
-        └──→ 可按仓库覆盖 (Override)
-               例：一个 org_member 在仓库 X 被指定为 repo_admin
-                   则该成员对仓库 X 拥有完全控制权，对其他仓库仍为 viewer
+仓库目录（/repos 列表）
+  任何登录用户都能看到平台上所有仓库的名称 / 描述 / 所属组织
+
+仓库内容（详情页与所有 /api/repos/*）
+  ① 有 repository_members 行          → 用该行的角色
+  ② 否则看所属 Organization      → org_owner → repo_owner
+                                   org_admin → repo_admin
+  ③ 都不是                       → 403（提示联系仓库管理员或组织管理员）
 ```
 
-1. 用户对某仓库的**有效角色**取继承角色与 `repo_permissions` 覆盖角色中**较高**者。`repo_viewer` 覆盖无法将 `org_owner` 降级。
-2. 仓库成员在 **Platform Webapp** 管理（仓库设置 → 成员），不在 Admin Webapp。页面分为两组：**继承**（组织成员，此处只读）与**覆盖**（显式授予的仓库角色，可编辑）。
-3. 覆盖**只能升权**，且必须严格高于继承角色——由于取 max，等于或低于继承角色的覆盖行是空操作，写入时直接拒绝（`422 override-not-effective`）。因此 `org_owner`（继承 `repo_admin`）永远没有可授予的覆盖角色。
-4. 覆盖的目标必须是**该组织的成员**；已经不在组织里但残留覆盖行的用户仍会列在界面上（否则那行权限只能靠数据库排查）。
+1. **目录与内容分离。** 目录可见解决"能不能发现"，内容门禁解决"能不能读"。打不开的仓库在列表里带锁标记，且不下发版本号与接口数——那已经属于内容元数据。
+2. **显式成员行优先，且可以向下覆盖。** 判定顺序是"先仓库、后组织"，所以给某位组织管理员在该仓库上设 `repo_viewer`，他就只有只读——用于对单个仓库收口。这也是取消"覆盖只能升权"那条旧规则的原因。
+3. **组织成员不再自动拥有仓库读权限。** `org_member` 要访问某仓库的内容，必须被显式加入该仓库。
+4. 仓库成员在 **Platform Webapp** 管理（仓库设置 → 成员），页面列出显式成员与组织隐含成员（后者只读、不可在此处移除）。
+5. 仓库成员的目标必须是**该组织的成员**；V0 不支持非组织成员的访客（`repository_members` 的表结构天然容得下，只是产品上先不开）。
+6. **新建仓库时创建者自动成为该仓库 `repo_owner`**，否则新仓库没有第一位成员、无人能管理。
 
 ### 2.8.5 平台角色
 
@@ -305,23 +315,23 @@ Organization 角色 (org_owner / org_admin / org_member)
 ### 2.8.7 跨体系规则
 
 1. **写操作来自租户体系。** 租户内的内容与成员写入，唯一来源是 `org:*` / `repo:*` 权限。
-2. **平台体系绝不能持有内容写权限。** 用测试强制：任何 `admin_*` 角色都不得映射到 `repo:write`、`repo:import`、`repo:delete`、`repo:manage_permissions`、`repo:manage_mcp` 或任何 `org:*` 写权限。加了这样的映射应当让 CI 失败，而不是靠代码评审发现。
+2. **平台体系绝不能持有内容写权限。** 用测试强制：任何 `admin_*` 角色都不得映射到 `repo:write`、`repo:import`、`repo:delete`、`repo:manage_members`、`repo:manage_mcp` 或任何 `org:*` 写权限。加了这样的映射应当让 CI 失败，而不是靠代码评审发现。
 3. **`admin_super` 不是数据超级用户。** 它唯一的写能力是 `admin:admins:manage`；既不能改内容，也不能增删 Organization / Repository 成员。
 4. **Secret Key 是独立平面。** MCP 工具与外部 REST API 由用户签发的 Secret Key 认证，携带 `mcp:*` / `api:*` 范围；租户或平台会话角色本身永远不够。（SecretKey 的签发 / 校验链路尚未实现——见 §5.4.8。）
 5. **双层访问规则（V1+）：** Project 成员身份只决定"能否看到项目存在"；项目内任何 Repository 的内容访问始终走 `repo:*` 权限。
 
 ### 2.8.8 授予与引导
 
-| 角色                                                 | 谁能授予                                  |
-| ---------------------------------------------------- | ----------------------------------------- |
-| `org_owner`                                          | 只能通过 Organization 所有权转移          |
-| `org_admin` / `org_member`                           | 该 Organization 的 `org_admin`+           |
-| `repo_admin` / `repo_editor` / `repo_viewer`（覆盖） | 该仓库的 `repo:manage_permissions` 持有者 |
-| `admin_super`                                        | 另一个 `admin_super`，或引导种子数据      |
+| 角色                                                        | 谁能授予                                                                    |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `org_owner`                                                 | 只能通过 Organization 所有权转移                                            |
+| `org_admin` / `org_member`                                  | 该 Organization 的 `org_admin`+                                             |
+| `repo_viewer` / `repo_member` / `repo_admin` / `repo_owner` | 该仓库的有效角色 ≥ `repo_admin`（含组织隐含的 `repo_admin` / `repo_owner`） |
+| `admin_super`                                               | 另一个 `admin_super`，或引导种子数据                                        |
 
-**第一个** `admin_super` 由显式的 seed 命令创建，绝不通过 Admin Webapp——否则没人能授予第一个管理员，形成引导死锁。
+**第一个** `admin_super` 由显式的 seed 命令创建，绝不通过 Admin Webapp——否则没人能授予第一个管理员，形成引导死锁。**新仓库的第一位 `repo_owner`** 则是创建者本人（§2.8.4 第 6 条），不需要别人授予。
 
-> ⚠️ **`repo:manage_permissions` 当前等价于 `repo_admin`。** 组织管理员继承的是 `repo_editor`（§2.8.3），因此**组织管理员无法管理仓库成员**——只有 `org_owner` 和显式的 `repo_admin` 可以。这是 §5.4.8 待定项之一。
+> 仓库成员管理只能增删**显式的 `repository_members` 行**。组织管理员 / 拥有者的 `repo_admin` / `repo_owner` 是隐式的、不落表，因此在成员页上"移除"对他们无效——收回权限要改组织角色。
 
 ---
 
@@ -340,10 +350,10 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 **ProjectRepository（M:N 关联表）：**
 
-| 字段         | 类型 | 说明                                       |
-| ------------ | ---- | ------------------------------------------ |
-| `project_id` | UUID | Project 引用                               |
-| `repo_id`    | UUID | Repository 引用（可属于不同 Organization） |
+| 字段            | 类型 | 说明                                       |
+| --------------- | ---- | ------------------------------------------ |
+| `project_id`    | UUID | Project 引用                               |
+| `repository_id` | UUID | Repository 引用（可属于不同 Organization） |
 
 **ProjectMember：**
 
@@ -487,30 +497,32 @@ Apigent 的 RBAC 模型（定义见 [2.8 RBAC 模型](#28-rbac-模型)）在 Pla
 
 ### 3.8.1 Organization 级角色管理
 
-| 功能           | 说明                                                                                     |
-| -------------- | ---------------------------------------------------------------------------------------- |
-| **角色分配**   | 邀请成员或编辑已有成员时，分配 Organization 角色：`org_owner`、`org_admin`、`org_member` |
-| **角色继承**   | Organization 角色自动授予该 Organization 下所有现有及未来仓库的对应仓库级权限            |
-| **角色变更**   | Organization Owner/Admin 可随时修改成员角色                                              |
-| **转让所有权** | Organization Owner 可将所有权转让给其他成员                                              |
+| 功能             | 说明                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **角色分配**     | 邀请成员或编辑已有成员时，分配 Organization 角色：`org_owner`、`org_admin`、`org_member`                              |
+| **隐含仓库角色** | `org_owner` 隐式持有组织内所有仓库的 `repo_owner`；`org_admin` 隐式持有 `repo_admin`；`org_member` 不隐含任何仓库角色 |
+| **角色变更**     | Organization Owner/Admin 可随时修改成员角色                                                                           |
+| **转让所有权**   | Organization Owner 可将所有权转让给其他成员                                                                           |
 
-### 3.8.2 仓库级角色覆盖
+### 3.8.2 仓库成员
 
-| 功能           | 说明                                                                                               |
-| -------------- | -------------------------------------------------------------------------------------------------- |
-| **按仓库覆盖** | 在任何仓库上，可将 `org_member` 提升为 `repo_admin` 或 `repo_editor`，无需改变其 Organization 角色 |
-| **管理入口**   | 仓库设置 → 成员（`/repos/:id/settings/members`）；组织成员管理仍在组织页，两者不混用               |
-| **覆盖展示**   | 页面分为「继承自组织」（只读）与「仓库级覆盖」（可编辑）两组                                       |
-| **有效权限**   | 每个仓库取继承权限和覆盖权限中较高者                                                               |
+| 功能         | 说明                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------ |
+| **管理入口** | 仓库设置 → 成员（`/repos/:id/settings/members`）；组织成员管理仍在组织页，两者不混用 |
+| **成员列表** | 一张表列出显式成员（可改角色、可移除）与组织隐含成员（只读、标注来源）               |
+| **添加成员** | 从该组织的成员里选，任意一级仓库角色都可授予；授予者需 `repo_admin`+                 |
+| **有效权限** | **先看仓库成员行，再看上级组织角色**——所以显式行可以把组织管理员在该仓库上收口为只读 |
+| **新建仓库** | 创建者自动成为该仓库的 `repo_owner`                                                  |
 
 ### 3.8.3 权限场景示例
 
-| 场景             | 设置                                                  | 效果                                             |
-| ---------------- | ----------------------------------------------------- | ------------------------------------------------ |
-| **新成员加入**   | 邀请为 `org_member`                                   | 可查看所有仓库（继承 `repo_viewer`），但不可编辑 |
-| **提升为编辑者** | `org_member` + 仓库 A 覆盖为 `repo_editor`            | 可编辑仓库 A，其他仓库仍为 viewer                |
-| **外部协作者**   | 非 Organization 成员，仅分配仓库 B 的 `repo_viewer`   | 只能查看仓库 B，无法访问其他仓库                 |
-| **MCP 访问**     | 仓库 C 的 `repo_admin` + Secret Key 具有 `mcp:*` 范围 | 可对仓库 C 使用 MCP 工具                         |
+| 场景               | 设置                                                    | 效果                                                |
+| ------------------ | ------------------------------------------------------- | --------------------------------------------------- |
+| **新成员加入组织** | 邀请为 `org_member`                                     | 能在仓库目录里看到所有仓库，但打不开任何一个（403） |
+| **加入某个仓库**   | `org_member` + 仓库 A 设为 `repo_member`                | 可编辑仓库 A；其他仓库仍打不开                      |
+| **组织管理员**     | `org_admin`                                             | 组织内所有仓库都能打开、能管成员（除删除仓库外）    |
+| **对单个仓库收口** | `org_admin` + 仓库 C 显式设为 `repo_viewer`             | 仓库 C 上只有只读——显式行优先于组织角色             |
+| **MCP 访问**       | 仓库 C 的 `repo_admin`，且 Secret Key 具有 `mcp:*` 范围 | 可对仓库 C 使用 MCP 工具                            |
 
 ## 3.9 MCP 设置
 
@@ -540,7 +552,7 @@ Key 格式：`apigent_sk_<random_hex>`
 
 面向**部署运营方**的独立应用，仅持有平台管理员角色（`admin_members`，当前为 `admin_super`，见 §2.8.5）的用户可访问。
 
-**范围边界：** Admin Webapp 不是管理租户数据的地方。Organization 与 Repository 的成员、角色与内容都在 **Platform Webapp**（§3.8）管理——包括仓库级角色覆盖。Admin 对租户数据只读，其唯一的写能力是管理"谁是平台管理员"。
+**范围边界：** Admin Webapp 不是管理租户数据的地方。Organization 与 Repository 的成员、角色与内容都在 **Platform Webapp**（§3.8）管理——包括仓库成员。Admin 对租户数据只读，其唯一的写能力是管理"谁是平台管理员"。
 
 ## 4.1 认证
 
@@ -789,16 +801,17 @@ export function verifySessionToken(token: string): SessionPayload | null {
 ```
 checkPermission → 有效角色
 
-步骤 1：解析用户对目标资源的 Organization 角色
+步骤 1：解析用户在该仓库的显式成员身份
+        └── repository_members（repoId, userId）→ 仓库角色（可能不存在）
+        └── 命中则**直接采用**，不再看组织角色
+
+步骤 2：否则解析用户对所属 Organization 的角色
         └── organization_members.role，回退到 organizations.owner_id → org_owner
+        └── org_owner  → repo_owner（隐式）
+        └── org_admin  → repo_admin（隐式）
+        └── org_member → 无隐式角色
 
-步骤 2：解析仓库级显式覆盖
-        └── repo_permissions（userId, repoId）→ 仓库角色（可能不存在）
-
-步骤 3：有效仓库角色 = max(继承角色, 覆盖角色)
-        └── org_owner  → repo_admin
-        └── org_admin  → repo_editor
-        └── org_member → repo_viewer
+步骤 3：两者都没有 → 无内容访问权（ForbiddenError → 403）
 
 步骤 4：与所需最低角色比较等级
         └── rank(有效角色) >= rank(所需角色) → 通过
@@ -810,19 +823,23 @@ checkPermission → 有效角色
 ```ts
 // packages/server/src/authz/roles.ts —— 纯角色模型，无 DB 依赖
 export type OrgRole = "org_owner" | "org_admin" | "org_member";
-export type RepoRole = "repo_admin" | "repo_editor" | "repo_viewer";
+export type RepoRole = "repo_owner" | "repo_admin" | "repo_member" | "repo_viewer";
 
 const ORG_RANK = { org_member: 1, org_admin: 2, org_owner: 3 };
-const REPO_RANK = { repo_viewer: 1, repo_editor: 2, repo_admin: 3 };
+const REPO_RANK = { repo_viewer: 1, repo_member: 2, repo_admin: 3, repo_owner: 4 };
 
-/** Organization 角色 → 继承的仓库角色 */
-export function orgRoleToRepoRole(role: OrgRole): RepoRole { /* owner→admin、admin→editor、member→viewer */ }
+/** Organization 角色隐含的仓库角色；org_member 不隐含任何角色 */
+export function orgRoleToRepoRole(role: OrgRole | null | undefined): RepoRole | null {
+  /* owner→owner、admin→admin、member/null→null */
+}
 
-/** 有效仓库角色 = max(继承, 覆盖)；两者都没有则为 null */
+/** 有效仓库角色：先看仓库成员行，再看组织角色；都没有则为 null */
 export function resolveEffectiveRepoRole(
   orgRole?: OrgRole | null,
-  override?: RepoRole | null,
-): RepoRole | null { … }
+  memberRole?: RepoRole | null,
+): RepoRole | null {
+  return memberRole ?? orgRoleToRepoRole(orgRole);
+}
 
 export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean {
   return !!role && REPO_RANK[role] >= REPO_RANK[min];
@@ -832,18 +849,18 @@ export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean
 ```ts
 // packages/server/src/authz/index.ts —— 路由处理器使用的 DB 检查
 getUserOrgRole(userId, orgId); // organization_members.role，owner 兜底
-getRepoOverrideRole(userId, repoId); // repo_permissions.role
-getEffectiveRepoRole(userId, repoId); // max(继承, 覆盖)
-assertRepoAccess(userId, repoId, min); // 抛 ForbiddenError → 映射为 403
+getRepoMemberRole(userId, repoId); // repository_members.role
+getEffectiveRepoRole(userId, repoId); // 先成员行、后组织角色
+assertRepoAccess(userId, repoId, min); // 抛 ForbiddenError → 403
 assertOrgRole(userId, orgId, min);
-listAccessibleRepoIds(userId); // 组织成员 + owner + 显式授权
+listAccessibleRepoIds(userId); // 显式成员 ∪ 我是 org_admin/owner 的组织下全部仓库
 ```
 
-角色按**等级**比较，因此显式仓库覆盖只会相对继承角色升高或降低——`org_owner` 不会被覆盖降级为 `repo_viewer`。
+**显式成员行优先，所以它可以向下覆盖**：把某位 `org_admin` 在单个仓库上设为 `repo_viewer`，他在这一个仓库上就真的只有只读。这是刻意的——用于对敏感仓库收口。
 
 **平台作用域单独解析。** `admin_members` 是不同的表、不同的词汇（§2.8.5–2.8.7）：平台能力用 `assertAdminCapability(userId, "admin:admins:manage")` 校验，**绝不**走租户角色阶梯。两套体系只有一个交汇点——`withRoute` 上的资源声明决定某条路由适用哪一套。
 
-**rank 与 permission。** 租户能力是**真嵌套**的（`repo_viewer ⊂ repo_editor ⊂ repo_admin`），所以 rank 比较是对的工具，保持不动。平台体系与它们正交，因此改用命名能力（`admin:<域>:<动作>`）。如果将来租户侧出现非嵌套需求（例如"能管仓库成员但不能删仓库"），那就是在租户侧引入 permission 名层的信号；在那之前，rank 更简单且不会漂移。
+**rank 与 permission。** 租户能力是**真嵌套**的（`repo_viewer ⊂ repo_member ⊂ repo_admin ⊂ repo_owner`），所以判定沿用 rank 比较。平台体系与它们正交，因此改用命名能力（`admin:<域>:<动作>`，§2.8.6）。如果将来租户侧出现非嵌套需求（例如"能管仓库成员但不能激活主版本"），那就是在租户侧引入 capability 层的信号——命名约定已经在 §2.8.2 备好；在那之前，rank 更简单且不会漂移。
 
 ### 5.4.4 鉴权执行（三层）
 
@@ -859,7 +876,7 @@ listAccessibleRepoIds(userId); // 组织成员 + owner + 显式授权
 
 ```ts
 export const POST = withRoute(
-  { auth: true, repo: { param: "id", min: "repo_editor" } },
+  { auth: true, repo: { param: "id", min: "repo_member" } },
   async ({ request, params, user }) => { … },
 );
 
@@ -870,7 +887,7 @@ export const POST = withRoute(
 **服务断言**——同一要求直接声明，非 HTTP 调用方也能覆盖：
 
 ```ts
-await assertRepoAccess(user.id, id, "repo_editor");
+await assertRepoAccess(user.id, id, "repo_member");
 await assertOrgRole(user.id, orgId, "org_admin");
 ```
 
@@ -932,6 +949,8 @@ packages/server/src/authz/          # RBAC
 
 apps/platform/src/services/auth.ts  # Next.js 胶水：cookies() + users 表 → SessionUser
 apps/platform/src/lib/route.ts      # withRoute({ auth: true }) —— 业务逻辑前返回 401
+apps/platform/src/lib/repo-guard.ts # guardRepoAccess() —— 入口层仓库断言，403
+apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 + 组织隐含成员）
 ```
 
 **关键设计决策：**
@@ -950,13 +969,13 @@ apps/platform/src/lib/route.ts      # withRoute({ auth: true }) —— 业务逻
 
 需要记录的事件（完整方案见 [modules/audit-log.md](./modules/audit-log.md)）：
 
-| 事件                                                                | 操作者                           | 说明                   |
-| ------------------------------------------------------------------- | -------------------------------- | ---------------------- |
-| `admin.grant` / `admin.revoke`                                      | `admin_super`                    | 平台侧**唯一**的写操作 |
-| `member.invite` / `member.role_change` / `member.remove`            | `org_admin`+                     | 组织成员变更           |
-| `repo.permission_grant` / `permission_change` / `permission_revoke` | `repo:manage_permissions` 持有者 | 仓库级角色覆盖变更     |
-| `org.transfer`                                                      | `org_owner`                      | 组织所有权转移         |
-| `admin.login`                                                       | `admin_super`                    | 可选                   |
+| 事件                                                       | 操作者               | 说明                   |
+| ---------------------------------------------------------- | -------------------- | ---------------------- |
+| `admin.grant` / `admin.revoke`                             | `admin_super`        | 平台侧**唯一**的写操作 |
+| `member.invite` / `member.role_change` / `member.remove`   | `org_admin`+         | 组织成员变更           |
+| `repo.member_add` / `member_role_change` / `member_remove` | 该仓库 `repo_admin`+ | 仓库成员变更           |
+| `org.transfer`                                             | `org_owner`          | 组织所有权转移         |
+| `admin.login`                                              | `admin_super`        | 可选                   |
 
 `operation_logs.orgId` 在平台级操作时为 NULL，而现有索引是 `(orgId, operationType, createdAt)`——NULL 行不参与该索引，因此查询平台级事件需要额外索引或不同的查询条件。
 
@@ -964,16 +983,16 @@ apps/platform/src/lib/route.ts      # withRoute({ auth: true }) —— 业务逻
 
 上面的模型是目标态。**已落地：**
 
-- ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repoId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_editor`、改默认版本指向 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repoId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
+- ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repoId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_member`、改默认版本指向与成员管理 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repoId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
-- ✅ **仓库成员可管理**——仓库设置 → 成员（`/repos/:id/settings/members`）支持继承 / 覆盖两组展示，以及授予、变更、撤销覆盖（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"覆盖只能升权"与"目标必须是组织成员"（§2.8.4）。**尚未接线审计**——`repo.permission_*` 事件要等下面第 1 项完成后补上。
+- ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。**尚未接线审计**——`repo.member_*` 事件要等下面第 1 项完成后补上。
 
 **剩余缺口**，按应修复的顺序排列：
 
-1. **审计未接线**——表已建，无人写入。成员与权限变更（`member.*`、`repo.permission_*`、`org.transfer`）都要与业务写在同一事务内落库。
+1. **审计未接线**——表已建，无人写入。成员变更（`member.*`、`repo.member_*`、`org.transfer`）都要与业务写在同一事务内落库。
 2. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
 3. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
-4. **待定项**——`org_admin` 的仓库权限（§2.8.3，当前导致组织管理员无法管理仓库成员）；`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地。
+4. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`org:delete` / `repo:delete` / `repo:manage_mcp` 是否先实现（文档已描述，代码未实现）。
 
 建议顺序：1 → 2 → 3 / 4。
 
@@ -1289,7 +1308,7 @@ export interface QueueProvider {
 }
 ```
 
-队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `repo_tasks`）持久化，`QueueProvider` 本身不做状态查询。
+队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `repository_tasks`）持久化，`QueueProvider` 本身不做状态查询。
 
 **默认实现（V0）：`PgQueueProvider` — Postgres 队列**（复用现有 PostgreSQL，无需 Redis；消费用 `FOR UPDATE SKIP LOCKED` 抢占，多实例安全；进程重启把遗留 `running` 标记为 `failed(interrupted)`）。
 
@@ -1553,6 +1572,6 @@ const config: ApigentConfig = {
 
 # 7. 异步任务与消息通知
 
-OpenAPI 异步导入、站内通知与队列实现（`repo_tasks` / `notifications` / `impl_queue_jobs`、状态机、API 契约、前端呈现、实施顺序）已独立为模块文档：
+OpenAPI 异步导入、站内通知与队列实现（`repository_tasks` / `notifications` / `impl_queue_jobs`、状态机、API 契约、前端呈现、实施顺序）已独立为模块文档：
 
 👉 **[Async Queue & Notifications 模块文档](./modules/async-queue.md)**

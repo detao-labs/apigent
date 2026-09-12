@@ -59,7 +59,7 @@ registry.register(saveBusinessContextTool, async (ctx, input) => {
   if (!ctx.userId) throw new Error("unauthorized");
   // repoId 来自模型生成的工具入参，必须按调用逐个校验（getEndpointSpecTool
   // 走 getRepoEndpoints，内部已有同一断言）。
-  await assertRepoAccess(ctx.userId, input.repoId, "repo_editor");
+  await assertRepoAccess(ctx.userId, input.repoId, "repo_member");
   await saveEndpointContext(input.repoId, input.endpointId, input.context, {
     source: "ai",
   });

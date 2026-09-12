@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import * as z from "zod/v4";
 import { ForbiddenError } from "@apigent/server/authz";
-import {
-  RepoMemberError,
-  grantRepoPermission,
-  listRepoMembers,
-} from "@/services/repo-members";
+import { RepoMemberError, addRepoMember, listRepoMembers } from "@/services/repo-members";
 import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
 const repoPermissionBodySchema = z.object({
   userId: z.string().min(1),
-  role: z.enum(["repo_viewer", "repo_editor", "repo_admin"]),
+  role: z.enum(["repo_viewer", "repo_member", "repo_admin", "repo_owner"]),
 });
 
 /** 仓库成员相关的领域错误 → HTTP 状态码。 */
@@ -20,10 +16,7 @@ function memberErrorResponse(err: unknown): NextResponse | null {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   if (err instanceof RepoMemberError) {
-    if (err.code === "override-not-effective") {
-      return NextResponse.json({ error: err.code }, { status: 422 });
-    }
-    if (err.code === "user-not-found" || err.code === "override-not-found") {
+    if (err.code === "user-not-found" || err.code === "member-not-found") {
       return NextResponse.json({ error: err.code }, { status: 404 });
     }
     return NextResponse.json({ error: err.code }, { status: 409 });
@@ -31,7 +24,7 @@ function memberErrorResponse(err: unknown): NextResponse | null {
   return null;
 }
 
-/** 成员列表：继承（组织成员）+ 覆盖（repo_permissions）。GET /api/repos/:id/members */
+/** 成员列表：显式成员 + 组织隐含成员。GET /api/repos/:id/members */
 export const GET = withRoute({ auth: true }, async ({ params, user }) => {
   const { id } = await params;
   const denied = await guardRepoAccess(user.id, id, "repo_viewer");
@@ -47,7 +40,7 @@ export const GET = withRoute({ auth: true }, async ({ params, user }) => {
   }
 });
 
-/** 授予仓库级覆盖角色。POST /api/repos/:id/members */
+/** 添加仓库成员。POST /api/repos/:id/members */
 export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
   const denied = await guardRepoAccess(user.id, id, "repo_admin");
@@ -65,7 +58,7 @@ export const POST = withRoute({ auth: true }, async ({ request, params, user }) 
   }
 
   try {
-    const member = await grantRepoPermission(id, user.id, parsed.data);
+    const member = await addRepoMember(id, user.id, parsed.data);
     return NextResponse.json({ member }, { status: 201 });
   } catch (err) {
     const mapped = memberErrorResponse(err);

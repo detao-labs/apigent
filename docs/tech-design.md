@@ -115,11 +115,11 @@ The top-level tenant boundary. Users create Organizations first, then create Rep
 
 Associates a User with an Organization and their role.
 
-| Field     | Type   | Description                                            |
-| --------- | ------ | ------------------------------------------------------ |
-| `user_id` | UUID   | User reference                                         |
-| `org_id`  | UUID   | Organization reference                                 |
-| `role`    | string | Role identifier (see [2.8 RBAC Model](#28-rbac-model)) |
+| Field             | Type   | Description                                            |
+| ----------------- | ------ | ------------------------------------------------------ |
+| `user_id`         | UUID   | User reference                                         |
+| `organization_id` | UUID   | Organization reference                                 |
+| `role`            | string | Role identifier (see [2.8 RBAC Model](#28-rbac-model)) |
 
 **Organization-level roles:**
 
@@ -136,7 +136,7 @@ The technical asset container. **One Repository = one OpenAPI file + its version
 | Field                | Type      | Description                                                                                                          |
 | -------------------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
 | `id`                 | UUID      | Unique identifier                                                                                                    |
-| `org_id`             | UUID      | Parent Organization                                                                                                  |
+| `organization_id`    | UUID      | Parent Organization                                                                                                  |
 | `name`               | string    | Repository name                                                                                                      |
 | `description`        | string    | Repository description (LLM-assisted)                                                                                |
 | `capability_context` | object    | Capability Context (V0): capability intent, constraints, side effects, examples — produced by Business Context Agent |
@@ -153,23 +153,26 @@ The technical asset container. **One Repository = one OpenAPI file + its version
 - Ability to rollback to a previous version
 - Export to OpenAPI JSON/YAML at any version
 
-## 2.6 RepositoryPermission
+## 2.6 RepositoryMember
 
-Per-user role within a specific Repository. When set, this **overrides** the default inherited from the Organization-level role.
+A Repository's own membership table. **The repository directory is platform-wide; repository content is decided by this table** — without a row here, and without being an admin/owner of the owning Organization, content access is 403 (see [2.8 RBAC Model](#28-rbac-model)).
 
-| Field     | Type   | Description                                                       |
-| --------- | ------ | ----------------------------------------------------------------- |
-| `user_id` | UUID   | User reference                                                    |
-| `repo_id` | UUID   | Repository reference                                              |
-| `role`    | string | Repo-level role identifier (see [2.8 RBAC Model](#28-rbac-model)) |
+| Field           | Type      | Description                                                 |
+| --------------- | --------- | ----------------------------------------------------------- |
+| `repository_id` | string    | Repository reference (composite PK with `user_id`)          |
+| `user_id`       | string    | User reference                                              |
+| `role`          | string    | Repository role identifier (see [2.8.1](#281-tenant-roles)) |
+| `granted_at`    | timestamp | When the member was added                                   |
+| `granted_by`    | string    | Who granted it (for audit); NULL for system writes          |
 
-**Repository-level roles:**
+**Repository roles (a strict four-level ladder):**
 
-| Role          | Capabilities                                                    |
-| ------------- | --------------------------------------------------------------- |
-| `repo_admin`  | Manage permissions, configure MCP, delete repo, import versions |
-| `repo_editor` | Edit API descriptions, import new versions                      |
-| `repo_viewer` | View APIs, models, and descriptions                             |
+| Role          | Capabilities                                                                           |
+| ------------- | -------------------------------------------------------------------------------------- |
+| `repo_owner`  | Everything, including deleting the Repository                                          |
+| `repo_admin`  | Repository settings (MCP, etc.) and member management                                  |
+| `repo_member` | Edit basic info, import/export APIs, edit business context, branch and delete entities |
+| `repo_viewer` | Read-only access to the Repository                                                     |
 
 ## 2.7 SecretKey
 
@@ -191,85 +194,91 @@ User-level API key for MCP access. External AI Agents use this key to authentica
 
 Authorization is split into **two independent systems**. They share identity (`users`) but never share vocabulary: a tenant role can never grant an admin capability, and an admin role can never grant tenant content rights.
 
-| System          | Scope                                  | Used by         | Stored in                                  |
-| --------------- | -------------------------------------- | --------------- | ------------------------------------------ |
-| **Tenant RBAC** | One Organization / Repository          | Platform Webapp | `organization_members`, `repo_permissions` |
-| **Admin RBAC**  | The whole deployment (instance-scoped) | Admin Webapp    | `admin_members`                            |
+| System          | Scope                                  | Used by         | Stored in                                    |
+| --------------- | -------------------------------------- | --------------- | -------------------------------------------- |
+| **Tenant RBAC** | One Organization / Repository          | Platform Webapp | `organization_members`, `repository_members` |
+| **Admin RBAC**  | The whole deployment (instance-scoped) | Admin Webapp    | `admin_members`                              |
 
 > **Why two systems:** tenant roles answer "what can you do inside this tenant", admin roles answer "what can you do as the operator of this deployment". They are orthogonal — a single role hierarchy cannot express "can manage platform admins, but cannot edit repository content", which is exactly what the platform operator role must be able to do (and not do).
 
 ### 2.8.1 Tenant Roles
 
-| Role ID          | Level         | Description                                                            |
-| ---------------- | ------------- | ---------------------------------------------------------------------- |
-| `org_owner`      | Organization  | Full control over the Organization and all its repos                   |
-| `org_admin`      | Organization  | Manage members and all repos within the Organization                   |
-| `org_member`     | Organization  | Basic membership; repo access comes from the inherited / override role |
-| `repo_admin`     | Repository    | Full control over one Repository                                       |
-| `repo_editor`    | Repository    | Edit API descriptions and business context; import new versions        |
-| `repo_viewer`    | Repository    | Read-only access to APIs and models                                    |
-| `project_owner`  | Project (V1+) | Full control over a Project and its Repository links                   |
-| `project_admin`  | Project (V1+) | Manage Project members and Repository links                            |
-| `project_viewer` | Project (V1+) | View a Project and its aggregated usage context                        |
+| Role ID          | Level         | Description                                                                                           |
+| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `org_owner`      | Organization  | Full control over the Organization (incl. deletion); implicitly `repo_owner` on all of its repos      |
+| `org_admin`      | Organization  | Edit Organization info and members, **cannot delete it**; implicitly `repo_admin` on all of its repos |
+| `org_member`     | Organization  | Read-only on Organization info; **implies no repository role at all**                                 |
+| `repo_owner`     | Repository    | Everything, including deleting the Repository                                                         |
+| `repo_admin`     | Repository    | Repository settings (MCP, etc.) and member management                                                 |
+| `repo_member`    | Repository    | Edit basic info, import/export APIs, edit business context, branch and delete entities                |
+| `repo_viewer`    | Repository    | Read-only access to the Repository                                                                    |
+| `project_owner`  | Project (V1+) | Full control over a Project and its Repository links                                                  |
+| `project_admin`  | Project (V1+) | Manage Project members and Repository links                                                           |
+| `project_viewer` | Project (V1+) | View a Project and its aggregated usage context                                                       |
 
-### 2.8.2 Tenant Permissions
+Repository roles form a **strict four-level ladder** (`viewer ⊂ member ⊂ admin ⊂ owner`), so a rank comparison is enough to decide them.
 
-| Permission                | Level         | Description                                     |
-| ------------------------- | ------------- | ----------------------------------------------- |
-| `org:manage_members`      | Organization  | Invite, remove, and change member roles         |
-| `org:delete`              | Organization  | Delete the Organization                         |
-| `org:manage_settings`     | Organization  | Edit Organization name, slug, settings          |
-| `repo:read`               | Repository    | View APIs, models, descriptions                 |
-| `repo:write`              | Repository    | Edit API descriptions and capability context    |
-| `repo:import`             | Repository    | Import new OpenAPI versions                     |
-| `repo:delete`             | Repository    | Delete the Repository                           |
-| `repo:manage_permissions` | Repository    | Assign / change **repo-level** roles (override) |
-| `repo:manage_mcp`         | Repository    | Enable/disable MCP, configure tool exposure     |
-| `project:read`            | Project (V1+) | View a Project and its aggregated usage context |
-| `project:manage`          | Project (V1+) | Manage Project settings and members             |
-| `project:link_repo`       | Project (V1+) | Link/unlink Repositories to/from a Project      |
-| `api:read`                | REST API      | Access external REST endpoints (read)           |
-| `api:write`               | REST API      | Access external REST endpoints (write)          |
-| `mcp:search`              | MCP           | Access `search_apis` tool                       |
-| `mcp:detail`              | MCP           | Access `get_api_detail` tool                    |
-| `mcp:context`             | MCP           | Access `get_project_context` tool               |
+### 2.8.2 Permission Naming Convention
+
+**Enforcement today is a role-rank comparison** (`isRepoRoleAtLeast` / `isOrgRoleAtLeast`); there is no capability layer yet, because tenant capabilities are genuinely nested.
+
+| Permission              | Level         | Description                                              |
+| ----------------------- | ------------- | -------------------------------------------------------- |
+| `org:manage_members`    | Organization  | Invite, remove, and change member roles                  |
+| `org:manage_settings`   | Organization  | Edit Organization name and description                   |
+| `org:delete`            | Organization  | Delete the Organization (only after its repos are gone)  |
+| `repo:read`             | Repository    | View APIs, models, business context                      |
+| `repo:write`            | Repository    | Edit API descriptions, business context; delete entities |
+| `repo:import`           | Repository    | Import new OpenAPI versions; create branches             |
+| `repo:activate_version` | Repository    | Activate / roll back (moves the default-version pointer) |
+| `repo:manage_members`   | Repository    | Add, change and remove repository members                |
+| `repo:manage_mcp`       | Repository    | Enable/disable MCP, configure tool exposure              |
+| `repo:delete`           | Repository    | Delete the Repository                                    |
+| `project:read`          | Project (V1+) | View a Project and its aggregated usage context          |
+| `project:manage`        | Project (V1+) | Manage Project settings and members                      |
+| `project:link_repo`     | Project (V1+) | Link/unlink Repositories to/from a Project               |
+| `api:read`              | REST API      | Access external REST endpoints (read)                    |
+| `api:write`             | REST API      | Access external REST endpoints (write)                   |
+| `mcp:search`            | MCP           | Access `search_apis` tool                                |
+| `mcp:detail`            | MCP           | Access `get_api_detail` tool                             |
+| `mcp:context`           | MCP           | Access `get_project_context` tool                        |
 
 ### 2.8.3 Tenant Role → Permission Mapping
 
-| Role             | Permissions                                                                       |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `org_owner`      | `org:*`, `repo:*` (on all Organization repos)                                     |
-| `org_admin`      | `org:manage_members`, `org:manage_settings`, `repo:*` (on all Organization repos) |
-| `org_member`     | `repo:read` (on repos where assigned a repo-level role)                           |
-| `repo_admin`     | `repo:*` (on specific repo)                                                       |
-| `repo_editor`    | `repo:read`, `repo:write`, `repo:import`                                          |
-| `repo_viewer`    | `repo:read`                                                                       |
-| `project_owner`  | `project:*` (V1+)                                                                 |
-| `project_admin`  | `project:read`, `project:manage`, `project:link_repo` (V1+)                       |
-| `project_viewer` | `project:read` (V1+)                                                              |
+| Role             | Permissions                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `org_owner`      | `org:*`; every `repo:*` on all repos of the Organization                                                                  |
+| `org_admin`      | `org:manage_members`, `org:manage_settings`; every `repo:*` except `repo:delete` on all repos of the Organization         |
+| `org_member`     | No Organization or repository write rights; **nor any implied repository read** — repo content requires a repository role |
+| `repo_owner`     | Every `repo:*` on that repository                                                                                         |
+| `repo_admin`     | `repo:read`, `repo:write`, `repo:import`, `repo:activate_version`, `repo:manage_members`, `repo:manage_mcp`               |
+| `repo_member`    | `repo:read`, `repo:write`, `repo:import`                                                                                  |
+| `repo_viewer`    | `repo:read`                                                                                                               |
+| `project_owner`  | `project:*` (V1+)                                                                                                         |
+| `project_admin`  | `project:read`, `project:manage`, `project:link_repo` (V1+)                                                               |
+| `project_viewer` | `project:read` (V1+)                                                                                                      |
 
-> ⚠️ **Open item — `org_admin` vs `repo:*`:** the table above follows this document, but the implementation maps `org_admin → repo_editor`, which does **not** include `repo:manage_permissions`, `repo:delete` or `repo:manage_mcp`. Under the current code an Organization admin cannot manage the members of any Repository in their Organization unless they are granted `repo_admin` explicitly on each repo. Either align the code to this table (one line) or narrow this table — see §5.4.8.
+### 2.8.4 Repository Directory vs. Repository Content
 
-### 2.8.4 Inheritance & Override (Tenant)
+**The directory is platform-wide; content is gated by role.** Being able to _discover_ a repository and being able to _open_ it are two different things.
 
 ```
-Organization Role (org_owner / org_admin / org_member)
-        │
-        ├──→ Default repo-level permission inherited from Organization role
-        │      org_owner  → repo_admin (on all repos)
-        │      org_admin  → repo_editor (on all repos)
-        │      org_member → repo_viewer (on all repos)
-        │
-        └──→ Can be OVERRIDDEN per Repository
-               Example: An org_member assigned repo_admin on Repo X
-                        gets full control over Repo X, while remaining
-                        a viewer on all other Organization repos.
+Repository directory (/repos list)
+  Any signed-in user sees every repository on the platform (name / description / Organization)
+
+Repository content (detail page and every /api/repos/*)
+  ① has a repository_members row      → use that role
+  ② else the owning Organization → org_owner → repo_owner
+                                   org_admin → repo_admin
+  ③ neither                      → 403 (pointing at the repo or org admin)
 ```
 
-1. A user's effective repository role = the **higher** of the inherited Organization-role and any explicit `repo_permissions` override. A `repo_viewer` override cannot demote an `org_owner`.
-2. Repository members are managed in the **Platform Webapp** (repo settings → members), not in the Admin Webapp. The page shows two groups: **inherited** (Organization members, read-only there) and **overridden** (explicitly granted repo roles, editable).
-3. Overrides **only elevate**, and must be strictly higher than the inherited role — because the effective role takes the max, a row equal to or below the inherited role is a no-op and is rejected on write (`422 override-not-effective`). An `org_owner` (inheriting `repo_admin`) therefore has no assignable override role at all.
-4. Override targets must be **members of the Organization**; users who left the Organization but still carry a stale override row are still listed in the UI, otherwise that row would only be discoverable via the database.
+1. **Directory and content are separate.** The directory answers "can I discover it"; the gate answers "can I read it". Repositories you cannot open show a lock marker in the list and their version numbers / endpoint counts are not sent — those are already content metadata.
+2. **An explicit membership row wins, and may override downward.** Resolution is "repository first, Organization second", so setting an `org_admin` to `repo_viewer` on one repository really does make them read-only there — useful for locking a single repo down. This is why the old "overrides may only elevate" rule is gone.
+3. **Organization membership no longer implies repository read access.** An `org_member` must be added to a repository explicitly.
+4. Repository members are managed in the **Platform Webapp** (repo settings → members). The page lists explicit members (editable) and Organization-implied members (read-only there).
+5. Override targets must be **members of the Organization**; V0 does not support guests outside the Organization (the `repository_members` shape allows it later).
+6. **The creator of a repository automatically becomes its `repo_owner`** — otherwise a brand-new repository has no first member and nobody can administer it.
 
 ### 2.8.5 Admin Roles
 
@@ -306,23 +315,23 @@ Permission names follow `admin:<domain>:<action>`.
 ### 2.8.7 Cross-System Rules
 
 1. **Writes come from the tenant system.** `org:*` / `repo:*` permissions are the only source of content and membership writes inside a tenant.
-2. **The admin system must never hold content-write permissions.** Enforced by a test: no `admin_*` role may map to `repo:write`, `repo:import`, `repo:delete`, `repo:manage_permissions`, `repo:manage_mcp`, or any `org:*` write permission. Adding such a mapping fails CI rather than being caught in review.
+2. **The admin system must never hold content-write permissions.** Enforced by a test: no `admin_*` role may map to `repo:write`, `repo:import`, `repo:delete`, `repo:manage_members`, `repo:manage_mcp`, or any `org:*` write permission. Adding such a mapping fails CI rather than being caught in review.
 3. **`admin_super` is not a data superuser.** Its only write capability is `admin:admins:manage`; it cannot edit content and cannot add or remove Organization / Repository members.
 4. **Secret Keys are a separate plane.** MCP tools and the external REST API are authenticated with user-issued Secret Keys carrying `mcp:*` / `api:*` scopes; a tenant or admin session role is never sufficient on its own. (The SecretKey issue/verify path is not implemented yet — see §5.4.8.)
 5. **Double-layer rule (V1+):** Project membership only grants visibility of the Project itself. Content inside linked Repositories is always governed by `repo:*` permissions — Project views are assembled from the Repositories the user can access.
 
 ### 2.8.8 Assignment & Bootstrap
 
-| Role                                                    | Who can grant it                                  |
-| ------------------------------------------------------- | ------------------------------------------------- |
-| `org_owner`                                             | Only via Organization ownership transfer          |
-| `org_admin` / `org_member`                              | `org_admin`+ of that Organization                 |
-| `repo_admin` / `repo_editor` / `repo_viewer` (override) | Holders of `repo:manage_permissions` in that repo |
-| `admin_super`                                           | Another `admin_super`, or the bootstrap seed      |
+| Role                                                        | Who can grant it                                                                                                             |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `org_owner`                                                 | Only via Organization ownership transfer                                                                                     |
+| `org_admin` / `org_member`                                  | `org_admin`+ of that Organization                                                                                            |
+| `repo_viewer` / `repo_member` / `repo_admin` / `repo_owner` | Anyone with an effective role of `repo_admin`+ on that repository (including the implied roles of `org_admin` / `org_owner`) |
+| `admin_super`                                               | Another `admin_super`, or the bootstrap seed                                                                                 |
 
-The **first** `admin_super` is created by an explicit seed command, never through the Admin Webapp — otherwise there is no one able to grant the first admin (a bootstrapping deadlock).
+The **first** `admin_super` is created by an explicit seed command, never through the Admin Webapp — otherwise there is no one able to grant the first admin (a bootstrapping deadlock). The **first `repo_owner` of a new repository** is its creator (§2.8.4, item 6) and needs no grant.
 
-> ⚠️ **`repo:manage_permissions` currently equals `repo_admin`.** Organization admins inherit `repo_editor` (§2.8.3), so **an Organization admin cannot manage repository members** — only the `org_owner` and explicit `repo_admin` holders can. This is one of the open items in §5.4.8.
+> Repository member management only adds/removes **explicit `repository_members` rows**. The `repo_admin` / `repo_owner` of Organization admins and owners are implicit and never stored, so "removing" them from the member page does nothing — revoke by changing the Organization role instead.
 
 ---
 
@@ -341,10 +350,10 @@ An independent business-layer entity that aggregates Repositories across Organiz
 
 **ProjectRepository (M:N join):**
 
-| Field        | Type | Description                                                   |
-| ------------ | ---- | ------------------------------------------------------------- |
-| `project_id` | UUID | Project reference                                             |
-| `repo_id`    | UUID | Repository reference (may belong to a different Organization) |
+| Field           | Type | Description                                                   |
+| --------------- | ---- | ------------------------------------------------------------- |
+| `project_id`    | UUID | Project reference                                             |
+| `repository_id` | UUID | Repository reference (may belong to a different Organization) |
 
 **ProjectMember:**
 
@@ -488,30 +497,32 @@ Apigent's RBAC model (defined in [2.8 RBAC Model](#28-rbac-model)) is surfaced i
 
 ### 3.8.1 Organization-level Role Management
 
-| Feature                | Description                                                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Role Assignment**    | When inviting a member or editing an existing member, assign an Organization role: `org_owner`, `org_admin`, or `org_member` |
-| **Role Inheritance**   | Organization role automatically grants the corresponding repo-level role on all current and future repos in the Organization |
-| **Role Change**        | Organization Owner/Admin can change a member's role at any time                                                              |
-| **Transfer Ownership** | Organization Owner can transfer ownership to another member                                                                  |
+| Feature                | Description                                                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Role Assignment**    | When inviting a member or editing an existing member, assign an Organization role: `org_owner`, `org_admin`, or `org_member`                         |
+| **Implied repo role**  | `org_owner` implicitly holds `repo_owner` on every repo of the Organization; `org_admin` implicitly holds `repo_admin`; `org_member` implies nothing |
+| **Role Change**        | Organization Owner/Admin can change a member's role at any time                                                                                      |
+| **Transfer Ownership** | Organization Owner can transfer ownership to another member                                                                                          |
 
-### 3.8.2 Repository-level Role Override
+### 3.8.2 Repository Members
 
-| Feature                  | Description                                                                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Per-repo Override**    | On any Repository, an `org_member` can be promoted to `repo_admin` or `repo_editor` without changing their Organization role |
-| **Where to manage**      | Repo settings → Members (`/repos/:id/settings/members`); Organization members stay on the Organization page                  |
-| **Override Display**     | Two groups: "inherited from Organization" (read-only) and "repository overrides" (editable)                                  |
-| **Effective Permission** | The higher of inherited + override applies per repository                                                                    |
+| Feature                  | Description                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Where to manage**      | Repo settings → Members (`/repos/:id/settings/members`); Organization members stay on the Organization page                                 |
+| **Member list**          | One table listing explicit members (editable, removable) plus Organization-implied members (read-only, labelled by source)                  |
+| **Adding members**       | Pick from the Organization's members; any repository role can be granted. Requires `repo_admin`+                                            |
+| **Effective permission** | **Repository row first, Organization role second** — an explicit row can therefore lock an Organization admin down to read-only on one repo |
+| **New repository**       | The creator automatically becomes its `repo_owner`                                                                                          |
 
 ### 3.8.3 Access Control in Practice
 
-| Scenario                    | Setup                                                        | Result                                                       |
-| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| **New Organization Member** | Invited as `org_member`                                      | Can view all repos (inherited `repo_viewer`) but cannot edit |
-| **Promoted Editor**         | `org_member` + override `repo_editor` on Repo A              | Can edit Repo A, viewer on all other repos                   |
-| **External Collaborator**   | Not an Organization member, assigned `repo_viewer` on Repo B | Can only view Repo B, no access to other repos               |
-| **MCP Access**              | `repo_admin` on Repo C + Secret Key with `mcp:*` scopes      | Can use MCP tools on Repo C                                  |
+| Scenario                    | Setup                                                   | Result                                                                    |
+| --------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **New Organization Member** | Invited as `org_member`                                 | Sees every repository in the directory, but can open none of them (403)   |
+| **Joining one repository**  | `org_member` + `repo_member` on Repo A                  | Can edit Repo A; every other repository still 403                         |
+| **Organization admin**      | `org_admin`                                             | Can open and administer every repo in the Organization except deleting it |
+| **Locking one repo down**   | `org_admin` + explicit `repo_viewer` on Repo C          | Read-only on Repo C — the explicit row outranks the Organization role     |
+| **MCP Access**              | `repo_admin` on Repo C + Secret Key with `mcp:*` scopes | Can use MCP tools on Repo C                                               |
 
 ## 3.9 MCP Settings
 
@@ -541,7 +552,7 @@ Key format: `apigent_sk_<random_hex>`
 
 A separate application for the operator of this deployment. Accessible only to users holding an admin role (`admin_members`), currently `admin_super` — see §2.8.5.
 
-**Scope boundary:** the Admin Webapp is not where tenant data is managed. Organization and Repository members, roles and content are managed in the **Platform Webapp** (§3.8) — including repo-level role overrides. The Admin Webapp is read-only with respect to tenant data, and its only write capability is managing who is an admin.
+**Scope boundary:** the Admin Webapp is not where tenant data is managed. Organization and Repository members, roles and content are managed in the **Platform Webapp** (§3.8) — including repository members. The Admin Webapp is read-only with respect to tenant data, and its only write capability is managing who is an admin.
 
 ## 4.1 Authentication
 
@@ -791,16 +802,17 @@ The core permission-checking function is called on every authorized request. It 
 ```
 checkPermission → effective role
 
-Step 1: Resolve the user's Organization role for the target resource
+Step 1: Resolve the user's explicit membership on this repository
+        └── repository_members (repoId, userId) → repo role (may be absent)
+        └── if present it WINS — the Organization role is not consulted
+
+Step 2: Otherwise resolve the user's role in the owning Organization
         └── organization_members.role, falling back to organizations.owner_id → org_owner
+        └── org_owner  → repo_owner (implied)
+        └── org_admin  → repo_admin (implied)
+        └── org_member → no implied repo role
 
-Step 2: Resolve any explicit per-repo override
-        └── repo_permissions (userId, repoId) → repo role (may be absent)
-
-Step 3: Effective repo role = max(inherited, override)
-        └── org_owner  → repo_admin
-        └── org_admin  → repo_editor
-        └── org_member → repo_viewer
+Step 3: Neither → no content access (ForbiddenError → 403)
 
 Step 4: Compare ranks against the required minimum
         └── rank(effective) >= rank(required) → ALLOW
@@ -812,19 +824,23 @@ Step 4: Compare ranks against the required minimum
 ```ts
 // packages/server/src/authz/roles.ts — pure role model, no DB
 export type OrgRole = "org_owner" | "org_admin" | "org_member";
-export type RepoRole = "repo_admin" | "repo_editor" | "repo_viewer";
+export type RepoRole = "repo_owner" | "repo_admin" | "repo_member" | "repo_viewer";
 
 const ORG_RANK = { org_member: 1, org_admin: 2, org_owner: 3 };
-const REPO_RANK = { repo_viewer: 1, repo_editor: 2, repo_admin: 3 };
+const REPO_RANK = { repo_viewer: 1, repo_member: 2, repo_admin: 3, repo_owner: 4 };
 
-/** Organization role → inherited repo role */
-export function orgRoleToRepoRole(role: OrgRole): RepoRole { /* owner→admin, admin→editor, member→viewer */ }
+/** Implied repo role of an Organization role; org_member implies nothing */
+export function orgRoleToRepoRole(role: OrgRole | null | undefined): RepoRole | null {
+  /* owner→owner, admin→admin, member/null→null */
+}
 
-/** Effective repo role = max(inherited, override); null when neither exists */
+/** Effective repo role: the membership row first, the Organization role second */
 export function resolveEffectiveRepoRole(
   orgRole?: OrgRole | null,
-  override?: RepoRole | null,
-): RepoRole | null { … }
+  memberRole?: RepoRole | null,
+): RepoRole | null {
+  return memberRole ?? orgRoleToRepoRole(orgRole);
+}
 
 export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean {
   return !!role && REPO_RANK[role] >= REPO_RANK[min];
@@ -834,18 +850,18 @@ export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean
 ```ts
 // packages/server/src/authz/index.ts — DB-backed checks used by Route Handlers
 getUserOrgRole(userId, orgId); // organization_members.role, owner fallback
-getRepoOverrideRole(userId, repoId); // repo_permissions.role
-getEffectiveRepoRole(userId, repoId); // max(inherited, override)
+getRepoMemberRole(userId, repoId); // repository_members.role
+getEffectiveRepoRole(userId, repoId); // membership row first, Organization role second
 assertRepoAccess(userId, repoId, min); // throws ForbiddenError → mapped to 403
 assertOrgRole(userId, orgId, min);
-listAccessibleRepoIds(userId); // org membership + ownership + explicit grants
+listAccessibleRepoIds(userId); // explicit memberships ∪ all repos of orgs where the user is org_admin/owner
 ```
 
-Roles are compared by **rank**, so an explicit repo override raises or lowers a user's role relative to what the Organization role inherits — an `org_owner` cannot be demoted to `repo_viewer` by an override.
+**An explicit membership row wins, which means it can demote.** Setting an `org_admin` to `repo_viewer` on a single repository really does leave them read-only there. That is deliberate — it is how you lock a sensitive repo down.
 
 **The admin scope is resolved separately.** `admin_members` is a different table and a different vocabulary (§2.8.5–2.8.7): admin capabilities are checked with `assertAdminCapability(userId, "admin:admins:manage")` and never through the tenant ladder. The two systems meet in exactly one place — the resource declaration on `withRoute` decides which of them applies to a route.
 
-**Rank vs. permission.** Tenant capabilities are genuinely nested (`repo_viewer ⊂ repo_editor ⊂ repo_admin`), so rank comparison is the right mechanism and stays. The admin system is orthogonal to them, so it uses named capabilities (`admin:<domain>:<action>`) instead. If a tenant requirement ever becomes non-nested — "can manage repo members but cannot delete the repo" — that is the signal to introduce a permission-name layer on the tenant side too; until then rank is simpler and cannot drift.
+**Rank vs. permission.** Tenant capabilities are genuinely nested (`repo_viewer ⊂ repo_member ⊂ repo_admin ⊂ repo_owner`), so enforcement stays a rank comparison. The admin system is orthogonal to them, so it uses named capabilities (`admin:<domain>:<action>`, §2.8.6) instead. If a tenant requirement ever becomes non-nested — "can manage repo members but cannot activate the main version" — that is the signal to introduce a capability layer on the tenant side; the naming convention is already prepared in §2.8.2. Until then rank is simpler and cannot drift.
 
 ### 5.4.4 Authorization Enforcement (three layers)
 
@@ -861,7 +877,7 @@ Authorization is enforced in layers: the entry point makes it impossible to forg
 
 ```ts
 export const POST = withRoute(
-  { auth: true, repo: { param: "id", min: "repo_editor" } },
+  { auth: true, repo: { param: "id", min: "repo_member" } },
   async ({ request, params, user }) => { … },
 );
 
@@ -872,7 +888,7 @@ export const POST = withRoute(
 **Service assertion** — the same requirement stated directly, so non-HTTP callers stay covered:
 
 ```ts
-await assertRepoAccess(user.id, id, "repo_editor");
+await assertRepoAccess(user.id, id, "repo_member");
 await assertOrgRole(user.id, orgId, "org_admin");
 ```
 
@@ -934,6 +950,8 @@ packages/server/src/authz/          # RBAC
 
 apps/platform/src/services/auth.ts  # Next.js glue: cookies() + users table → SessionUser
 apps/platform/src/lib/route.ts      # withRoute({ auth: true }) — 401 before the handler
+apps/platform/src/lib/repo-guard.ts # guardRepoAccess() — entry-level repo assertion → 403
+apps/platform/src/services/repo-members.ts # repo members (explicit + Organization-implied)
 ```
 
 **Key design decisions:**
@@ -952,13 +970,13 @@ Every privileged mutation writes an `operation_logs` row **in the same transacti
 
 Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
-| Event                                                               | Actor                               | Notes                          |
-| ------------------------------------------------------------------- | ----------------------------------- | ------------------------------ |
-| `admin.grant` / `admin.revoke`                                      | `admin_super`                       | The only admin write operation |
-| `member.invite` / `member.role_change` / `member.remove`            | `org_admin`+                        | Organization membership        |
-| `repo.permission_grant` / `permission_change` / `permission_revoke` | holder of `repo:manage_permissions` | Repository-level override      |
-| `org.transfer`                                                      | `org_owner`                         | Ownership transfer             |
-| `admin.login`                                                       | `admin_super`                       | Optional                       |
+| Event                                                      | Actor                      | Notes                          |
+| ---------------------------------------------------------- | -------------------------- | ------------------------------ |
+| `admin.grant` / `admin.revoke`                             | `admin_super`              | The only admin write operation |
+| `member.invite` / `member.role_change` / `member.remove`   | `org_admin`+               | Organization membership        |
+| `repo.member_add` / `member_role_change` / `member_remove` | `repo_admin`+ on that repo | Repository membership changes  |
+| `org.transfer`                                             | `org_owner`                | Ownership transfer             |
+| `admin.login`                                              | `admin_super`              | Optional                       |
 
 `operation_logs.orgId` is NULL for platform-level operations, and the existing index is `(orgId, operationType, createdAt)` — NULL rows do not participate in that index, so querying platform-level events needs an additional index or a different predicate.
 
@@ -966,16 +984,16 @@ Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
 The model above is the target. **Already landed:**
 
-- ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repoId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_editor`, moving the default-version pointer `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repoId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
+- ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repoId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_member`, moving the default-version pointer and member management `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repoId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
-- ✅ **Repository members can be managed** — repo settings → members (`/repos/:id/settings/members`) shows the inherited/override groups and supports granting, changing and revoking overrides (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes enforce "overrides only elevate" and "targets must be Organization members" (§2.8.4). **Audit is not wired yet** — the `repo.permission_*` events land with item 1 below.
+- ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4). **Audit is not wired yet** — the `repo.member_*` events land with item 1 below.
 
 **Remaining gaps**, in the order they should be closed:
 
-1. **Audit logging is unwired** — the tables exist, nothing writes to them. Member and permission changes (`member.*`, `repo.permission_*`, `org.transfer`) must be written in the same transaction as the business write.
+1. **Audit logging is unwired** — the tables exist, nothing writes to them. Membership changes (`member.*`, `repo.member_*`, `org.transfer`) must be written in the same transaction as the business write.
 2. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
 3. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
-4. **Open items** — `org_admin`'s repo permissions (§2.8.3 — currently it prevents Organization admins from managing repository members); whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces.
+4. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `org:delete` / `repo:delete` / `repo:manage_mcp` get implemented (documented but not implemented in code).
 
 Suggested order: 1 → 2 → 3 / 4.
 

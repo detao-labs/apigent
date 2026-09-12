@@ -17,7 +17,7 @@ export const GET = withRoute({ auth: true }, async ({ params, user }) => {
 
 export const PUT = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id, endpointId } = await params;
-  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  const denied = await guardRepoAccess(user.id, id, "repo_member");
   if (denied) return denied;
 
   let body: unknown;

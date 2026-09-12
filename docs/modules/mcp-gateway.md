@@ -34,7 +34,7 @@ apis   api  context
 描述: 语义搜索 API。用自然语言描述意图，返回匹配的 API 列表。
 输入:
   - query (string, required): 搜索意图描述
-  - repo_id (string, optional): 限定仓库
+  - repository_id (string, optional): 限定仓库
   - project_id (string, optional): 限定项目（V1+；双层规则，仅返回用户有权限的 repo）
   - top_k (number, optional): 返回数量，默认 10
 输出: { results: [{ api_id, path, method, summary, score, match_reason }] }

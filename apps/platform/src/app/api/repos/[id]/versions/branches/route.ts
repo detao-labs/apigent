@@ -28,7 +28,7 @@ export const POST = withRoute({ auth: true }, async ({ request, params, user }) 
   }
 
   try {
-    await assertRepoAccess(user.id, id, "repo_editor");
+    await assertRepoAccess(user.id, id, "repo_member");
     const versionId = await createVersion(id, {
       name: parsed.data.name,
       parentVersionId: parsed.data.parentVersionId,

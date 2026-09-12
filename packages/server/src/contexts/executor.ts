@@ -11,17 +11,14 @@ import { and, eq } from "drizzle-orm";
 import { generateText } from "ai";
 import { z } from "zod";
 import { loadConfig } from "@apigent/core/config";
-import {
-  BusinessContextSchema,
-  CONSTRAINT_TYPES,
-} from "@apigent/core/agent";
+import { BusinessContextSchema, CONSTRAINT_TYPES } from "@apigent/core/agent";
 import { generateId } from "../id";
 import {
   businessContexts,
   endpoints,
   endpointResponses,
   getDB,
-  repoTasks,
+  repositoryTasks,
   versionCommits,
   versionEntityLinks,
 } from "../db";
@@ -47,9 +44,9 @@ async function updateTask(
   },
 ): Promise<void> {
   await getDB()
-    .update(repoTasks)
+    .update(repositoryTasks)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(repoTasks.id, taskId));
+    .where(eq(repositoryTasks.id, taskId));
 }
 
 interface EndpointInput {
@@ -83,7 +80,9 @@ async function loadEndpoints(commitId: string): Promise<EndpointInput[]> {
     })
     .from(versionEntityLinks)
     .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
-    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
+    .where(
+      and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")),
+    )
     .orderBy(endpoints.path, endpoints.method);
 
   const responseRows = await db
@@ -96,7 +95,9 @@ async function loadEndpoints(commitId: string): Promise<EndpointInput[]> {
     .from(endpointResponses)
     .innerJoin(endpoints, eq(endpoints.id, endpointResponses.endpointId))
     .innerJoin(versionEntityLinks, eq(versionEntityLinks.entityId, endpoints.id))
-    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
+    .where(
+      and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")),
+    )
     .orderBy(endpointResponses.statusCode);
 
   const responsesByEndpoint = new Map<string, EndpointInput["responses"]>();
@@ -205,9 +206,7 @@ async function generateBatch(
       });
       const parsed = BatchResultSchema.safeParse(extractJson(text));
       if (parsed.success) return parsed.data.endpoints;
-      throw new Error(
-        `Model output did not match schema: ${text.slice(0, 800)}`,
-      );
+      throw new Error(`Model output did not match schema: ${text.slice(0, 800)}`);
     } catch (err) {
       if (attempt === 1) throw err;
     }
@@ -253,14 +252,9 @@ async function generateRepoProfile(
     .from(businessContexts)
     .innerJoin(endpoints, eq(endpoints.id, businessContexts.endpointId))
     .where(
-      and(
-        eq(businessContexts.entityType, "endpoint"),
-        eq(businessContexts.versionId, versionId),
-      ),
+      and(eq(businessContexts.entityType, "endpoint"), eq(businessContexts.versionId, versionId)),
     );
-  const usable = rows.filter(
-    (row) => row.capabilityName || row.intent,
-  );
+  const usable = rows.filter((row) => row.capabilityName || row.intent);
   if (usable.length === 0) return null;
 
   const prompt = usable
@@ -326,8 +320,8 @@ export async function executeContextTask(taskId: string): Promise<void> {
   const db = getDB();
   const [task] = await db
     .select()
-    .from(repoTasks)
-    .where(eq(repoTasks.id, taskId))
+    .from(repositoryTasks)
+    .where(eq(repositoryTasks.id, taskId))
     .limit(1);
   if (!task) throw new Error(`Context task not found: ${taskId}`);
   if (task.status !== "queued") {
@@ -364,9 +358,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
     const prevVersionId = prevCommit?.parentCommitId ?? null;
 
     const currentEndpoints = await loadEndpoints(versionId);
-    const scopeSet = payload.endpointIds?.length
-      ? new Set(payload.endpointIds)
-      : null;
+    const scopeSet = payload.endpointIds?.length ? new Set(payload.endpointIds) : null;
     const targets = scopeSet
       ? currentEndpoints.filter((ep) => scopeSet.has(ep.id))
       : currentEndpoints;
@@ -399,10 +391,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
       .select()
       .from(businessContexts)
       .where(
-        and(
-          eq(businessContexts.entityType, "endpoint"),
-          eq(businessContexts.versionId, versionId),
-        ),
+        and(eq(businessContexts.entityType, "endpoint"), eq(businessContexts.versionId, versionId)),
       );
     const existingByEndpoint = new Map(currentRows.map((row) => [row.endpointId, row]));
 
@@ -429,11 +418,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
       }
 
       const prev = prevContexts.get(endpointKey(ep));
-      if (
-        prev &&
-        prev.context &&
-        computeEndpointFingerprint(prev.endpoint) === fp
-      ) {
+      if (prev && prev.context && computeEndpointFingerprint(prev.endpoint) === fp) {
         await db.insert(businessContexts).values({
           id: generateId("context"),
           entityType: "endpoint",
@@ -461,8 +446,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
     const totalCount = processed + pending.length;
     const reportProgress = () => {
       void updateTask(taskId, {
-        progress:
-          totalCount === 0 ? 100 : Math.round((processed / totalCount) * 100),
+        progress: totalCount === 0 ? 100 : Math.round((processed / totalCount) * 100),
         result: {
           totalCount,
           processedCount: processed,
@@ -500,8 +484,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
               sideEffects: item.context.sideEffects,
               usageScenarios: item.context.usageScenarios,
               confidence,
-              needsReview:
-                item.context.needsReview || confidence < minConfidence,
+              needsReview: item.context.needsReview || confidence < minConfidence,
               fingerprint: fp,
               generatedBy: "ai",
             })
@@ -550,8 +533,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
           sideEffects: repoProfile.sideEffects,
           usageScenarios: repoProfile.usageScenarios,
           confidence: repoProfile.confidence,
-          needsReview:
-            repoProfile.needsReview || repoProfile.confidence < minConfidence,
+          needsReview: repoProfile.needsReview || repoProfile.confidence < minConfidence,
           generatedBy: "ai",
         })
         .onConflictDoUpdate({
@@ -567,9 +549,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
             sideEffects: repoProfile.sideEffects,
             usageScenarios: repoProfile.usageScenarios,
             confidence: repoProfile.confidence,
-            needsReview:
-              repoProfile.needsReview ||
-              repoProfile.confidence < minConfidence,
+            needsReview: repoProfile.needsReview || repoProfile.confidence < minConfidence,
             updatedAt: new Date(),
           },
         });
@@ -584,12 +564,17 @@ export async function executeContextTask(taskId: string): Promise<void> {
         }
       : null;
 
-    await buildCapabilitySnapshot(task.repoId, versionId, {
-      endpointCount: totalCount,
-      generatedCount: generated,
-      reusedCount: reused,
-      failedCount: failed,
-    }, profileSummary);
+    await buildCapabilitySnapshot(
+      task.repoId,
+      versionId,
+      {
+        endpointCount: totalCount,
+        generatedCount: generated,
+        reusedCount: reused,
+        failedCount: failed,
+      },
+      profileSummary,
+    );
 
     await updateTask(taskId, {
       status: "succeeded",
@@ -638,7 +623,14 @@ export async function executeContextTask(taskId: string): Promise<void> {
       userId: task.userId,
       versionId,
       trigger: payload.trigger,
-      stats: { totalCount, processedCount: processed, reusedCount: reused, generatedCount: generated, failedCount: failed, skippedCount: skipped },
+      stats: {
+        totalCount,
+        processedCount: processed,
+        reusedCount: reused,
+        generatedCount: generated,
+        failedCount: failed,
+        skippedCount: skipped,
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

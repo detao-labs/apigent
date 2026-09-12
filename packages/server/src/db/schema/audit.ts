@@ -12,8 +12,8 @@ export const operationLogs = pgTable(
   {
     id: text("id").primaryKey(),
     /** NULL = 平台级操作（Admin Webapp） */
-    orgId: text("org_id").references(() => organizations.id),
-    repoId: text("repo_id").references(() => repositories.id),
+    orgId: text("organization_id").references(() => organizations.id),
+    repoId: text("repository_id").references(() => repositories.id),
     /** NULL = 系统自动操作 */
     actorId: text("actor_id").references(() => users.id),
     operationType: varchar("operation_type", { length: 50 }).notNull(),
@@ -23,7 +23,11 @@ export const operationLogs = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    index("op_logs_org_type_time_idx").on(table.orgId, table.operationType, table.createdAt.desc()),
+    index("operation_logs_organization_type_time_idx").on(
+      table.orgId,
+      table.operationType,
+      table.createdAt.desc(),
+    ),
   ],
 );
 
@@ -48,6 +52,6 @@ export const operationLogDetails = pgTable(
     fieldsChanged: jsonb("fields_changed").$type<string[]>(),
   },
   (table) => [
-    uniqueIndex("op_log_details_unique_idx").on(table.operationId, table.method, table.path),
+    uniqueIndex("operation_log_details_unique_idx").on(table.operationId, table.method, table.path),
   ],
 );

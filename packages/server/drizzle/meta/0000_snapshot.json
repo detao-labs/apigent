@@ -1,5 +1,5 @@
 {
-  "id": "edaf719b-6962-4f4e-a53e-b812d386b6dc",
+  "id": "5a141e26-d9ae-4154-b78e-55e2391f3dc1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -165,12 +165,8 @@
           "name": "business_contexts_endpoint_id_endpoints_id_fk",
           "tableFrom": "business_contexts",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -178,12 +174,8 @@
           "name": "business_contexts_version_id_version_commits_id_fk",
           "tableFrom": "business_contexts",
           "tableTo": "version_commits",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -204,8 +196,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -262,11 +254,11 @@
         }
       },
       "indexes": {
-        "components_repo_content_hash_idx": {
-          "name": "components_repo_content_hash_idx",
+        "components_repository_content_hash_idx": {
+          "name": "components_repository_content_hash_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -285,16 +277,12 @@
         }
       },
       "foreignKeys": {
-        "components_repo_id_repositories_id_fk": {
-          "name": "components_repo_id_repositories_id_fk",
+        "components_repository_id_repositories_id_fk": {
+          "name": "components_repository_id_repositories_id_fk",
           "tableFrom": "components",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -315,8 +303,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -360,11 +348,11 @@
         }
       },
       "indexes": {
-        "data_models_repo_content_hash_idx": {
-          "name": "data_models_repo_content_hash_idx",
+        "data_models_repository_content_hash_idx": {
+          "name": "data_models_repository_content_hash_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -383,16 +371,12 @@
         }
       },
       "foreignKeys": {
-        "data_models_repo_id_repositories_id_fk": {
-          "name": "data_models_repo_id_repositories_id_fk",
+        "data_models_repository_id_repositories_id_fk": {
+          "name": "data_models_repository_id_repositories_id_fk",
           "tableFrom": "data_models",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -431,8 +415,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -478,12 +462,8 @@
           "name": "endpoint_relationships_source_endpoint_id_endpoints_id_fk",
           "tableFrom": "endpoint_relationships",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "source_endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -491,25 +471,17 @@
           "name": "endpoint_relationships_target_endpoint_id_endpoints_id_fk",
           "tableFrom": "endpoint_relationships",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "target_endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "endpoint_relationships_repo_id_repositories_id_fk": {
-          "name": "endpoint_relationships_repo_id_repositories_id_fk",
+        "endpoint_relationships_repository_id_repositories_id_fk": {
+          "name": "endpoint_relationships_repository_id_repositories_id_fk",
           "tableFrom": "endpoint_relationships",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -517,12 +489,8 @@
           "name": "endpoint_relationships_version_id_version_commits_id_fk",
           "tableFrom": "endpoint_relationships",
           "tableTo": "version_commits",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -543,8 +511,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -637,16 +605,12 @@
         }
       },
       "foreignKeys": {
-        "endpoint_responses_repo_id_repositories_id_fk": {
-          "name": "endpoint_responses_repo_id_repositories_id_fk",
+        "endpoint_responses_repository_id_repositories_id_fk": {
+          "name": "endpoint_responses_repository_id_repositories_id_fk",
           "tableFrom": "endpoint_responses",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -654,12 +618,8 @@
           "name": "endpoint_responses_endpoint_id_endpoints_id_fk",
           "tableFrom": "endpoint_responses",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -680,8 +640,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -784,11 +744,11 @@
         }
       },
       "indexes": {
-        "endpoints_repo_content_hash_idx": {
-          "name": "endpoints_repo_content_hash_idx",
+        "endpoints_repository_content_hash_idx": {
+          "name": "endpoints_repository_content_hash_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -807,16 +767,12 @@
         }
       },
       "foreignKeys": {
-        "endpoints_repo_id_repositories_id_fk": {
-          "name": "endpoints_repo_id_repositories_id_fk",
+        "endpoints_repository_id_repositories_id_fk": {
+          "name": "endpoints_repository_id_repositories_id_fk",
           "tableFrom": "endpoints",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -970,14 +926,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "org_id": {
-          "name": "org_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1066,11 +1022,11 @@
         }
       },
       "indexes": {
-        "knowledge_chunks_repo_key_idx": {
-          "name": "knowledge_chunks_repo_key_idx",
+        "knowledge_chunks_repository_key_idx": {
+          "name": "knowledge_chunks_repository_key_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1087,11 +1043,11 @@
           "method": "btree",
           "with": {}
         },
-        "knowledge_chunks_org_idx": {
-          "name": "knowledge_chunks_org_idx",
+        "knowledge_chunks_organization_idx": {
+          "name": "knowledge_chunks_organization_idx",
           "columns": [
             {
-              "expression": "org_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1165,29 +1121,21 @@
         }
       },
       "foreignKeys": {
-        "knowledge_chunks_org_id_organizations_id_fk": {
-          "name": "knowledge_chunks_org_id_organizations_id_fk",
+        "knowledge_chunks_organization_id_organizations_id_fk": {
+          "name": "knowledge_chunks_organization_id_organizations_id_fk",
           "tableFrom": "knowledge_chunks",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "knowledge_chunks_repo_id_repositories_id_fk": {
-          "name": "knowledge_chunks_repo_id_repositories_id_fk",
+        "knowledge_chunks_repository_id_repositories_id_fk": {
+          "name": "knowledge_chunks_repository_id_repositories_id_fk",
           "tableFrom": "knowledge_chunks",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1195,12 +1143,8 @@
           "name": "knowledge_chunks_version_id_version_commits_id_fk",
           "tableFrom": "knowledge_chunks",
           "tableTo": "version_commits",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1208,12 +1152,8 @@
           "name": "knowledge_chunks_endpoint_id_endpoints_id_fk",
           "tableFrom": "knowledge_chunks",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1221,12 +1161,8 @@
           "name": "knowledge_chunks_parent_id_knowledge_chunks_id_fk",
           "tableFrom": "knowledge_chunks",
           "tableTo": "knowledge_chunks",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1274,12 +1210,8 @@
           "name": "notification_preferences_user_id_users_id_fk",
           "tableFrom": "notification_preferences",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1287,10 +1219,7 @@
       "compositePrimaryKeys": {
         "notification_preferences_user_id_category_pk": {
           "name": "notification_preferences_user_id_category_pk",
-          "columns": [
-            "user_id",
-            "category"
-          ]
+          "columns": ["user_id", "category"]
         }
       },
       "uniqueConstraints": {},
@@ -1435,12 +1364,8 @@
           "name": "notifications_user_id_users_id_fk",
           "tableFrom": "notifications",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1511,8 +1436,8 @@
         }
       },
       "indexes": {
-        "op_log_details_unique_idx": {
-          "name": "op_log_details_unique_idx",
+        "operation_log_details_unique_idx": {
+          "name": "operation_log_details_unique_idx",
           "columns": [
             {
               "expression": "operation_id",
@@ -1544,12 +1469,8 @@
           "name": "operation_log_details_operation_id_operation_logs_id_fk",
           "tableFrom": "operation_log_details",
           "tableTo": "operation_logs",
-          "columnsFrom": [
-            "operation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1557,12 +1478,8 @@
           "name": "operation_log_details_from_endpoint_id_endpoints_id_fk",
           "tableFrom": "operation_log_details",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "from_endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["from_endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1570,12 +1487,8 @@
           "name": "operation_log_details_to_endpoint_id_endpoints_id_fk",
           "tableFrom": "operation_log_details",
           "tableTo": "endpoints",
-          "columnsFrom": [
-            "to_endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["to_endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1596,14 +1509,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "org_id": {
-          "name": "org_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1647,11 +1560,11 @@
         }
       },
       "indexes": {
-        "op_logs_org_type_time_idx": {
-          "name": "op_logs_org_type_time_idx",
+        "operation_logs_organization_type_time_idx": {
+          "name": "operation_logs_organization_type_time_idx",
           "columns": [
             {
-              "expression": "org_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1676,29 +1589,21 @@
         }
       },
       "foreignKeys": {
-        "operation_logs_org_id_organizations_id_fk": {
-          "name": "operation_logs_org_id_organizations_id_fk",
+        "operation_logs_organization_id_organizations_id_fk": {
+          "name": "operation_logs_organization_id_organizations_id_fk",
           "tableFrom": "operation_logs",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "operation_logs_repo_id_repositories_id_fk": {
-          "name": "operation_logs_repo_id_repositories_id_fk",
+        "operation_logs_repository_id_repositories_id_fk": {
+          "name": "operation_logs_repository_id_repositories_id_fk",
           "tableFrom": "operation_logs",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1706,12 +1611,8 @@
           "name": "operation_logs_actor_id_users_id_fk",
           "tableFrom": "operation_logs",
           "tableTo": "users",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1732,8 +1633,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "org_id": {
-          "name": "org_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1758,36 +1659,25 @@
           "name": "organization_members_user_id_users_id_fk",
           "tableFrom": "organization_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "organization_members_org_id_organizations_id_fk": {
-          "name": "organization_members_org_id_organizations_id_fk",
+        "organization_members_organization_id_organizations_id_fk": {
+          "name": "organization_members_organization_id_organizations_id_fk",
           "tableFrom": "organization_members",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "organization_members_user_id_org_id_pk": {
-          "name": "organization_members_user_id_org_id_pk",
-          "columns": [
-            "user_id",
-            "org_id"
-          ]
+        "organization_members_user_id_organization_id_pk": {
+          "name": "organization_members_user_id_organization_id_pk",
+          "columns": ["user_id", "organization_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1844,12 +1734,8 @@
           "name": "organizations_owner_id_users_id_fk",
           "tableFrom": "organizations",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1860,18 +1746,93 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.repo_permissions": {
-      "name": "repo_permissions",
+    "public.repositories": {
+      "name": "repositories",
       "schema": "",
       "columns": {
-        "user_id": {
-          "name": "user_id",
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capability_context": {
+          "name": "capability_context",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "mcp_enabled": {
+          "name": "mcp_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "repositories_organization_id_organizations_id_fk": {
+          "name": "repositories_organization_id_organizations_id_fk",
+          "tableFrom": "repositories",
+          "tableTo": "organizations",
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.repository_members": {
+      "name": "repository_members",
+      "schema": "",
+      "columns": {
+        "repository_id": {
+          "name": "repository_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1888,44 +1849,64 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "repository_members_user_idx": {
+          "name": "repository_members_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "repo_permissions_user_id_users_id_fk": {
-          "name": "repo_permissions_user_id_users_id_fk",
-          "tableFrom": "repo_permissions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+        "repository_members_repository_id_repositories_id_fk": {
+          "name": "repository_members_repository_id_repositories_id_fk",
+          "tableFrom": "repository_members",
+          "tableTo": "repositories",
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "repo_permissions_repo_id_repositories_id_fk": {
-          "name": "repo_permissions_repo_id_repositories_id_fk",
-          "tableFrom": "repo_permissions",
-          "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+        "repository_members_user_id_users_id_fk": {
+          "name": "repository_members_user_id_users_id_fk",
+          "tableFrom": "repository_members",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "repository_members_granted_by_users_id_fk": {
+          "name": "repository_members_granted_by_users_id_fk",
+          "tableFrom": "repository_members",
+          "tableTo": "users",
+          "columnsFrom": ["granted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "repo_permissions_user_id_repo_id_pk": {
-          "name": "repo_permissions_user_id_repo_id_pk",
-          "columns": [
-            "user_id",
-            "repo_id"
-          ]
+        "repository_members_repository_id_user_id_pk": {
+          "name": "repository_members_repository_id_user_id_pk",
+          "columns": ["repository_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1933,8 +1914,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.repo_tasks": {
-      "name": "repo_tasks",
+    "public.repository_tasks": {
+      "name": "repository_tasks",
       "schema": "",
       "columns": {
         "id": {
@@ -1949,8 +1930,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -2053,11 +2034,11 @@
         }
       },
       "indexes": {
-        "repo_tasks_repo_status_idx": {
-          "name": "repo_tasks_repo_status_idx",
+        "repository_tasks_repository_status_idx": {
+          "name": "repository_tasks_repository_status_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2074,8 +2055,8 @@
           "method": "btree",
           "with": {}
         },
-        "repo_tasks_user_idx": {
-          "name": "repo_tasks_user_idx",
+        "repository_tasks_user_idx": {
+          "name": "repository_tasks_user_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -2095,8 +2076,8 @@
           "method": "btree",
           "with": {}
         },
-        "repo_tasks_type_status_idx": {
-          "name": "repo_tasks_type_status_idx",
+        "repository_tasks_type_status_idx": {
+          "name": "repository_tasks_type_status_idx",
           "columns": [
             {
               "expression": "task_type",
@@ -2118,147 +2099,48 @@
         }
       },
       "foreignKeys": {
-        "repo_tasks_job_id_impl_queue_jobs_id_fk": {
-          "name": "repo_tasks_job_id_impl_queue_jobs_id_fk",
-          "tableFrom": "repo_tasks",
+        "repository_tasks_job_id_impl_queue_jobs_id_fk": {
+          "name": "repository_tasks_job_id_impl_queue_jobs_id_fk",
+          "tableFrom": "repository_tasks",
           "tableTo": "impl_queue_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "repo_tasks_repo_id_repositories_id_fk": {
-          "name": "repo_tasks_repo_id_repositories_id_fk",
-          "tableFrom": "repo_tasks",
+        "repository_tasks_repository_id_repositories_id_fk": {
+          "name": "repository_tasks_repository_id_repositories_id_fk",
+          "tableFrom": "repository_tasks",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "repo_tasks_version_id_version_commits_id_fk": {
-          "name": "repo_tasks_version_id_version_commits_id_fk",
-          "tableFrom": "repo_tasks",
+        "repository_tasks_version_id_version_commits_id_fk": {
+          "name": "repository_tasks_version_id_version_commits_id_fk",
+          "tableFrom": "repository_tasks",
           "tableTo": "version_commits",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "repo_tasks_user_id_users_id_fk": {
-          "name": "repo_tasks_user_id_users_id_fk",
-          "tableFrom": "repo_tasks",
+        "repository_tasks_user_id_users_id_fk": {
+          "name": "repository_tasks_user_id_users_id_fk",
+          "tableFrom": "repository_tasks",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "repo_tasks_depends_on_repo_tasks_id_fk": {
-          "name": "repo_tasks_depends_on_repo_tasks_id_fk",
-          "tableFrom": "repo_tasks",
-          "tableTo": "repo_tasks",
-          "columnsFrom": [
-            "depends_on"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.repositories": {
-      "name": "repositories",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "org_id": {
-          "name": "org_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "capability_context": {
-          "name": "capability_context",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'{}'::jsonb"
-        },
-        "mcp_enabled": {
-          "name": "mcp_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "repositories_org_id_organizations_id_fk": {
-          "name": "repositories_org_id_organizations_id_fk",
-          "tableFrom": "repositories",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "org_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+        "repository_tasks_depends_on_repository_tasks_id_fk": {
+          "name": "repository_tasks_depends_on_repository_tasks_id_fk",
+          "tableFrom": "repository_tasks",
+          "tableTo": "repository_tasks",
+          "columnsFrom": ["depends_on"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2342,12 +2224,8 @@
           "name": "secret_keys_user_id_users_id_fk",
           "tableFrom": "secret_keys",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2444,9 +2322,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -2463,8 +2339,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -2544,11 +2420,11 @@
         }
       },
       "indexes": {
-        "version_commits_repo_version_idx": {
-          "name": "version_commits_repo_version_idx",
+        "version_commits_repository_version_idx": {
+          "name": "version_commits_repository_version_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2582,16 +2458,12 @@
         }
       },
       "foreignKeys": {
-        "version_commits_repo_id_repositories_id_fk": {
-          "name": "version_commits_repo_id_repositories_id_fk",
+        "version_commits_repository_id_repositories_id_fk": {
+          "name": "version_commits_repository_id_repositories_id_fk",
           "tableFrom": "version_commits",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2599,12 +2471,8 @@
           "name": "version_commits_version_id_versions_id_fk",
           "tableFrom": "version_commits",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2645,8 +2513,8 @@
         }
       },
       "indexes": {
-        "vel_commit_type_idx": {
-          "name": "vel_commit_type_idx",
+        "version_entity_links_commit_type_idx": {
+          "name": "version_entity_links_commit_type_idx",
           "columns": [
             {
               "expression": "commit_id",
@@ -2672,12 +2540,8 @@
           "name": "version_entity_links_commit_id_version_commits_id_fk",
           "tableFrom": "version_entity_links",
           "tableTo": "version_commits",
-          "columnsFrom": [
-            "commit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["commit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2685,11 +2549,7 @@
       "compositePrimaryKeys": {
         "version_entity_links_commit_id_entity_type_identity_key_pk": {
           "name": "version_entity_links_commit_id_entity_type_identity_key_pk",
-          "columns": [
-            "commit_id",
-            "entity_type",
-            "identity_key"
-          ]
+          "columns": ["commit_id", "entity_type", "identity_key"]
         }
       },
       "uniqueConstraints": {},
@@ -2712,8 +2572,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "repo_id": {
-          "name": "repo_id",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -2752,11 +2612,11 @@
         }
       },
       "indexes": {
-        "versions_repo_name_idx": {
-          "name": "versions_repo_name_idx",
+        "versions_repository_name_idx": {
+          "name": "versions_repository_name_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2773,11 +2633,11 @@
           "method": "btree",
           "with": {}
         },
-        "versions_repo_default_idx": {
-          "name": "versions_repo_default_idx",
+        "versions_repository_default_idx": {
+          "name": "versions_repository_default_idx",
           "columns": [
             {
-              "expression": "repo_id",
+              "expression": "repository_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2791,16 +2651,12 @@
         }
       },
       "foreignKeys": {
-        "versions_repo_id_repositories_id_fk": {
-          "name": "versions_repo_id_repositories_id_fk",
+        "versions_repository_id_repositories_id_fk": {
+          "name": "versions_repository_id_repositories_id_fk",
           "tableFrom": "versions",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

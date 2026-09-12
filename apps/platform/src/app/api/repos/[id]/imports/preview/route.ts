@@ -6,7 +6,7 @@ import { withRoute } from "@/lib/route";
 
 export const POST = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id } = await params;
-  const denied = await guardRepoAccess(user.id, id, "repo_editor");
+  const denied = await guardRepoAccess(user.id, id, "repo_member");
   if (denied) return denied;
 
   let body: unknown;

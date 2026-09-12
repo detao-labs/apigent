@@ -16,7 +16,7 @@ export interface VectorRecord {
 
 /**
  * Field-level filter condition, e.g.
- * `{ repo_id: { $in: ["repo-1", "repo-2"] } }` — used for pre-retrieval
+ * `{ repository_id: { $in: ["repo-1", "repo-2"] } }` — used for pre-retrieval
  * permission filtering (see docs/modules/semantic-search.agent.md §4).
  * Operators on the same field combine with AND.
  */

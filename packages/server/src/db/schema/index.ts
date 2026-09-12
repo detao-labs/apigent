@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 export { users, organizations, organizationMembers } from "./auth";
-export { repositories, repoPermissions } from "./repo";
+export { repositories, repositoryMembers } from "./repo";
 export { versions, versionCommits, versionEntityLinks } from "./version";
 export {
   endpoints,
@@ -19,4 +19,4 @@ export { components } from "./component";
 export { implQueueJobs } from "./queue";
 export { notifications } from "./notification";
 export { notificationPreferences } from "./notification";
-export { repoTasks } from "./repo-task";
+export { repositoryTasks } from "./repo-task";

@@ -26,7 +26,7 @@ import { endpoints } from "./endpoint";
 //   - 检索主单元为 L2 (endpoint full)，精排后按 parent_id 扩展上下文
 //
 // 兼容未来 Milvus / Elasticsearch：
-//   - 权限与身份字段（org_id / repo_id / version_id / endpoint_id /
+//   - 权限与身份字段（organization_id / repository_id / version_id / endpoint_id /
 //     lang / chunk_key / parent_id）全部是独立列，可 1:1 映射为
 //     Milvus scalar fields 或 ES document fields；
 //   - chunk_key 是跨系统稳定 ID（repo 内唯一），同步/导出按它幂等 upsert；
@@ -55,10 +55,10 @@ export const knowledgeChunks = pgTable(
   {
     id: text("id").primaryKey(),
     /** 冗余 org 快照 — 检索前权限过滤；repo 迁移 org 后保持 snapshot 语义 */
-    orgId: text("org_id")
+    orgId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    repoId: text("repo_id")
+    repoId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** 所属 OpenAPI 版本（project/usage-context chunk 可为空） */
@@ -93,9 +93,9 @@ export const knowledgeChunks = pgTable(
   },
   (table) => [
     // 幂等同步锚点：repo 内 chunk_key 唯一
-    uniqueIndex("knowledge_chunks_repo_key_idx").on(table.repoId, table.chunkKey),
+    uniqueIndex("knowledge_chunks_repository_key_idx").on(table.repoId, table.chunkKey),
     // 权限过滤（org 级查询）
-    index("knowledge_chunks_org_idx").on(table.orgId),
+    index("knowledge_chunks_organization_idx").on(table.orgId),
     // endpoint 级检索 / 上下文扩展
     index("knowledge_chunks_endpoint_idx").on(table.endpointId),
     // 精排后按 parent 加载上下文（L3 → L2）

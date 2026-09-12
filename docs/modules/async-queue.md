@@ -13,7 +13,7 @@
 - 结果通过**站内消息通知**触达用户；
 - 队列实现可配置（Postgres / Redis / RabbitMQ / SQS），业务代码零改动。
 
-**分层原则：** 队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `repo_tasks`）持久化。`QueueProvider` 本身不做状态查询。
+**分层原则：** 队列只负责**调度与投递**；任务业务状态（进度、结果、错误）由业务任务表（如 `repository_tasks`）持久化。`QueueProvider` 本身不做状态查询。
 
 ---
 
@@ -42,12 +42,12 @@ export interface QueueProvider {
 
 **实现清单：**
 
-| Provider | 说明 | 适用场景 |
-| --- | --- | --- |
-| `PgQueueProvider` | Postgres 队列（V0 默认） | 本地开发 / 单实例，零新基础设施 |
-| `BullmqQueueProvider` | BullMQ + Redis | 生产多实例 / 大流量 |
-| `RabbitmqQueueProvider` / `SqsQueueProvider` | 复用已有基础设施 | 已有 RabbitMQ / AWS SQS |
-| `InMemoryQueueProvider` | 进程内队列（不持久化） | 单元测试 |
+| Provider                                     | 说明                     | 适用场景                        |
+| -------------------------------------------- | ------------------------ | ------------------------------- |
+| `PgQueueProvider`                            | Postgres 队列（V0 默认） | 本地开发 / 单实例，零新基础设施 |
+| `BullmqQueueProvider`                        | BullMQ + Redis           | 生产多实例 / 大流量             |
+| `RabbitmqQueueProvider` / `SqsQueueProvider` | 复用已有基础设施         | 已有 RabbitMQ / AWS SQS         |
+| `InMemoryQueueProvider`                      | 进程内队列（不持久化）   | 单元测试                        |
 
 ---
 
@@ -57,20 +57,20 @@ export interface QueueProvider {
 
 ### 2.1 表 `impl_queue_jobs`
 
-> **命名约定**：`impl_` 前缀标记"某个具体实现方案（Implementation）专属的表"。`impl_queue_jobs` 是 Postgres 作为队列的临时方案表——将来切换到 BullMQ/Redis 后可整体废弃；业务任务表（`repo_tasks` / `notifications`）不加此前缀。
+> **命名约定**：`impl_` 前缀标记"某个具体实现方案（Implementation）专属的表"。`impl_queue_jobs` 是 Postgres 作为队列的临时方案表——将来切换到 BullMQ/Redis 后可整体废弃；业务任务表（`repository_tasks` / `notifications`）不加此前缀。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | text PK | job id（`job_` 前缀短 ID） |
-| `queue_name` | varchar | 队列名（如 `openapi.import`） |
-| `name` | varchar | 任务名 |
-| `data` | jsonb | 任务 payload（业务数据先持久化，如 Spec 落盘路径） |
-| `status` | queued / running / completed / failed | 状态 |
-| `attempts` | int | 执行次数 |
-| `error` | text | 失败原因 |
-| `available_at` | timestamptz | 最早可执行时间（预留延迟） |
-| `started_at` / `finished_at` | timestamptz | 执行打点 |
-| `created_at` / `updated_at` | timestamptz | 时间戳 |
+| 字段                         | 类型                                  | 说明                                               |
+| ---------------------------- | ------------------------------------- | -------------------------------------------------- |
+| `id`                         | text PK                               | job id（`job_` 前缀短 ID）                         |
+| `queue_name`                 | varchar                               | 队列名（如 `openapi.import`）                      |
+| `name`                       | varchar                               | 任务名                                             |
+| `data`                       | jsonb                                 | 任务 payload（业务数据先持久化，如 Spec 落盘路径） |
+| `status`                     | queued / running / completed / failed | 状态                                               |
+| `attempts`                   | int                                   | 执行次数                                           |
+| `error`                      | text                                  | 失败原因                                           |
+| `available_at`               | timestamptz                           | 最早可执行时间（预留延迟）                         |
+| `started_at` / `finished_at` | timestamptz                           | 执行打点                                           |
+| `created_at` / `updated_at`  | timestamptz                           | 时间戳                                             |
 
 索引：`(status, available_at)`。
 
@@ -99,12 +99,12 @@ queue:
   provider: postgres
 ```
 
-| 场景 | 配置 | 说明 |
-| --- | --- | --- |
-| 本地开发 / 单实例（V0 默认） | `queue.provider: postgres` | 复用现有 PG，无新基础设施 |
-| 生产多实例 / 大流量 | `queue.provider: bullmq` | BullMQ + Redis |
-| 已有 RabbitMQ / SQS | `queue.provider: rabbitmq \| sqs` | 对应适配器 |
-| 单元测试 | `queue.provider: memory` | `InMemoryQueueProvider` |
+| 场景                         | 配置                              | 说明                      |
+| ---------------------------- | --------------------------------- | ------------------------- |
+| 本地开发 / 单实例（V0 默认） | `queue.provider: postgres`        | 复用现有 PG，无新基础设施 |
+| 生产多实例 / 大流量          | `queue.provider: bullmq`          | BullMQ + Redis            |
+| 已有 RabbitMQ / SQS          | `queue.provider: rabbitmq \| sqs` | 对应适配器                |
+| 单元测试                     | `queue.provider: memory`          | `InMemoryQueueProvider`   |
 
 切换实现只改配置 + 注册对应工厂；业务任务表始终是事实源，UI 与业务代码零改动。
 
@@ -120,47 +120,47 @@ queue:
 
 ### 4.1 `notifications` 表
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | text PK | 通知 ID（`noti_` 前缀短 ID） |
-| `user_id` | text FK | 接收人 |
-| `category` | varchar | 业务分类：`import` / `context` / `key` / `mcp` / `system`（前端分组与过滤） |
-| `type` | varchar | 事件类型（机器可读）：`import.succeeded`、`import.failed`、`context.ready`… |
-| `priority` | varchar | `high` / `medium` / `low`（排序 + 视觉强调） |
-| `title_key` | varchar | i18n key（如 `notifications.import.succeeded`），**不存渲染后文案** |
-| `title_params` | jsonb | i18n 插值参数（`{ repoName, version }`） |
-| `payload` | jsonb | 跳转与上下文：`{ href, repoId, versionId, taskId }` |
-| `metadata` | jsonb | 扩展元数据（`orgId`、`sourceTaskId` 等） |
-| `read_at` | timestamptz null | 已读时间 |
-| `expires_at` | timestamptz null | 过期时间（可选，防止通知无限堆积） |
-| `created_at` | timestamptz | 创建时间 |
+| 字段           | 类型             | 说明                                                                        |
+| -------------- | ---------------- | --------------------------------------------------------------------------- |
+| `id`           | text PK          | 通知 ID（`noti_` 前缀短 ID）                                                |
+| `user_id`      | text FK          | 接收人                                                                      |
+| `category`     | varchar          | 业务分类：`import` / `context` / `key` / `mcp` / `system`（前端分组与过滤） |
+| `type`         | varchar          | 事件类型（机器可读）：`import.succeeded`、`import.failed`、`context.ready`… |
+| `priority`     | varchar          | `high` / `medium` / `low`（排序 + 视觉强调）                                |
+| `title_key`    | varchar          | i18n key（如 `notifications.import.succeeded`），**不存渲染后文案**         |
+| `title_params` | jsonb            | i18n 插值参数（`{ repoName, version }`）                                    |
+| `payload`      | jsonb            | 跳转与上下文：`{ href, repoId, versionId, taskId }`                         |
+| `metadata`     | jsonb            | 扩展元数据（`orgId`、`sourceTaskId` 等）                                    |
+| `read_at`      | timestamptz null | 已读时间                                                                    |
+| `expires_at`   | timestamptz null | 过期时间（可选，防止通知无限堆积）                                          |
+| `created_at`   | timestamptz      | 创建时间                                                                    |
 
 索引：`(user_id, read_at)` 未读角标；`(user_id, category, created_at)` 分组列表。
 
 ### 4.2 类型注册表（示例）
 
-| category | type | priority | 触发场景 |
-| --- | --- | --- | --- |
-| `import` | `import.succeeded` | medium | OpenAPI 导入成功（跳转新版本） |
-| `import` | `import.failed` | high | OpenAPI 导入失败（可重试） |
-| `context` | `context.ready` | medium | 业务上下文生成完成 |
-| `context` | `context.failed` | high | 业务上下文生成失败 |
-| `key` | `key.created` | low | 新密钥创建 |
-| `key` | `key.expiring` | high | 密钥即将过期 |
-| `mcp` | `mcp.disabled` | high | MCP 被关闭（Agent 将不可访问） |
-| `system` | `system.announcement` | low | 平台公告 |
+| category  | type                  | priority | 触发场景                       |
+| --------- | --------------------- | -------- | ------------------------------ |
+| `import`  | `import.succeeded`    | medium   | OpenAPI 导入成功（跳转新版本） |
+| `import`  | `import.failed`       | high     | OpenAPI 导入失败（可重试）     |
+| `context` | `context.ready`       | medium   | 业务上下文生成完成             |
+| `context` | `context.failed`      | high     | 业务上下文生成失败             |
+| `key`     | `key.created`         | low      | 新密钥创建                     |
+| `key`     | `key.expiring`        | high     | 密钥即将过期                   |
+| `mcp`     | `mcp.disabled`        | high     | MCP 被关闭（Agent 将不可访问） |
+| `system`  | `system.announcement` | low      | 平台公告                       |
 
 新类型只需注册 i18n key + 跳转路由，通知服务与前端无需改动。
 
 ### 4.3 API 契约
 
-| 接口 | 说明 |
-| --- | --- |
+| 接口                                                    | 说明                                               |
+| ------------------------------------------------------- | -------------------------------------------------- |
 | `GET /api/notifications?category=&unread=true&limit=50` | 列表，默认按 `priority desc, created_at desc` 排序 |
-| `GET /api/notifications/unread-count` | 未读角标数 |
-| `POST /api/notifications/:id/read` | 标记已读 |
-| `POST /api/notifications/read-all` | 全部已读 |
-| （V1）`GET /api/notifications/stream` | SSE 实时推送 |
+| `GET /api/notifications/unread-count`                   | 未读角标数                                         |
+| `POST /api/notifications/:id/read`                      | 标记已读                                           |
+| `POST /api/notifications/read-all`                      | 全部已读                                           |
+| （V1）`GET /api/notifications/stream`                   | SSE 实时推送                                       |
 
 ### 4.4 前端呈现
 
@@ -188,25 +188,25 @@ V0 以同步接口 + 日志打点（`openapi.import.*`，含分段耗时与结�
 - 进度与结果通过**顶栏消息通知** + **仓库状态徽章**可见；
 - 失败可一键重试，无需重新上传文件。
 
-### 5.2 `repo_tasks`（统一任务表，业务事实源）
+### 5.2 `repository_tasks`（统一任务表，业务事实源）
 
-导入与业务上下文生成共用一张 `repo_tasks`，用 `task_type` 区分；类型专属字段放 `payload` / `result` jsonb，通用状态列（status/progress/error/attempts/时间戳）共用。
+导入与业务上下文生成共用一张 `repository_tasks`，用 `task_type` 区分；类型专属字段放 `payload` / `result` jsonb，通用状态列（status/progress/error/attempts/时间戳）共用。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | text PK | 任务 ID（对外即 `taskId`） |
-| `job_id` | text | 关联 `impl_queue_jobs`（调度投递） |
-| `repo_id` / `user_id` | text FK | 归属仓库与发起人 |
-| `task_type` | varchar | `import` / `context` / `vectorize` / … |
-| `status` | queued / running / succeeded / failed | 状态机 |
-| `progress` | int | 0-100，供进度条展示 |
-| `payload` | jsonb | 类型专属入参（import→`{specPath}`；context→`{trigger,endpointIds,force}`） |
-| `result` | jsonb | 类型专属结果（import→stats/issues/nextVersion；context→reused/generated/failed 统计） |
-| `version_id` | text | import→产出版本；context→目标版本 |
-| `depends_on` | text | 同一 repo 的前置任务 id（顺序依赖） |
-| `error` | text | 失败原因 |
-| `attempts` | int | 重试次数 |
-| `enqueued_at` / `started_at` / `finished_at` | timestamptz | 打点用 |
+| 字段                                         | 类型                                  | 说明                                                                                  |
+| -------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
+| `id`                                         | text PK                               | 任务 ID（对外即 `taskId`）                                                            |
+| `job_id`                                     | text                                  | 关联 `impl_queue_jobs`（调度投递）                                                    |
+| `repository_id` / `user_id`                  | text FK                               | 归属仓库与发起人                                                                      |
+| `task_type`                                  | varchar                               | `import` / `context` / `vectorize` / …                                                |
+| `status`                                     | queued / running / succeeded / failed | 状态机                                                                                |
+| `progress`                                   | int                                   | 0-100，供进度条展示                                                                   |
+| `payload`                                    | jsonb                                 | 类型专属入参（import→`{specPath}`；context→`{trigger,endpointIds,force}`）            |
+| `result`                                     | jsonb                                 | 类型专属结果（import→stats/issues/nextVersion；context→reused/generated/failed 统计） |
+| `version_id`                                 | text                                  | import→产出版本；context→目标版本                                                     |
+| `depends_on`                                 | text                                  | 同一 repo 的前置任务 id（顺序依赖）                                                   |
+| `error`                                      | text                                  | 失败原因                                                                              |
+| `attempts`                                   | int                                   | 重试次数                                                                              |
+| `enqueued_at` / `started_at` / `finished_at` | timestamptz                           | 打点用                                                                                |
 
 > 导入任务的 `spec_path` 存于 `payload`；提交时 Spec 原文已落盘，Worker 不依赖请求体。
 > 任务结果通过**通用通知**触达用户（category=`import` / `context`，见 §4），通知服务与前端不感知任务细节。
@@ -220,7 +220,7 @@ queued → running → succeeded
 
 ```mermaid
 flowchart LR
-  A[POST /api/repos/:id/versions → 202 + taskId] --> B[事务: Spec 落盘 + 写 repo_tasks(import) queued + 入队]
+  A[POST /api/repos/:id/versions → 202 + taskId] --> B[事务: Spec 落盘 + 写 repository_tasks(import) queued + 入队]
   B --> C[Worker 抢占任务: FOR UPDATE SKIP LOCKED]
   C --> D[解析 → 计算版本号 → 快照落库 → 切换 current_version_id]
   D --> E[写通知 NotificationService + operation_logs]
@@ -239,11 +239,11 @@ flowchart LR
 
 保持接口兼容（UX 稿 §4.4.1）：
 
-| 接口 | 说明 |
-| --- | --- |
-| `POST /api/repos/:id/versions` | 提交导入，`202 Accepted` + `{ taskId, status: "queued" }`；同一 repo 已有 queued/running 任务时返回 `409`（防重复导入） |
-| `GET /api/repos/:id/import-tasks/:taskId` | 查询任务状态/进度/结果（前端轮询，2s 间隔） |
-| `POST /api/repos/:id/import-tasks/:taskId/retry` | 复用 `spec_path` 重新入队（失败重试，不要求重新上传） |
+| 接口                                             | 说明                                                                                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/repos/:id/versions`                   | 提交导入，`202 Accepted` + `{ taskId, status: "queued" }`；同一 repo 已有 queued/running 任务时返回 `409`（防重复导入） |
+| `GET /api/repos/:id/import-tasks/:taskId`        | 查询任务状态/进度/结果（前端轮询，2s 间隔）                                                                             |
+| `POST /api/repos/:id/import-tasks/:taskId/retry` | 复用 `spec_path` 重新入队（失败重试，不要求重新上传）                                                                   |
 
 通知相关接口（列表 / 未读角标 / 已读）见 §4.3。
 
@@ -257,19 +257,19 @@ flowchart LR
 
 ## 6. 边界情况
 
-| 场景 | 处理 |
-| --- | --- |
+| 场景     | 处理                                                            |
+| -------- | --------------------------------------------------------------- |
 | 重复提交 | repo 已有 queued/running 任务 → `409`，前端提示"已有导入进行中" |
-| 失败重试 | 复用 `spec_path` 重新入队，不要求用户重新上传 |
-| 并发安全 | `FOR UPDATE SKIP LOCKED` 保证同一任务只被一个 Worker 执行 |
-| 进程重启 | 遗留 `running` → `failed(interrupted)`，保留手动重试 |
-| 大文件 | 提交即落盘，Worker 从磁盘读取，不占内存 |
+| 失败重试 | 复用 `spec_path` 重新入队，不要求用户重新上传                   |
+| 并发安全 | `FOR UPDATE SKIP LOCKED` 保证同一任务只被一个 Worker 执行       |
+| 进程重启 | 遗留 `running` → `failed(interrupted)`，保留手动重试            |
+| 大文件   | 提交即落盘，Worker 从磁盘读取，不占内存                         |
 
 ---
 
 ## 7. 实施顺序
 
-1. drizzle 迁移：`impl_queue_jobs` + `repo_tasks` + `notifications`（通用表，含 category / priority / title_key / title_params）；
+1. drizzle 迁移：`impl_queue_jobs` + `repository_tasks` + `notifications`（通用表，含 category / priority / title_key / title_params）；
 2. `packages/server`：`PgQueueProvider` + `NotificationService` + 导入执行器 + Worker 入口；
 3. API 路由：提交（202）/ 任务状态 / 通知（列表、未读数、已读）/ 重试；
 4. 前端：导入对话框进度、顶栏铃铛（分组 + 优先级）、仓库状态徽章；

@@ -8,7 +8,7 @@
 
 知识检索层核心模块。根据 API ID 聚合多方数据源，返回完整 API 知识卡片。本质是 SQL JOIN + 数据拼装，不涉及语言理解。
 
-**知识卡片 = Repository 技术模型 + 能力上下文（repo 级）+ 使用上下文（project 级）。** API 属于某个 Repository（`repo_id`），能力上下文每个仓库一份；使用上下文挂在 Project（`project_id`）上、按 `(project, repo)` 各存一份——同一 API 在不同 Project 中的使用部分可不同。
+**知识卡片 = Repository 技术模型 + 能力上下文（repo 级）+ 使用上下文（project 级）。** API 属于某个 Repository（`repository_id`），能力上下文每个仓库一份；使用上下文挂在 Project（`project_id`）上、按 `(project, repo)` 各存一份——同一 API 在不同 Project 中的使用部分可不同。
 
 ## 输入
 
@@ -24,7 +24,7 @@
 ```typescript
 interface APIKnowledgeCard {
   api_id: string;
-  repo_id: string;
+  repository_id: string;
   project_id: string;
 
   // 基础信息

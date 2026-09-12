@@ -14,11 +14,11 @@
 
 核心决策（已确认）：
 
-| 决策点 | 结论 |
-| --- | --- |
-| 触发方式 | 自动触发**默认关闭**（`businessContext.autoGenerate: false`）；手动触发始终可用 |
-| 版本复用 | 技术指纹相同（接口未变更）时复用上一版上下文，不重复调用 LLM |
-| UI 形态 | **全局对话框**（URL 驱动 + 命令式 API），从概览/接口列表/详情/通知等入口携带参数打开；`repos/[id]/context` 保留为聚合管理列表 |
+| 决策点   | 结论                                                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 触发方式 | 自动触发**默认关闭**（`businessContext.autoGenerate: false`）；手动触发始终可用                                               |
+| 版本复用 | 技术指纹相同（接口未变更）时复用上一版上下文，不重复调用 LLM                                                                  |
+| UI 形态  | **全局对话框**（URL 驱动 + 命令式 API），从概览/接口列表/详情/通知等入口携带参数打开；`repos/[id]/context` 保留为聚合管理列表 |
 
 ---
 
@@ -28,51 +28,51 @@
 
 现有字段：
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | text PK | `ctx_` 前缀 |
-| `endpoint_id` / `version_id` | text | 唯一索引 `(endpoint_id, version_id)` |
-| `capability_name` | varchar | 能力名称，如"订单退款" |
-| `intent` | text | 能力意图 |
-| `constraints` | jsonb | 结构化约束数组 |
-| `side_effects` | text | 副作用（**建议迁移为 jsonb 数组**，与 constraints/usage_scenarios 一致） |
-| `usage_scenarios` | jsonb | 使用场景数组 |
-| `generated_by` | varchar | ai / human / reused |
-| `generated_at` / `updated_at` | timestamptz | 时间戳 |
+| 字段                          | 类型        | 说明                                                                     |
+| ----------------------------- | ----------- | ------------------------------------------------------------------------ |
+| `id`                          | text PK     | `ctx_` 前缀                                                              |
+| `endpoint_id` / `version_id`  | text        | 唯一索引 `(endpoint_id, version_id)`                                     |
+| `capability_name`             | varchar     | 能力名称，如"订单退款"                                                   |
+| `intent`                      | text        | 能力意图                                                                 |
+| `constraints`                 | jsonb       | 结构化约束数组                                                           |
+| `side_effects`                | text        | 副作用（**建议迁移为 jsonb 数组**，与 constraints/usage_scenarios 一致） |
+| `usage_scenarios`             | jsonb       | 使用场景数组                                                             |
+| `generated_by`                | varchar     | ai / human / reused                                                      |
+| `generated_at` / `updated_at` | timestamptz | 时间戳                                                                   |
 
 迁移补列：
 
-| 新字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `confidence` | numeric | 自动推断置信度 0-1；人工编辑后置 1 |
-| `needs_review` | boolean | 默认 false；`confidence < minConfidence` 时 true |
-| `edited_by_human` | boolean | 人工编辑标记，默认 false |
-| `edited_at` | timestamptz | 最近一次人工编辑时间 |
-| `source_context_id` | text | 版本复用时指向上一版 context 行（快照溯源） |
-| `fingerprint` | varchar | 生成时接口的技术指纹（见 §2），用于复用比对 |
+| 新字段              | 类型        | 说明                                             |
+| ------------------- | ----------- | ------------------------------------------------ |
+| `confidence`        | numeric     | 自动推断置信度 0-1；人工编辑后置 1               |
+| `needs_review`      | boolean     | 默认 false；`confidence < minConfidence` 时 true |
+| `edited_by_human`   | boolean     | 人工编辑标记，默认 false                         |
+| `edited_at`         | timestamptz | 最近一次人工编辑时间                             |
+| `source_context_id` | text        | 版本复用时指向上一版 context 行（快照溯源）      |
+| `fingerprint`       | varchar     | 生成时接口的技术指纹（见 §2），用于复用比对      |
 
-### 1.2 `repo_tasks` — 统一任务表（import / context 共用）
+### 1.2 `repository_tasks` — 统一任务表（import / context 共用）
 
-生成任务不新建表，与导入共用 `repo_tasks`（`task_type = "context"`）；调度投递仍走 `impl_queue_jobs`。
+生成任务不新建表，与导入共用 `repository_tasks`（`task_type = "context"`）；调度投递仍走 `impl_queue_jobs`。
 类型专属字段放 `payload` / `result` jsonb，通用状态列共用：
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | text PK | `task_` 前缀 |
-| `job_id` | text | 关联 `impl_queue_jobs`，入队后回填 |
-| `repo_id` / `version_id` | text | 针对哪个仓库、哪个版本生成 |
-| `user_id` | text | 触发者（自动触发时为导入用户） |
-| `task_type` | varchar | `import` / `context` / … |
-| `status` | varchar | queued / running / succeeded / failed |
-| `progress` | int | 0-100，按已处理接口数 |
-| `payload` | jsonb | `{ trigger: auto\|manual, endpointIds?, force? }` |
-| `result` | jsonb | 统计：`{ total, processed, reused, generated, failed }` |
-| `depends_on` | text | 自动触发时指向导入任务 id |
-| `error` | text | 不可恢复错误 |
-| `attempts` | int | 重试次数 |
-| `enqueued_at` / `started_at` / `finished_at` | timestamptz | 执行打点 |
+| 字段                                         | 类型        | 说明                                                    |
+| -------------------------------------------- | ----------- | ------------------------------------------------------- |
+| `id`                                         | text PK     | `task_` 前缀                                            |
+| `job_id`                                     | text        | 关联 `impl_queue_jobs`，入队后回填                      |
+| `repository_id` / `version_id`               | text        | 针对哪个仓库、哪个版本生成                              |
+| `user_id`                                    | text        | 触发者（自动触发时为导入用户）                          |
+| `task_type`                                  | varchar     | `import` / `context` / …                                |
+| `status`                                     | varchar     | queued / running / succeeded / failed                   |
+| `progress`                                   | int         | 0-100，按已处理接口数                                   |
+| `payload`                                    | jsonb       | `{ trigger: auto\|manual, endpointIds?, force? }`       |
+| `result`                                     | jsonb       | 统计：`{ total, processed, reused, generated, failed }` |
+| `depends_on`                                 | text        | 自动触发时指向导入任务 id                               |
+| `error`                                      | text        | 不可恢复错误                                            |
+| `attempts`                                   | int         | 重试次数                                                |
+| `enqueued_at` / `started_at` / `finished_at` | timestamptz | 执行打点                                                |
 
-索引：`(repo_id, status)`、`(user_id, created_at desc)`、`(task_type, status)`。
+索引：`(repository_id, status)`、`(user_id, created_at desc)`、`(task_type, status)`。
 
 > 未来向量化 / 变更分析等版本级任务沿用同一张表：新增 `task_type` + payload/result 解析即可，不建新表（依赖用 `depends_on` 表达）。
 
@@ -133,7 +133,7 @@ operationId（存在时）+ method + path
 
 ### 3.1 触发
 
-- **自动**：`businessContext.autoGenerate: true` 时，OpenAPI 导入成功后自动创建 `repo_tasks`（`task_type=context`、`trigger: auto`、`depends_on` 指向导入任务），不阻塞导入；失败不影响导入结果，通过通知提示；
+- **自动**：`businessContext.autoGenerate: true` 时，OpenAPI 导入成功后自动创建 `repository_tasks`（`task_type=context`、`trigger: auto`、`depends_on` 指向导入任务），不阻塞导入；失败不影响导入结果，通过通知提示；
 - **手动**：概览卡片"重新生成"、接口列表/详情操作、对话框内"生成/重新生成"，均可创建任务（`trigger: manual`）。
 
 ### 3.2 LLM 输出结构（结构化输出）
@@ -178,17 +178,17 @@ operationId（存在时）+ method + path
 ```yaml
 # apigent.config.yaml — 新增 businessContext 段
 llm:
-  provider: qwen          # 复用现有 LLM 配置
+  provider: qwen # 复用现有 LLM 配置
   models:
     business_context: qwen3.7-plus
 
 businessContext:
-  autoGenerate: false     # 默认关闭：导入后不自动生成，手动触发始终可用
-  batchSize: 5            # 每批接口数
-  concurrency: 2          # 并行批数
-  minConfidence: 0.6      # 低于此值 needs_review = true
-  language: auto          # auto（跟随 spec 描述语言）| zh | en
-  skipHumanEdited: true   # 重新生成时跳过人工编辑过的接口
+  autoGenerate: false # 默认关闭：导入后不自动生成，手动触发始终可用
+  batchSize: 5 # 每批接口数
+  concurrency: 2 # 并行批数
+  minConfidence: 0.6 # 低于此值 needs_review = true
+  language: auto # auto（跟随 spec 描述语言）| zh | en
+  skipHumanEdited: true # 重新生成时跳过人工编辑过的接口
 ```
 
 对应类型与 schema：`packages/core/src/config/types.ts` / `schema.ts` 新增 `BusinessContextConfig`，随配置文档与 example 同步更新。
@@ -197,16 +197,16 @@ businessContext:
 
 ## 5. API 契约
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/repos/:repoId/contexts/generate` | 手动触发；body `{ endpointIds?: string[], force?: boolean }`，空数组 = 全仓库；返回 202 `{ task }` |
-| GET | `/api/repos/:repoId/context-tasks/latest` | 最近任务（前端轮询，2s） |
-| GET | `/api/repos/:repoId/context-tasks/:taskId` | 任务状态/进度/统计 |
-| POST | `/api/repos/:repoId/context-tasks/:taskId/retry` | 重试失败接口（或全量，`force` 覆盖人工编辑） |
-| GET | `/api/repos/:repoId/contexts?status=&endpointId=` | endpoint context 列表（含接口信息 + 状态徽章所需字段） |
-| GET | `/api/repos/:repoId/contexts/:endpointId` | 单接口详情（技术信息 + context） |
-| PUT | `/api/repos/:repoId/contexts/:endpointId` | 保存人工编辑，`edited_by_human = true`、`confidence = 1`、`needs_review = false` |
-| POST | `/api/repos/:repoId/contexts/:endpointId/generate` | 单接口生成（复用同一任务机制） |
+| 方法 | 路径                                               | 说明                                                                                               |
+| ---- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| POST | `/api/repos/:repoId/contexts/generate`             | 手动触发；body `{ endpointIds?: string[], force?: boolean }`，空数组 = 全仓库；返回 202 `{ task }` |
+| GET  | `/api/repos/:repoId/context-tasks/latest`          | 最近任务（前端轮询，2s）                                                                           |
+| GET  | `/api/repos/:repoId/context-tasks/:taskId`         | 任务状态/进度/统计                                                                                 |
+| POST | `/api/repos/:repoId/context-tasks/:taskId/retry`   | 重试失败接口（或全量，`force` 覆盖人工编辑）                                                       |
+| GET  | `/api/repos/:repoId/contexts?status=&endpointId=`  | endpoint context 列表（含接口信息 + 状态徽章所需字段）                                             |
+| GET  | `/api/repos/:repoId/contexts/:endpointId`          | 单接口详情（技术信息 + context）                                                                   |
+| PUT  | `/api/repos/:repoId/contexts/:endpointId`          | 保存人工编辑，`edited_by_human = true`、`confidence = 1`、`needs_review = false`                   |
+| POST | `/api/repos/:repoId/contexts/:endpointId/generate` | 单接口生成（复用同一任务机制）                                                                     |
 
 复用导入的**重复任务保护**：同仓库存在 running/queued 的 context 任务时返回 409。
 
@@ -230,13 +230,13 @@ businessContext:
 
 ### 6.3 入口（携带参数打开）
 
-| 入口 | 参数 |
-| --- | --- |
-| repo overview 能力卡片 | repo 级聚合视图，可切换接口 |
-| 接口列表每行（操作菜单） | 直接定位 endpoint |
-| endpoint 详情面板操作按钮 | 直接定位 endpoint |
+| 入口                                           | 参数                              |
+| ---------------------------------------------- | --------------------------------- |
+| repo overview 能力卡片                         | repo 级聚合视图，可切换接口       |
+| 接口列表每行（操作菜单）                       | 直接定位 endpoint                 |
+| endpoint 详情面板操作按钮                      | 直接定位 endpoint                 |
 | 通知（`context.ready` / `context.failed`）点击 | 定位 repo（含失败任务时定位任务） |
-| context 管理页行点击 | 直接定位 endpoint |
+| context 管理页行点击                           | 直接定位 endpoint                 |
 
 ### 6.4 context 管理页（保留 `repos/[id]/context`）
 
@@ -248,26 +248,26 @@ businessContext:
 
 复用通用通知（category `context`，已有）：
 
-| type | priority | payload | 文案 |
-| --- | --- | --- | --- |
-| `context.ready` | medium | `{ repoId, versionId, generatedCount, reusedCount, failedCount }` | 业务上下文生成完成（含失败数时提示部分失败） |
-| `context.failed` | high | `{ repoId, taskId, error }` | 生成失败，可重试 |
+| type             | priority | payload                                                           | 文案                                         |
+| ---------------- | -------- | ----------------------------------------------------------------- | -------------------------------------------- |
+| `context.ready`  | medium   | `{ repoId, versionId, generatedCount, reusedCount, failedCount }` | 业务上下文生成完成（含失败数时提示部分失败） |
+| `context.failed` | high     | `{ repoId, taskId, error }`                                       | 生成失败，可重试                             |
 
 ---
 
 ## 8. 边界情况
 
-| 场景 | 行为 |
-| --- | --- |
-| 无 operationId | key 用 `method + path` |
-| spec 无 description | 仅基于 path/schema 推断，confidence 低 → needs_review |
-| 非中英文描述 | 按 `language` 配置处理，默认跟随 spec 语言 |
-| 接口删除 | 旧版 context 随版本快照保留，当前聚合不含 |
-| LLM 超时 / JSON 解析失败 | 该接口标记失败，任务可重试（只重试失败接口） |
-| 人工编辑后重新生成 | 默认跳过；`force` 覆盖（前端二次确认） |
-| 首次导入（无上一版） | 无复用，全量生成 |
-| 自动生成失败 | 不阻塞导入；发 `context.failed`，可从仓库页重试 |
-| 同一接口多版本 | 快照语义：每版一行，复用行可溯源（source_context_id） |
+| 场景                     | 行为                                                  |
+| ------------------------ | ----------------------------------------------------- |
+| 无 operationId           | key 用 `method + path`                                |
+| spec 无 description      | 仅基于 path/schema 推断，confidence 低 → needs_review |
+| 非中英文描述             | 按 `language` 配置处理，默认跟随 spec 语言            |
+| 接口删除                 | 旧版 context 随版本快照保留，当前聚合不含             |
+| LLM 超时 / JSON 解析失败 | 该接口标记失败，任务可重试（只重试失败接口）          |
+| 人工编辑后重新生成       | 默认跳过；`force` 覆盖（前端二次确认）                |
+| 首次导入（无上一版）     | 无复用，全量生成                                      |
+| 自动生成失败             | 不阻塞导入；发 `context.failed`，可从仓库页重试       |
+| 同一接口多版本           | 快照语义：每版一行，复用行可溯源（source_context_id） |
 
 ---
 
@@ -275,7 +275,7 @@ businessContext:
 
 1. **配置**：`businessContext.*` 类型 + schema + loader + example（纯数据，无依赖）；
 2. **LLM client 抽象**：`packages/core` 新增 `LLMProvider` 接口 + openai-compatible 实现（覆盖 qwen/gemini/ollama），结构化 JSON 输出——当前只有配置类型，**这是所有 AI 功能的前置依赖**；
-3. **迁移**：`repo_tasks` 统一任务表 + `business_contexts` 补列 + `side_effects` 改 jsonb（已并入 0001）；
+3. **迁移**：`repository_tasks` 统一任务表 + `business_contexts` 补列 + `side_effects` 改 jsonb（已并入 `0000_versioning_init`）；
 4. **server**：context 服务（创建/查询/重试、指纹复用分析、聚合快照）+ worker（分批 LLM 执行）；
 5. **API 路由**（§5）；接入通知（§7）；
 6. **UI**：全局对话框 + 各入口 + context 管理页改造；

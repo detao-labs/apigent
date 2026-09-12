@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { deleteVersionEntity, getDefaultVersionId, VersionNotFoundError } from "@apigent/server/versions";
+import {
+  deleteVersionEntity,
+  getDefaultVersionId,
+  VersionNotFoundError,
+} from "@apigent/server/versions";
 import { assertRepoAccess, ForbiddenError } from "@apigent/server/authz";
 import { withRoute } from "@/lib/route";
 
@@ -13,7 +17,7 @@ export const DELETE = withRoute({ auth: true }, async ({ request, params, user }
   }
 
   try {
-    await assertRepoAccess(user.id, id, "repo_editor");
+    await assertRepoAccess(user.id, id, "repo_member");
     const result = await deleteVersionEntity(id, versionId, entityId);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {

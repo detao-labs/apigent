@@ -1,3 +1,6 @@
+-- pgvector 是知识库检索（knowledge_chunks.embedding vector(1024) + HNSW 索引）
+-- 的前置依赖。放在最前面，保证全新环境从零跑迁移也能成功。
+CREATE EXTENSION IF NOT EXISTS vector;--> statement-breakpoint
 CREATE TABLE "business_contexts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"entity_type" varchar(20) DEFAULT 'endpoint' NOT NULL,
@@ -22,7 +25,7 @@ CREATE TABLE "business_contexts" (
 --> statement-breakpoint
 CREATE TABLE "components" (
 	"id" text PRIMARY KEY NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"content_hash" text NOT NULL,
 	"kind" varchar(30) NOT NULL,
 	"name" varchar(255) NOT NULL,
@@ -35,7 +38,7 @@ CREATE TABLE "components" (
 --> statement-breakpoint
 CREATE TABLE "data_models" (
 	"id" text PRIMARY KEY NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"content_hash" text NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"schema_type" varchar(50),
@@ -49,13 +52,13 @@ CREATE TABLE "endpoint_relationships" (
 	"source_endpoint_id" text NOT NULL,
 	"target_endpoint_id" text NOT NULL,
 	"relation_type" varchar(50) NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"version_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "endpoint_responses" (
 	"id" text PRIMARY KEY NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"endpoint_id" text NOT NULL,
 	"resp_hash" text NOT NULL,
 	"status_code" varchar(3) NOT NULL,
@@ -69,7 +72,7 @@ CREATE TABLE "endpoint_responses" (
 --> statement-breakpoint
 CREATE TABLE "endpoints" (
 	"id" text PRIMARY KEY NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"content_hash" text NOT NULL,
 	"identity_key" text NOT NULL,
 	"operation_id" varchar(255),
@@ -104,8 +107,8 @@ CREATE TABLE "impl_queue_jobs" (
 --> statement-breakpoint
 CREATE TABLE "knowledge_chunks" (
 	"id" text PRIMARY KEY NOT NULL,
-	"org_id" text NOT NULL,
-	"repo_id" text NOT NULL,
+	"organization_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"version_id" text,
 	"endpoint_id" text,
 	"parent_id" text,
@@ -158,8 +161,8 @@ CREATE TABLE "operation_log_details" (
 --> statement-breakpoint
 CREATE TABLE "operation_logs" (
 	"id" text PRIMARY KEY NOT NULL,
-	"org_id" text,
-	"repo_id" text,
+	"organization_id" text,
+	"repository_id" text,
 	"actor_id" text,
 	"operation_type" varchar(50) NOT NULL,
 	"resource_type" varchar(50) NOT NULL,
@@ -170,10 +173,10 @@ CREATE TABLE "operation_logs" (
 --> statement-breakpoint
 CREATE TABLE "organization_members" (
 	"user_id" text NOT NULL,
-	"org_id" text NOT NULL,
+	"organization_id" text NOT NULL,
 	"role" varchar(50) NOT NULL,
 	"joined_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "organization_members_user_id_org_id_pk" PRIMARY KEY("user_id","org_id")
+	CONSTRAINT "organization_members_user_id_organization_id_pk" PRIMARY KEY("user_id","organization_id")
 );
 --> statement-breakpoint
 CREATE TABLE "organizations" (
@@ -185,18 +188,30 @@ CREATE TABLE "organizations" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "repo_permissions" (
-	"user_id" text NOT NULL,
-	"repo_id" text NOT NULL,
-	"role" varchar(50) NOT NULL,
-	"granted_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "repo_permissions_user_id_repo_id_pk" PRIMARY KEY("user_id","repo_id")
+CREATE TABLE "repositories" (
+	"id" text PRIMARY KEY NOT NULL,
+	"organization_id" text NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"description" text,
+	"capability_context" jsonb DEFAULT '{}'::jsonb,
+	"mcp_enabled" boolean DEFAULT false,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "repo_tasks" (
+CREATE TABLE "repository_members" (
+	"repository_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"role" varchar(50) NOT NULL,
+	"granted_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"granted_by" text,
+	CONSTRAINT "repository_members_repository_id_user_id_pk" PRIMARY KEY("repository_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "repository_tasks" (
 	"id" text PRIMARY KEY NOT NULL,
 	"job_id" text,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"version_id" text,
 	"user_id" text NOT NULL,
 	"task_type" varchar(30) NOT NULL,
@@ -210,17 +225,6 @@ CREATE TABLE "repo_tasks" (
 	"enqueued_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"started_at" timestamp with time zone,
 	"finished_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "repositories" (
-	"id" text PRIMARY KEY NOT NULL,
-	"org_id" text NOT NULL,
-	"name" varchar(255) NOT NULL,
-	"description" text,
-	"capability_context" jsonb DEFAULT '{}'::jsonb,
-	"mcp_enabled" boolean DEFAULT false,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -253,7 +257,7 @@ CREATE TABLE "users" (
 --> statement-breakpoint
 CREATE TABLE "version_commits" (
 	"id" text PRIMARY KEY NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"version_id" text NOT NULL,
 	"parent_commit_id" text,
 	"label" text,
@@ -279,7 +283,7 @@ CREATE TABLE "version_entity_links" (
 --> statement-breakpoint
 CREATE TABLE "versions" (
 	"id" text PRIMARY KEY NOT NULL,
-	"repo_id" text NOT NULL,
+	"repository_id" text NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"parent_version_id" text,
 	"head_commit_id" text,
@@ -289,17 +293,17 @@ CREATE TABLE "versions" (
 --> statement-breakpoint
 ALTER TABLE "business_contexts" ADD CONSTRAINT "business_contexts_endpoint_id_endpoints_id_fk" FOREIGN KEY ("endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_contexts" ADD CONSTRAINT "business_contexts_version_id_version_commits_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."version_commits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "components" ADD CONSTRAINT "components_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "data_models" ADD CONSTRAINT "data_models_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "components" ADD CONSTRAINT "components_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "data_models" ADD CONSTRAINT "data_models_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "endpoint_relationships" ADD CONSTRAINT "endpoint_relationships_source_endpoint_id_endpoints_id_fk" FOREIGN KEY ("source_endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "endpoint_relationships" ADD CONSTRAINT "endpoint_relationships_target_endpoint_id_endpoints_id_fk" FOREIGN KEY ("target_endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "endpoint_relationships" ADD CONSTRAINT "endpoint_relationships_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "endpoint_relationships" ADD CONSTRAINT "endpoint_relationships_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "endpoint_relationships" ADD CONSTRAINT "endpoint_relationships_version_id_version_commits_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."version_commits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "endpoint_responses" ADD CONSTRAINT "endpoint_responses_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "endpoint_responses" ADD CONSTRAINT "endpoint_responses_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "endpoint_responses" ADD CONSTRAINT "endpoint_responses_endpoint_id_endpoints_id_fk" FOREIGN KEY ("endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "endpoints" ADD CONSTRAINT "endpoints_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "endpoints" ADD CONSTRAINT "endpoints_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_version_id_version_commits_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."version_commits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_endpoint_id_endpoints_id_fk" FOREIGN KEY ("endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_parent_id_knowledge_chunks_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."knowledge_chunks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -308,49 +312,51 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fk" F
 ALTER TABLE "operation_log_details" ADD CONSTRAINT "operation_log_details_operation_id_operation_logs_id_fk" FOREIGN KEY ("operation_id") REFERENCES "public"."operation_logs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "operation_log_details" ADD CONSTRAINT "operation_log_details_from_endpoint_id_endpoints_id_fk" FOREIGN KEY ("from_endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "operation_log_details" ADD CONSTRAINT "operation_log_details_to_endpoint_id_endpoints_id_fk" FOREIGN KEY ("to_endpoint_id") REFERENCES "public"."endpoints"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "operation_logs" ADD CONSTRAINT "operation_logs_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "operation_logs" ADD CONSTRAINT "operation_logs_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "operation_logs" ADD CONSTRAINT "operation_logs_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "operation_logs" ADD CONSTRAINT "operation_logs_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "operation_logs" ADD CONSTRAINT "operation_logs_actor_id_users_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "organizations" ADD CONSTRAINT "organizations_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_permissions" ADD CONSTRAINT "repo_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_permissions" ADD CONSTRAINT "repo_permissions_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_job_id_impl_queue_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."impl_queue_jobs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_version_id_version_commits_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."version_commits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_tasks" ADD CONSTRAINT "repo_tasks_depends_on_repo_tasks_id_fk" FOREIGN KEY ("depends_on") REFERENCES "public"."repo_tasks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repositories" ADD CONSTRAINT "repositories_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repositories" ADD CONSTRAINT "repositories_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_members" ADD CONSTRAINT "repository_members_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_members" ADD CONSTRAINT "repository_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_members" ADD CONSTRAINT "repository_members_granted_by_users_id_fk" FOREIGN KEY ("granted_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_tasks" ADD CONSTRAINT "repository_tasks_job_id_impl_queue_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."impl_queue_jobs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_tasks" ADD CONSTRAINT "repository_tasks_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_tasks" ADD CONSTRAINT "repository_tasks_version_id_version_commits_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."version_commits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_tasks" ADD CONSTRAINT "repository_tasks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_tasks" ADD CONSTRAINT "repository_tasks_depends_on_repository_tasks_id_fk" FOREIGN KEY ("depends_on") REFERENCES "public"."repository_tasks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_keys" ADD CONSTRAINT "secret_keys_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "version_commits" ADD CONSTRAINT "version_commits_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "version_commits" ADD CONSTRAINT "version_commits_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "version_commits" ADD CONSTRAINT "version_commits_version_id_versions_id_fk" FOREIGN KEY ("version_id") REFERENCES "public"."versions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "version_entity_links" ADD CONSTRAINT "version_entity_links_commit_id_version_commits_id_fk" FOREIGN KEY ("commit_id") REFERENCES "public"."version_commits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "versions" ADD CONSTRAINT "versions_repo_id_repositories_id_fk" FOREIGN KEY ("repo_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "versions" ADD CONSTRAINT "versions_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "business_contexts_entity_version_idx" ON "business_contexts" USING btree ("entity_type","entity_id","version_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "components_repo_content_hash_idx" ON "components" USING btree ("repo_id","content_hash");--> statement-breakpoint
-CREATE UNIQUE INDEX "data_models_repo_content_hash_idx" ON "data_models" USING btree ("repo_id","content_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "components_repository_content_hash_idx" ON "components" USING btree ("repository_id","content_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "data_models_repository_content_hash_idx" ON "data_models" USING btree ("repository_id","content_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "endpoint_relations_unique_idx" ON "endpoint_relationships" USING btree ("source_endpoint_id","target_endpoint_id","relation_type");--> statement-breakpoint
 CREATE UNIQUE INDEX "endpoint_responses_endpoint_status_content_type_idx" ON "endpoint_responses" USING btree ("endpoint_id","status_code","content_type");--> statement-breakpoint
-CREATE UNIQUE INDEX "endpoints_repo_content_hash_idx" ON "endpoints" USING btree ("repo_id","content_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "endpoints_repository_content_hash_idx" ON "endpoints" USING btree ("repository_id","content_hash");--> statement-breakpoint
 CREATE INDEX "impl_queue_jobs_status_available_idx" ON "impl_queue_jobs" USING btree ("status","available_at");--> statement-breakpoint
 CREATE INDEX "impl_queue_jobs_queue_status_idx" ON "impl_queue_jobs" USING btree ("queue_name","status");--> statement-breakpoint
-CREATE UNIQUE INDEX "knowledge_chunks_repo_key_idx" ON "knowledge_chunks" USING btree ("repo_id","chunk_key");--> statement-breakpoint
-CREATE INDEX "knowledge_chunks_org_idx" ON "knowledge_chunks" USING btree ("org_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "knowledge_chunks_repository_key_idx" ON "knowledge_chunks" USING btree ("repository_id","chunk_key");--> statement-breakpoint
+CREATE INDEX "knowledge_chunks_organization_idx" ON "knowledge_chunks" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_endpoint_idx" ON "knowledge_chunks" USING btree ("endpoint_id");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_parent_idx" ON "knowledge_chunks" USING btree ("parent_id");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_search_vector_gin_idx" ON "knowledge_chunks" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_embedding_hnsw_idx" ON "knowledge_chunks" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
 CREATE INDEX "notifications_user_read_idx" ON "notifications" USING btree ("user_id","read_at");--> statement-breakpoint
 CREATE INDEX "notifications_user_category_idx" ON "notifications" USING btree ("user_id","category","created_at" DESC NULLS LAST);--> statement-breakpoint
-CREATE UNIQUE INDEX "op_log_details_unique_idx" ON "operation_log_details" USING btree ("operation_id","method","path");--> statement-breakpoint
-CREATE INDEX "op_logs_org_type_time_idx" ON "operation_logs" USING btree ("org_id","operation_type","created_at" DESC NULLS LAST);--> statement-breakpoint
-CREATE INDEX "repo_tasks_repo_status_idx" ON "repo_tasks" USING btree ("repo_id","status");--> statement-breakpoint
-CREATE INDEX "repo_tasks_user_idx" ON "repo_tasks" USING btree ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
-CREATE INDEX "repo_tasks_type_status_idx" ON "repo_tasks" USING btree ("task_type","status");--> statement-breakpoint
+CREATE UNIQUE INDEX "operation_log_details_unique_idx" ON "operation_log_details" USING btree ("operation_id","method","path");--> statement-breakpoint
+CREATE INDEX "operation_logs_organization_type_time_idx" ON "operation_logs" USING btree ("organization_id","operation_type","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "repository_members_user_idx" ON "repository_members" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "repository_tasks_repository_status_idx" ON "repository_tasks" USING btree ("repository_id","status");--> statement-breakpoint
+CREATE INDEX "repository_tasks_user_idx" ON "repository_tasks" USING btree ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "repository_tasks_type_status_idx" ON "repository_tasks" USING btree ("task_type","status");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_idx" ON "users" USING btree ("email");--> statement-breakpoint
-CREATE INDEX "version_commits_repo_version_idx" ON "version_commits" USING btree ("repo_id","version_id");--> statement-breakpoint
+CREATE INDEX "version_commits_repository_version_idx" ON "version_commits" USING btree ("repository_id","version_id");--> statement-breakpoint
 CREATE INDEX "version_commits_parent_idx" ON "version_commits" USING btree ("parent_commit_id");--> statement-breakpoint
-CREATE INDEX "vel_commit_type_idx" ON "version_entity_links" USING btree ("commit_id","entity_type");--> statement-breakpoint
-CREATE UNIQUE INDEX "versions_repo_name_idx" ON "versions" USING btree ("repo_id","name");--> statement-breakpoint
-CREATE UNIQUE INDEX "versions_repo_default_idx" ON "versions" USING btree ("repo_id") WHERE "versions"."is_default";
+CREATE INDEX "version_entity_links_commit_type_idx" ON "version_entity_links" USING btree ("commit_id","entity_type");--> statement-breakpoint
+CREATE UNIQUE INDEX "versions_repository_name_idx" ON "versions" USING btree ("repository_id","name");--> statement-breakpoint
+CREATE UNIQUE INDEX "versions_repository_default_idx" ON "versions" USING btree ("repository_id") WHERE "versions"."is_default";

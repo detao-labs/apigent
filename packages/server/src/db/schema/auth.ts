@@ -36,23 +36,20 @@ export const users = pgTable(
 // Organizations
 // ═══════════════════════════════════════════════════════════════════
 
-export const organizations = pgTable(
-  "organizations",
-  {
-    id: text("id").primaryKey(),
-    name: varchar("name", { length: 255 }).notNull(),
-    /** 组织描述——未来 RAG 检索的语料（L0 project / org 级 chunk） */
-    description: text("description"),
-    ownerId: text("owner_id")
-      .notNull()
-      .references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-);
+export const organizations = pgTable("organizations", {
+  id: text("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  /** 组织描述——未来 RAG 检索的语料（L0 project / org 级 chunk） */
+  description: text("description"),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // Organization Members
@@ -64,7 +61,7 @@ export const organizationMembers = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    orgId: text("org_id")
+    orgId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
     role: varchar("role", { length: 50 }).notNull(),

@@ -9,7 +9,7 @@
 知识层唯一需要 LLM 的核心 Agent。将 API 的文本描述（description/path/schema）推理转化为**两类结构化业务知识**：
 
 1. **能力上下文（Capability Context）——Repository 级（V0）**：提供方视角，描述这个后端项目**提供了哪些能力**：能力意图、后端强制的约束规则、副作用、示例。每个 Repository 一份。
-2. **使用上下文（Usage Context）——Project 级（V1+）**：消费方视角，描述业务项目**使用了某个 Repository 的哪些能力、为什么用、怎么用**：使用场景、不适用场景、项目使用政策。按 `(project_id, repo_id)` 各存一份。
+2. **使用上下文（Usage Context）——Project 级（V1+）**：消费方视角，描述业务项目**使用了某个 Repository 的哪些能力、为什么用、怎么用**：使用场景、不适用场景、项目使用政策。按 `(project_id, repository_id)` 各存一份。
 
 能力上下文是共享的（不管谁消费都成立），使用上下文是差异化的（同一接口在不同项目可以有不同用法）。
 
@@ -18,7 +18,7 @@
 | 字段                 | 类型             | 说明                                                             |
 | -------------------- | ---------------- | ---------------------------------------------------------------- |
 | `api`                | `APIEntry`       | 来自 OpenAPI Parser Service 的 API 技术模型（repo 级）           |
-| `repo_id`            | `string`         | 所属 Repository（能力上下文粒度）                                |
+| `repository_id`      | `string`         | 所属 Repository（能力上下文粒度）                                |
 | `project_id?`        | `string`         | 所属 Project（使用上下文粒度，V1+）                              |
 | `project_context?`   | `ProjectContext` | 项目全局上下文（认证方式、领域术语等，V1+ 使用上下文推断时输入） |
 | `human_annotations?` | `string`         | 人工添加的业务描述                                               |
@@ -29,7 +29,7 @@
 // 能力上下文（Repository 级，V0）—— 提供方视角
 interface CapabilityContext {
   api_id: string;
-  repo_id: string;
+  repository_id: string;
 
   capability: {
     intent: string; // 能力意图："处理订单退款"
@@ -47,10 +47,10 @@ interface CapabilityContext {
   needs_review: boolean; // 是否需要人工确认
 }
 
-// 使用上下文（Project 级，V1+）—— 消费方视角，按 (project_id, repo_id) 存储
+// 使用上下文（Project 级，V1+）—— 消费方视角，按 (project_id, repository_id) 存储
 interface UsageContext {
   api_id: string;
-  repo_id: string;
+  repository_id: string;
   project_id: string;
 
   usage: {

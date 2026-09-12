@@ -6,11 +6,11 @@
 // 无权限返回 403 响应，有权限返回 null。
 //
 // 用法：
-//   const denied = await guardRepoAccess(user.id, id, "repo_editor");
+//   const denied = await guardRepoAccess(user.id, id, "repo_member");
 //   if (denied) return denied;
 //
 // 这些断言后续会收敛为声明式写法
-// `withRoute({ auth: true, repo: { param: "id", min: "repo_editor" } })`
+// `withRoute({ auth: true, repo: { param: "id", min: "repo_member" } })`
 // （见 docs/tech-design.md §5.4.4），届时本文件删除。
 // ═══════════════════════════════════════════════════════════════════
 

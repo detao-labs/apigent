@@ -19,17 +19,17 @@
 
 ## 输入
 
-| 字段         | 类型               | 说明                                                  |
-| ------------ | ------------------ | ----------------------------------------------------- |
-| `apis`       | `APIWithContext[]` | 带能力上下文（repo）/使用上下文（project）的 API 列表 |
-| `repo_id`    | `string`           | Repository ID（技术层边）                             |
-| `project_id` | `string`           | Project ID（业务层边）                                |
+| 字段            | 类型               | 说明                                                  |
+| --------------- | ------------------ | ----------------------------------------------------- |
+| `apis`          | `APIWithContext[]` | 带能力上下文（repo）/使用上下文（project）的 API 列表 |
+| `repository_id` | `string`           | Repository ID（技术层边）                             |
+| `project_id`    | `string`           | Project ID（业务层边）                                |
 
 ## 输出
 
 ```typescript
 interface APIRelationGraph {
-  repo_id: string;
+  repository_id: string;
   project_id?: string;
   nodes: GraphNode[];
   edges: GraphEdge[];

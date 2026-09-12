@@ -12,17 +12,17 @@
 
 ## 输入
 
-| 字段      | 类型                      | 说明                         |
-| --------- | ------------------------- | ---------------------------- |
-| `source`  | `file` \| `url` \| `text` | 输入来源类型                 |
-| `content` | `string`                  | OpenAPI JSON/YAML 内容或 URL |
-| `repo_id` | `string`                  | 所属 Repository ID           |
+| 字段            | 类型                      | 说明                         |
+| --------------- | ------------------------- | ---------------------------- |
+| `source`        | `file` \| `url` \| `text` | 输入来源类型                 |
+| `content`       | `string`                  | OpenAPI JSON/YAML 内容或 URL |
+| `repository_id` | `string`                  | 所属 Repository ID           |
 
 ## 输出
 
 ```typescript
 interface ParsedAPIModel {
-  repo_id: string;
+  repository_id: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
   componentDefs: ComponentDef[]; // 可复用组件定义（responses / securitySchemes …）
@@ -101,14 +101,14 @@ interface ComponentDef {
 
 与 `components.schemas` 同构，解析器同时提取可复用组件定义，作为独立于接口的定义资产：
 
-| 组件 | OpenAPI 键 | 提取内容 |
-| --- | --- | --- |
-| 响应组件 | `components.responses` | `name`、`description`、`content` 首个媒体类型、`schema`（作为 `SchemaRef`） |
-| 鉴权组件 | `components.securitySchemes` | `name`、`type`（http / apiKey / oauth2 / openIdConnect）、`in`、`scheme`、`bearerFormat`、`flows` |
-| 参数 / 请求体等 | `components.parameters` / `requestBodies` / `headers` / `examples` | `name` + 原始定义（`payload`） |
-| 关系 / 回调 | `components.links`（操作间关系、HATEOAS 提示）、`components.callbacks`（服务器 → 客户端 webhook） | `name` + 原始定义（`payload`） |
+| 组件            | OpenAPI 键                                                                                        | 提取内容                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 响应组件        | `components.responses`                                                                            | `name`、`description`、`content` 首个媒体类型、`schema`（作为 `SchemaRef`）                       |
+| 鉴权组件        | `components.securitySchemes`                                                                      | `name`、`type`（http / apiKey / oauth2 / openIdConnect）、`in`、`scheme`、`bearerFormat`、`flows` |
+| 参数 / 请求体等 | `components.parameters` / `requestBodies` / `headers` / `examples`                                | `name` + 原始定义（`payload`）                                                                    |
+| 关系 / 回调     | `components.links`（操作间关系、HATEOAS 提示）、`components.callbacks`（服务器 → 客户端 webhook） | `name` + 原始定义（`payload`）                                                                    |
 
-统一建模为 `ComponentDef { kind, name, def_type, description, payload }`：`payload` 保留原始定义，`def_type` 为展示型类型提示（如 securityScheme → http / apiKey / oauth2）。落库时与 `data_models` 同构（`version_id` + `repo_id` + `kind` + `name` + JSON payload，表名 **`components`**，对应 OpenAPI 的 `components` 对象），随版本快照写入，供「接口管理」页按 `kind` 分组浏览与后续管理——不内嵌到接口详情，避免与接口级响应 / 鉴权混杂。
+统一建模为 `ComponentDef { kind, name, def_type, description, payload }`：`payload` 保留原始定义，`def_type` 为展示型类型提示（如 securityScheme → http / apiKey / oauth2）。落库时与 `data_models` 同构（`version_id` + `repository_id` + `kind` + `name` + JSON payload，表名 **`components`**，对应 OpenAPI 的 `components` 对象），随版本快照写入，供「接口管理」页按 `kind` 分组浏览与后续管理——不内嵌到接口详情，避免与接口级响应 / 鉴权混杂。
 
 ## 行为规范
 

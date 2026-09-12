@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import * as z from "zod/v4";
 import { ForbiddenError } from "@apigent/server/authz";
-import {
-  RepoMemberError,
-  revokeRepoPermission,
-  updateRepoPermission,
-} from "@/services/repo-members";
+import { RepoMemberError, removeRepoMember, updateRepoMember } from "@/services/repo-members";
 import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
 
 const roleBodySchema = z.object({
-  role: z.enum(["repo_viewer", "repo_editor", "repo_admin"]),
+  role: z.enum(["repo_viewer", "repo_member", "repo_admin", "repo_owner"]),
 });
 
 /** 仓库成员相关的领域错误 → HTTP 状态码。 */
@@ -19,10 +15,7 @@ function memberErrorResponse(err: unknown): NextResponse | null {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   if (err instanceof RepoMemberError) {
-    if (err.code === "override-not-effective") {
-      return NextResponse.json({ error: err.code }, { status: 422 });
-    }
-    if (err.code === "user-not-found" || err.code === "override-not-found") {
+    if (err.code === "user-not-found" || err.code === "member-not-found") {
       return NextResponse.json({ error: err.code }, { status: 404 });
     }
     return NextResponse.json({ error: err.code }, { status: 409 });
@@ -30,7 +23,7 @@ function memberErrorResponse(err: unknown): NextResponse | null {
   return null;
 }
 
-/** 变更覆盖角色。PATCH /api/repos/:id/members/:userId */
+/** 变更成员角色。PATCH /api/repos/:id/members/:userId */
 export const PATCH = withRoute({ auth: true }, async ({ request, params, user }) => {
   const { id, memberId } = await params;
   const denied = await guardRepoAccess(user.id, id, "repo_admin");
@@ -48,7 +41,7 @@ export const PATCH = withRoute({ auth: true }, async ({ request, params, user })
   }
 
   try {
-    const member = await updateRepoPermission(id, user.id, memberId, parsed.data.role);
+    const member = await updateRepoMember(id, user.id, memberId, parsed.data.role);
     return NextResponse.json({ member });
   } catch (err) {
     const mapped = memberErrorResponse(err);
@@ -58,14 +51,14 @@ export const PATCH = withRoute({ auth: true }, async ({ request, params, user })
   }
 });
 
-/** 撤销覆盖：成员回落到组织继承角色。DELETE /api/repos/:id/members/:userId */
+/** 移除成员（仅显式成员）。DELETE /api/repos/:id/members/:userId */
 export const DELETE = withRoute({ auth: true }, async ({ params, user }) => {
   const { id, memberId } = await params;
   const denied = await guardRepoAccess(user.id, id, "repo_admin");
   if (denied) return denied;
 
   try {
-    await revokeRepoPermission(id, user.id, memberId);
+    await removeRepoMember(id, user.id, memberId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const mapped = memberErrorResponse(err);

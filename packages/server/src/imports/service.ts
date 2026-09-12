@@ -6,7 +6,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { generateId } from "../id";
-import { getDB, repoTasks, repositories } from "../db";
+import { getDB, repositoryTasks, repositories } from "../db";
 import { logError, logInfo } from "../logger";
 import { startImportWorker } from "./worker";
 import {
@@ -78,13 +78,13 @@ export async function createImportTask(
   if (!repoRow) throw new RepoNotFoundError(repoId);
 
   const [active] = await db
-    .select({ id: repoTasks.id })
-    .from(repoTasks)
+    .select({ id: repositoryTasks.id })
+    .from(repositoryTasks)
     .where(
       and(
-        eq(repoTasks.repoId, repoId),
-        eq(repoTasks.taskType, "import"),
-        inArray(repoTasks.status, ["queued", "running"]),
+        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.taskType, "import"),
+        inArray(repositoryTasks.status, ["queued", "running"]),
       ),
     )
     .limit(1);
@@ -96,7 +96,7 @@ export async function createImportTask(
   await mkdir(path.dirname(specPath), { recursive: true });
   await writeFile(specPath, content, "utf8");
 
-  await db.insert(repoTasks).values({
+  await db.insert(repositoryTasks).values({
     id: taskId,
     repoId,
     userId,
@@ -110,7 +110,7 @@ export async function createImportTask(
     name: IMPORT_QUEUE,
     data: { taskId },
   });
-  await db.update(repoTasks).set({ jobId }).where(eq(repoTasks.id, taskId));
+  await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
   logInfo("openapi.import.queued", { taskId, repoId, userId, jobId });
   return toSummary({
@@ -132,21 +132,21 @@ export async function getImportTask(
 ): Promise<ImportTaskSummary | null> {
   const [row] = await getDB()
     .select({
-      id: repoTasks.id,
-      status: repoTasks.status,
-      progress: repoTasks.progress,
-      versionId: repoTasks.versionId,
-      result: repoTasks.result,
-      error: repoTasks.error,
-      createdAt: repoTasks.createdAt,
+      id: repositoryTasks.id,
+      status: repositoryTasks.status,
+      progress: repositoryTasks.progress,
+      versionId: repositoryTasks.versionId,
+      result: repositoryTasks.result,
+      error: repositoryTasks.error,
+      createdAt: repositoryTasks.createdAt,
     })
-    .from(repoTasks)
+    .from(repositoryTasks)
     .where(
       and(
-        eq(repoTasks.repoId, repoId),
-        eq(repoTasks.id, taskId),
-        eq(repoTasks.taskType, "import"),
-        eq(repoTasks.userId, userId),
+        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.id, taskId),
+        eq(repositoryTasks.taskType, "import"),
+        eq(repositoryTasks.userId, userId),
       ),
     )
     .limit(1);
@@ -157,17 +157,17 @@ export async function getImportTask(
 export async function getLatestImportTask(repoId: string): Promise<ImportTaskSummary | null> {
   const [row] = await getDB()
     .select({
-      id: repoTasks.id,
-      status: repoTasks.status,
-      progress: repoTasks.progress,
-      versionId: repoTasks.versionId,
-      result: repoTasks.result,
-      error: repoTasks.error,
-      createdAt: repoTasks.createdAt,
+      id: repositoryTasks.id,
+      status: repositoryTasks.status,
+      progress: repositoryTasks.progress,
+      versionId: repositoryTasks.versionId,
+      result: repositoryTasks.result,
+      error: repositoryTasks.error,
+      createdAt: repositoryTasks.createdAt,
     })
-    .from(repoTasks)
-    .where(and(eq(repoTasks.repoId, repoId), eq(repoTasks.taskType, "import")))
-    .orderBy(desc(repoTasks.createdAt))
+    .from(repositoryTasks)
+    .where(and(eq(repositoryTasks.repoId, repoId), eq(repositoryTasks.taskType, "import")))
+    .orderBy(desc(repositoryTasks.createdAt))
     .limit(1);
   return row ? toSummary(row) : null;
 }
@@ -181,13 +181,13 @@ export async function retryImportTask(
   const db = getDB();
   const [row] = await db
     .select()
-    .from(repoTasks)
+    .from(repositoryTasks)
     .where(
       and(
-        eq(repoTasks.repoId, repoId),
-        eq(repoTasks.id, taskId),
-        eq(repoTasks.taskType, "import"),
-        eq(repoTasks.userId, userId),
+        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.id, taskId),
+        eq(repositoryTasks.taskType, "import"),
+        eq(repositoryTasks.userId, userId),
       ),
     )
     .limit(1);
@@ -197,7 +197,7 @@ export async function retryImportTask(
   }
 
   await db
-    .update(repoTasks)
+    .update(repositoryTasks)
     .set({
       status: "queued",
       progress: 0,
@@ -207,14 +207,14 @@ export async function retryImportTask(
       enqueuedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(repoTasks.id, taskId));
+    .where(eq(repositoryTasks.id, taskId));
 
   const queue = startImportWorker();
   const jobId = await queue.enqueue(IMPORT_QUEUE, {
     name: IMPORT_QUEUE,
     data: { taskId },
   });
-  await db.update(repoTasks).set({ jobId }).where(eq(repoTasks.id, taskId));
+  await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
   logInfo("openapi.import.retried", { taskId, repoId: row.repoId, userId, jobId });
   return toSummary(row);

@@ -17,13 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@apigent/ui";
-import {
-  ArrowRight,
-  Database,
-  ExternalLink,
-  Plus,
-  X,
-} from "lucide-react";
+import { ArrowRight, Database, ExternalLink, Lock, Plus, X } from "lucide-react";
 import Link from "next/link";
 import type { RepoSummary } from "@/services/repos";
 import { formatRelativeTime } from "@/lib/format";
@@ -61,9 +55,7 @@ export function ReposView({
       (repo.description ?? "").toLowerCase().includes(q);
     const matchesOrg = org === "all" || repo.orgId === org;
     const matchesMcp =
-      mcp === "all" ||
-      (mcp === "on" && repo.mcpEnabled) ||
-      (mcp === "off" && !repo.mcpEnabled);
+      mcp === "all" || (mcp === "on" && repo.mcpEnabled) || (mcp === "off" && !repo.mcpEnabled);
     return matchesQuery && matchesOrg && matchesMcp;
   });
 
@@ -169,13 +161,21 @@ export function ReposView({
                       onClick={() => router.push(`/repos/${repo.id}`)}
                     >
                       <TableCell>
-                        <Link
-                          href={`/repos/${repo.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="block font-medium hover:text-primary"
-                        >
-                          {repo.name}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/repos/${repo.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="block font-medium hover:text-primary"
+                          >
+                            {repo.name}
+                          </Link>
+                          {!repo.canOpen && (
+                            <Badge variant="outline" className="gap-1 text-xs">
+                              <Lock className="size-3" />
+                              {t("table.noAccess")}
+                            </Badge>
+                          )}
+                        </div>
                         {repo.description && (
                           <p className="max-w-xs truncate text-sm text-muted-foreground">
                             {repo.description}
@@ -225,9 +225,7 @@ export function ReposView({
               {filtered.length === 0 && (
                 <div className="flex flex-col items-center py-12 text-center">
                   <ArrowRight className="mb-3 size-8 rotate-90 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">
-                    {t("toolbar.noMatch")}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{t("toolbar.noMatch")}</p>
                 </div>
               )}
             </CardContent>
