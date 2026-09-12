@@ -1,5 +1,6 @@
 import { SidebarInset, SidebarProvider, TooltipProvider } from "@apigent/ui";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Toaster } from "@/components/sonner";
 import { requireAdmin } from "@/services/auth";
 
 /**
@@ -19,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <main className="p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>
+      <Toaster />
     </TooltipProvider>
   );
 }

@@ -14,7 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@apigent/ui";
-import { LayoutDashboard, Users, ShieldCheck, Settings } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, Settings, UserCog } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -29,6 +29,7 @@ export function AppSidebar({ admin }: { admin: AdminSessionUser }) {
     { title: t("dashboard"), url: "/", icon: LayoutDashboard },
     { title: t("users"), url: "/users", icon: Users },
     { title: t("auditLog"), url: "/audit", icon: ShieldCheck },
+    { title: t("admins"), url: "/admins", icon: UserCog },
     { title: t("settings"), url: "/settings", icon: Settings },
   ];
 

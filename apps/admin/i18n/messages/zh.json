@@ -8,7 +8,8 @@
     "adminGroup": "管理",
     "adminFooter": "平台管理员",
     "roleSuper": "超级管理员",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "admins": "管理员"
   },
   "auth": {
     "login": {
@@ -56,7 +57,65 @@
     "title": "审计日志",
     "description": "查看平台操作记录",
     "emptyTitle": "暂无审计记录",
-    "emptyDescription": "平台投入使用后，操作日志将在此展示。"
+    "emptyDescription": "平台投入使用后，操作日志将在此展示。",
+    "total": "共 {count} 条",
+    "colTime": "时间",
+    "colActor": "操作者",
+    "colOperation": "操作",
+    "colTarget": "对象",
+    "colDetail": "详情",
+    "systemActor": "系统",
+    "noPermission": "当前账号没有查看审计日志的权限。",
+    "operations": {
+      "admin_grant": "授予平台管理员",
+      "admin_revoke": "移除平台管理员",
+      "admin_login": "平台登录",
+      "org_create": "创建组织",
+      "repo_create": "创建仓库",
+      "member_invite": "邀请组织成员",
+      "member_role_change": "变更组织成员角色",
+      "member_remove": "移除组织成员",
+      "repo_member_add": "添加仓库成员",
+      "repo_member_role_change": "变更仓库成员角色",
+      "repo_member_remove": "移除仓库成员",
+      "org_transfer": "转移组织所有权"
+    },
+    "roles": {
+      "admin_super": "超级管理员",
+      "org_owner": "所有者",
+      "org_admin": "管理员",
+      "org_member": "成员",
+      "repo_owner": "仓库所有者",
+      "repo_admin": "仓库管理员",
+      "repo_member": "仓库成员",
+      "repo_viewer": "仓库只读"
+    }
+  },
+  "admins": {
+    "title": "管理员",
+    "description": "平台管理员可以登录本控制台。只有 admin_super 能授予或移除",
+    "colUser": "账号",
+    "colRole": "角色",
+    "colGrantedAt": "授予时间",
+    "colGrantedBy": "授予人",
+    "bySystem": "系统（CLI 引导）",
+    "you": "（我）",
+    "grant": "添加管理员",
+    "grantTitle": "添加平台管理员",
+    "grantDesc": "输入已注册用户的邮箱。该账号需要先在本平台注册。",
+    "email": "邮箱",
+    "grantSubmit": "授予",
+    "grantSuccess": "已授予平台管理员",
+    "revoke": "移除",
+    "revokeConfirm": "确定移除 {name} 的平台管理员权限吗？该账号将立即无法登录本控制台。",
+    "revokeSuccess": "已移除平台管理员",
+    "errors": {
+      "userNotFound": "未找到该邮箱对应的用户",
+      "alreadyAdmin": "该账号已经是管理员",
+      "lastAdmin": "不能移除最后一个管理员——否则没有人能再授予管理员",
+      "noPermission": "当前账号没有管理管理员的权限。",
+      "generic": "操作失败，请稍后重试"
+    }
   },
   "settings": {
     "title": "系统设置",

@@ -775,37 +775,22 @@ V0 ships first-party credentials auth instead of NextAuth.js. Email + password i
 base64url(JSON { uid, iat, exp }) + "." + base64url(HMAC-SHA256(payload, auth.secret))
 ```
 
-**Implementation (`packages/server/src/auth/`):**
+**Implementation.** Signing in, session issuance and session verification are owned by **Auth.js v5** (see §5.4.9). Each app builds its own instance through the shared factory in `@apigent/auth`:
 
 ```ts
-// packages/server/src/auth/session.ts
-export const SESSION_COOKIE = "apigent.session-token";
-
-function sign(payload: string): string {
-  return createHmac("sha256", getAuthConfig().secret).update(payload).digest("base64url");
-}
-
-export function createSessionToken(userId: string): string {
-  /* uid + iat + exp, then sign */
-}
-export function verifySessionToken(token: string): SessionPayload | null {
-  /* timing-safe compare */
-}
+// apps/<app>/src/auth.ts
+export const { handlers, auth, signIn, signOut } = NextAuth(
+  createAuthConfig({ scope, secret, authorize }),
+);
 ```
+
+`packages/server/src/auth` keeps only the framework-agnostic credential primitive — `hashPassword` / `verifyPassword` (scrypt) — which the credentials provider calls. The hand-rolled HMAC session that V0 shipped was deleted with the migration.
 
 **Configuration (`apigent.config.yaml` + `.env`):** `auth.providers: [credentials]`; the signing secret and lifetime come from `APIGENT_AUTH_SECRET` (`auth.secret`) and `auth.sessionMaxAge`. The Admin Webapp signs with a separate `APIGENT_AUTH_ADMIN_SECRET` (`auth.adminSecret`) — never the same value. OAuth providers are not implemented yet: `auth.providers` is their config slot, and `auth.registration` / `auth.oauth.allowedEmailDomains` ship alongside them (§5.4.9).
 
-**Session payload:**
+**Session payload.** Auth.js issues an encrypted JWT session cookie; we only add the user id to it (`uid`), and never a role — authorization is resolved per request (§5.4.9).
 
-```ts
-{
-  uid: "user_abc123",  // user ID
-  iat: 1722000000,     // issued at (seconds)
-  exp: 1722600000,     // expires (config: auth.sessionMaxAge)
-}
-```
-
-> **Known V0 limitation:** signing is symmetric and there is no revocation list — logging out clears the cookie client-side, but an already-issued token stays valid until `exp`. A session table or key rotation is the upgrade path if revocation becomes a requirement.
+> **Known V0 limitation:** there is still no revocation list. Both apps re-read the database on every request (`users` for the account, `admin_members` for platform access), so a deleted user or a revoked admin loses access on their next request; only a valid-but-unlisted session keeps working until `exp`.
 
 ### 5.4.3 RBAC Permission Check
 
@@ -953,10 +938,12 @@ External Agent (Cursor/Claude)
 Auth lives in `packages/server` (shared by every runtime), with a thin Next.js glue layer in the Platform app:
 
 ```
-packages/server/src/auth/           # credentials + session primitives (runtime-agnostic)
-├── index.ts                        # barrel: SESSION_COOKIE, createSessionToken, verifySessionToken, …
-├── password.ts                     # hashPassword() / verifyPassword() (scrypt)
-└── session.ts                      # HMAC-SHA256 signed cookie payload
+packages/server/src/auth/           # credentials primitives (runtime-agnostic)
+├── index.ts                        # barrel: hashPassword / verifyPassword
+└── password.ts                      # hashPassword() / verifyPassword() (scrypt)
+
+packages/auth/                      # Auth.js v5 shared config factory (Next.js-only)
+└── src/{config,cookies}.ts         # instance factory + per-plane cookie namespacing
 
 packages/server/src/authz/          # RBAC
 ├── roles.ts                        # pure role model + rank comparison (no DB)
@@ -984,15 +971,15 @@ Every privileged mutation writes an `operation_logs` row **in the same transacti
 
 Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
-| Event                                                                | Actor                      | Status      | Notes                                                       |
-| -------------------------------------------------------------------- | -------------------------- | ----------- | ----------------------------------------------------------- |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                     |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                       |
-| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                          |
-| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx  |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`              | 🟡 partial  | CLI bootstrap is audited; in-app grant/revoke UI is not yet |
-| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                      |
-| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                             |
+| Event                                                                | Actor                      | Status      | Notes                                                        |
+| -------------------------------------------------------------------- | -------------------------- | ----------- | ------------------------------------------------------------ |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                      |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                        |
+| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                           |
+| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx   |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ✅ wired    | CLI bootstrap and the Admin `/admins` page share one service |
+| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                       |
+| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                              |
 
 **Landed.** `packages/server/src/audit/` exposes `recordOperation(tx, input)` — a transaction handle is required, so an audit row cannot be written outside the transaction that performs the business write — plus `withAuditTransaction(run)` and `listOperationLogs(filter)`. Two read endpoints ship with it: `GET /api/repos/:id/operations` (`repo_viewer`) and `GET /api/orgs/:id/operations` (`org_member`), rendered on `/repos/:id/settings/audit` and in the Organization detail "Activity log" tab.
 
@@ -1006,11 +993,12 @@ The model above is the target. **Already landed:**
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
 - ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4).
 - ✅ **Membership changes are audited** — every membership mutation (`member.*`, `repo.member_*`, `org.transfer`) and the `org.create` / `repo.create` bootstrap write their `operation_logs` row inside the same transaction as the business write, via `recordOperation(tx, …)`; read paths are `GET /api/repos/:id/operations` and `GET /api/orgs/:id/operations` (§5.4.7). **Still open:** import detail rows (`operation_log_details`), repository edit/delete, version activate/rollback, MCP toggle, secret keys, and the `admin.*` events.
-- ✅ **The Admin Webapp is gated** — `admin_members` exists (`0002_admin_members.sql`), sign-in is separate from Platform (`/login` → `apigent-admin.session-token` signed with `auth.adminSecret`), the guard sits in `apps/admin/src/app/(authed)/layout.tsx`, and capabilities are checked through `assertAdminCapability()`. The first admin is created by the `admin.grant` CLI, which writes its audit row in the same transaction. **Still open:** every page behind the gate is a placeholder, and there is no in-app grant/revoke UI yet.
+- ✅ **The Admin Webapp is gated** — `admin_members` exists (`0002_admin_members.sql`), sign-in is separate from Platform (`/login` → `apigent-admin.session-token` signed with `auth.adminSecret`), the guard sits in `apps/admin/src/app/(authed)/layout.tsx`, and capabilities are checked through `roleHasAdminCapability()` / `requireAdminApi()`. The first admin is created by the `admin.grant` CLI; every grant/revoke writes its `admin.grant` / `admin.revoke` row in the same transaction.
+- ✅ **Admin audit log and admin management ship** — `/audit` renders platform-level operations (`listOperationLogs({ platformOnly: true })`, capability `admin:audit:view`), and `/admins` lists admins, grants by email and revokes (`admin:admins:manage`, API routes `POST /api/admins` + `DELETE /api/admins/:userId`). Revoking the last admin is refused (`canRevokeAdmin()`), so the deployment cannot be left without someone able to grant admins. **Still open:** the dashboard is still hardcoded zeros and the users page is an empty state.
 
 **Remaining gaps**, in the order they should be closed:
 
-1. **Admin surfaces are placeholders** — the gate is real, but the dashboard (hardcoded `0`s), audit, users and settings pages render empty states, and `admin:admins:manage` has no UI: granting a second admin still needs the CLI.
+1. **Two admin surfaces are still placeholders** — the dashboard (hardcoded `0`s) and the users page (empty state) render nothing real; the audit log and admin management are done.
 2. **Audit coverage is partial** — membership and create events are wired (§5.4.7); import, version activation, MCP, secret keys and the in-app `admin.*` events are not. Import detail rows (`operation_log_details`) are still empty.
 3. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `org:delete` / `repo:delete` / `repo:manage_mcp` get implemented (documented but not implemented in code).
 
@@ -1022,7 +1010,9 @@ V0 ships first-party credentials auth. GitHub / Google sign-in is planned, and t
 
 **Status (2026-09-12): the migration itself has landed.** Both apps sign in through Auth.js v5 (`5.0.0-beta.32`) with the credentials provider, each with its own instance, cookie namespace and secret (§4.1); `@apigent/auth` holds the shared config factory. Session reads still go through the `getSessionUser()` / `getAdminSessionUser()` seams, so no route or RBAC code changed. What remains _in this section_ is the OAuth half: providers, account linking, and the registration / allowlist settings.
 
-**Version.** Target `5.0.0-beta.x` (the App-Router-native line). `next-auth@latest` is still `4.24.15` while v5 stays on the beta tag — both were published on the same day (2026-07-20), so v5 is maintained but not stable. Pin an exact beta and treat upgrades as a deliberate task. The custom HMAC primitives in `packages/server/src/auth` stay in the tree: the CLI uses them today, and they are the fallback if a beta regression blocks a release.
+**Version.** Target `5.0.0-beta.x` (the App-Router-native line). `next-auth@latest` is still `4.24.15` while v5 stays on the beta tag — both were published on the same day (2026-07-20), so v5 is maintained but not stable. Pin an exact beta and treat upgrades as a deliberate task.
+
+The custom HMAC session (`packages/server/src/auth/session.ts`) was **deleted** once the migration landed: both apps sign in through Auth.js, the CLI never used it, and a fallback with no caller is a liability rather than a safety net. `packages/server/src/auth` now only exports the framework-agnostic credential primitives (`hashPassword` / `verifyPassword`), which the Auth.js credentials provider uses.
 
 | Decision                                                       | Rationale                                                                                                                                               |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |

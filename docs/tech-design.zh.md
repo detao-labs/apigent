@@ -587,6 +587,8 @@ Key 格式：`apigent_sk_<random_hex>`
 | **MCP 用量** | MCP 调用总量、按仓库、按 Key、时间序列 |
 | **活跃用户** | DAU/WAU/MAU 统计                       |
 
+**V0 状态：** 未实现——仪表盘渲染的是硬编码的 0。平台级统计服务尚不存在（现在 Platform 里的 `getDashboardStats(userId)` 是租户级的）。
+
 ## 4.3 用户管理
 
 这些是**实例级账号操作**——与 Organization / Repository 成员管理是两条不同的轴，后者留在 Platform Webapp。
@@ -601,6 +603,8 @@ Key 格式：`apigent_sk_<random_hex>`
 
 账号生命周期能力（`admin:users:disable` / `admin:users:delete`）**已预留但 V0 不实现**——它们是把平台侧引入第二档管理员（`admin_operator` / `admin_support`）时最自然的第一批能力。
 
+**V0 状态：** 用户页是空态。连只读列表（`admin:users:view`）都还没做；能力名已经写进映射，因此将来加页面不需要动 RBAC 层。
+
 ## 4.4 安全审计
 
 | 功能             | 说明                                           |
@@ -609,6 +613,8 @@ Key 格式：`apigent_sk_<random_hex>`
 | **登录历史**     | 每个用户的登录记录（IP、User Agent）           |
 | **异常检测**     | 标记异常模式（新 IP、大量 API 调用、批量导出） |
 | **Key 泄露检查** | 检测 Secret Key 是否出现在公开仓库或暴露环境中 |
+
+**V0 状态：** 平台级操作日志已实现，渲染在 `/audit`（能力 `admin:audit:view`，`listOperationLogs({ platformOnly: true })`）。目前进入该页的是 `admin.grant` / `admin.revoke`；登录历史、异常检测、密钥泄露检查均未实现。
 
 ---
 
@@ -774,37 +780,22 @@ V0 使用自研的 credentials 认证，而非 NextAuth.js。邮箱 + 密码在 
 base64url(JSON { uid, iat, exp }) + "." + base64url(HMAC-SHA256(payload, auth.secret))
 ```
 
-**实现（`packages/server/src/auth/`）：**
+**实现。** 登录、会话签发与会话校验都由 **Auth.js v5** 负责（见 §5.4.9）。每个 app 通过 `@apigent/auth` 的共享工厂构建自己的实例：
 
 ```ts
-// packages/server/src/auth/session.ts
-export const SESSION_COOKIE = "apigent.session-token";
-
-function sign(payload: string): string {
-  return createHmac("sha256", getAuthConfig().secret).update(payload).digest("base64url");
-}
-
-export function createSessionToken(userId: string): string {
-  /* uid + iat + exp，再签名 */
-}
-export function verifySessionToken(token: string): SessionPayload | null {
-  /* 恒定时间比较 */
-}
+// apps/<app>/src/auth.ts
+export const { handlers, auth, signIn, signOut } = NextAuth(
+  createAuthConfig({ scope, secret, authorize }),
+);
 ```
+
+`packages/server/src/auth` 只保留与框架无关的凭据原语——`hashPassword` / `verifyPassword`（scrypt），供 credentials provider 调用。V0 自研的 HMAC 会话已随迁移删除。
 
 **配置（`apigent.config.yaml` + `.env`）：** `auth.providers: [credentials]`；签名密钥与有效期来自 `APIGENT_AUTH_SECRET`（`auth.secret`）与 `auth.sessionMaxAge`。Admin Webapp 用独立的 `APIGENT_AUTH_ADMIN_SECRET`（`auth.adminSecret`）签名——绝不能与前者同值。OAuth 尚未实现：`auth.providers` 是为它预留的配置槽，`auth.registration` 与 `auth.oauth.allowedEmailDomains` 将随它一起落地（§5.4.9）。
 
-**会话 Payload：**
+**会话 Payload。** Auth.js 签发加密的 JWT 会话 Cookie，我们只往里放用户 id（`uid`），**绝不放角色**——授权每请求现算（§5.4.9）。
 
-```ts
-{
-  uid: "user_abc123",  // 用户 ID
-  iat: 1722000000,     // 签发时间（秒）
-  exp: 1722600000,     // 过期时间（配置项：auth.sessionMaxAge）
-}
-```
-
-> **V0 已知限制：** 签名是对称的，且没有吊销列表——登出只在客户端清除 Cookie，已签发的 token 在 `exp` 前依然有效。若需要吊销能力，升级路径是引入 session 表或密钥轮换。
+> **V0 已知限制：** 仍然没有吊销列表。但两个 app 每次请求都会读库（账号查 `users`，平台准入查 `admin_members`），因此被删除的用户或被撤销的管理员在下一个请求就失去访问；只有"仍然合法但未列入名单"这种情况要等到 `exp`。
 
 ### 5.4.3 RBAC 权限检查
 
@@ -952,10 +943,12 @@ MCP 工具使用独立的认证路径——API Key 而非 Session Cookie：
 认证代码放在 `packages/server`（所有运行时共享），Platform APP 里只有一层很薄的 Next.js 胶水：
 
 ```
-packages/server/src/auth/           # credentials + session 原语（与运行时无关）
-├── index.ts                        # barrel：SESSION_COOKIE、createSessionToken、verifySessionToken…
-├── password.ts                     # hashPassword() / verifyPassword()（scrypt）
-└── session.ts                      # HMAC-SHA256 签名 Cookie payload
+packages/server/src/auth/           # 凭据原语（与运行时无关）
+├── index.ts                        # barrel：hashPassword / verifyPassword
+└── password.ts                      # hashPassword() / verifyPassword()（scrypt）
+
+packages/auth/                      # Auth.js v5 共享配置工厂（仅 Next.js 使用）
+└── src/{config,cookies}.ts         # 实例工厂 + 分平面的 cookie 命名空间
 
 packages/server/src/authz/          # RBAC
 ├── roles.ts                        # 纯角色模型 + 等级比较（无 DB）
@@ -983,15 +976,15 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 
 需要记录的事件（完整方案见 [modules/audit-log.md](./modules/audit-log.md)）：
 
-| 事件                                                                 | 操作者               | 状态      | 说明                                        |
-| -------------------------------------------------------------------- | -------------------- | --------- | ------------------------------------------- |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                                |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                                |
-| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                              |
-| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入       |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`        | 🟡 部分   | CLI 引导已接线；应用内的授予 / 撤销 UI 待做 |
-| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                              |
-| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                            |
+| 事件                                                                 | 操作者               | 状态      | 说明                                      |
+| -------------------------------------------------------------------- | -------------------- | --------- | ----------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                              |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                              |
+| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                            |
+| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入     |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`        | ✅ 已接线 | CLI 引导与 Admin `/admins` 共用同一个服务 |
+| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                            |
+| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                          |
 
 **已落地。** `packages/server/src/audit/` 提供 `recordOperation(tx, input)`——**必须传入事务句柄**，因此不可能在业务事务之外单独写审计行——以及 `withAuditTransaction(run)` 与 `listOperationLogs(filter)`。配套两个只读接口：`GET /api/repos/:id/operations`（`repo_viewer`）、`GET /api/orgs/:id/operations`（`org_member`），分别渲染在 `/repos/:id/settings/audit` 与组织详情的「操作日志」Tab。
 
@@ -1005,11 +998,12 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
 - ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。
 - ✅ **成员变更已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）以及 `org.create` / `repo.create` 的引导写入，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.*` 事件。
-- ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent-admin.session-token`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查统一走 `assertAdminCapability()`。第一个管理员由 `admin.grant` CLI 创建，审计行同事务落库。**仍未落地：** 门禁之后的所有页面都还是占位，应用内的授予 / 撤销 UI 也没有。
+- ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent-admin.session-token`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查走 `roleHasAdminCapability()` / `requireAdminApi()`。第一个管理员由 `admin.grant` CLI 创建；之后每次授予 / 撤销都与 `admin.grant` / `admin.revoke` 审计行同事务落库。
+- ✅ **Admin 的审计页与管理员管理已落地**——`/audit` 渲染平台级操作（`listOperationLogs({ platformOnly: true })`，能力 `admin:audit:view`）；`/admins` 列出管理员、按邮箱授予、撤销（`admin:admins:manage`，接口 `POST /api/admins` 与 `DELETE /api/admins/:userId`）。撤销最后一个管理员会被拒绝（`canRevokeAdmin()`），部署不可能陷入"没人能再授予管理员"的状态。**仍未落地：** 仪表盘仍是硬编码的 0，用户页仍是空态。
 
 **剩余缺口**，按应修复的顺序排列：
 
-1. **Admin 各页面仍是占位**——门禁是真的，但仪表盘（硬编码的 `0`）、审计、用户、设置四页都只渲染空态，`admin:admins:manage` 也没有界面：加第二个管理员目前还得走 CLI。
+1. **还有两个 Admin 页面是占位**——仪表盘（硬编码的 `0`）与用户页（空态）；审计日志与管理员管理已完成。
 2. **审计覆盖仍不完整**——成员与创建类事件已接线（§5.4.7）；导入、版本设为当前、MCP、密钥，以及应用内的 `admin.*` 事件未接线，导入明细（`operation_log_details`）仍为空。
 3. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`org:delete` / `repo:delete` / `repo:manage_mcp` 是否先实现（文档已描述，代码未实现）。
 
@@ -1021,7 +1015,9 @@ V0 使用自研 credentials 认证。GitHub / Google 登录已排期，方向是
 
 **状态（2026-09-12）：迁移本身已落地。** 两个 app 都已通过 Auth.js v5（`5.0.0-beta.32`）的 credentials provider 登录，各自持有独立实例、cookie 命名空间与密钥（§4.1）；共享配置工厂在 `@apigent/auth`。会话读取仍走 `getSessionUser()` / `getAdminSessionUser()` 接缝，因此路由与 RBAC 代码一行未改。本节**尚未完成**的是 OAuth 那一半：provider、账号绑定、注册与白名单配置。
 
-**版本。** 目标是 `5.0.0-beta.x`（App Router 原生那条线）。`next-auth@latest` 至今仍是 `4.24.15`，v5 停留在 beta 标签上——两者在同一天发布（2026-07-20），说明 v5 在维护但尚未 stable。要锁定确切的 beta 版本，把升级当成一件需要单独排期的事。`packages/server/src/auth` 里的自研 HMAC 原语保留在仓库里：CLI 今天就在用它，而且它是 beta 出问题时的退路。
+**版本。** 目标是 `5.0.0-beta.x`（App Router 原生那条线）。`next-auth@latest` 至今仍是 `4.24.15`，v5 停留在 beta 标签上——两者在同一天发布（2026-07-20），说明 v5 在维护但尚未 stable。要锁定确切的 beta 版本，把升级当成一件需要单独排期的事。
+
+自研的 HMAC 会话（`packages/server/src/auth/session.ts`）在迁移落地后**已删除**：两个 app 都通过 Auth.js 登录，CLI 从来没用过它，而一个没有调用方的"退路"只会变成负担。`packages/server/src/auth` 现在只导出与框架无关的凭据原语（`hashPassword` / `verifyPassword`），供 Auth.js 的 credentials provider 使用。
 
 | 决策                                          | 理由                                                                                           |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------- |

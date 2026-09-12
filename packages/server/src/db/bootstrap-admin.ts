@@ -4,7 +4,7 @@
 //
 // 第一个 `admin_super` 只能从这里来：Admin Webapp 的门禁本身就是"只有管理员
 // 能进"，不先开一个口子就没有人能授予第一个管理员（bootstrapping deadlock）。
-// 之后再加管理员应该在 Admin Webapp 里操作（`admin:admins:manage`）。
+// 之后再加管理员可以在 Admin Webapp 的「管理员」页操作（`admin:admins:manage`）。
 //
 // 用法（仓库根目录）：
 //   pnpm --filter @apigent/server admin:grant -- --email=you@example.com
@@ -13,22 +13,17 @@
 //   - 目标用户必须已存在（先注册，再授权），找不到就报错退出，不隐式建号；
 //   - 幂等：已经是管理员时只打印现状，不重复写；
 //   - 授权与 `admin.grant` 审计行在同一事务内提交（actor 为 NULL = 系统）。
+//
+// 授予逻辑复用 src/admin/service.ts —— Webapp 与 CLI 走同一条路径，审计与幂等
+// 语义不会出现第二份实现。
 // ═══════════════════════════════════════════════════════════════════
 
-import { eq } from "drizzle-orm";
 import { loadConfig } from "@apigent/core/config";
-import { recordOperation, withAuditTransaction } from "../audit";
-import { closeDB, getDB } from "./connection";
-import { adminMembers, users } from "./schema";
+import { AdminMemberError, grantAdminRole, type GrantAdminResult } from "../admin";
+import { closeDB } from "./connection";
 import { ADMIN_ROLES, isAdminRole, type AdminRole } from "../authz/admin-capabilities";
 
-export interface GrantAdminResult {
-  userId: string;
-  email: string;
-  role: AdminRole;
-  /** false = 本来就是管理员，未重复写入 */
-  granted: boolean;
-}
+export type { GrantAdminResult };
 
 function parseArgs(argv: string[]): { email: string; role: AdminRole } {
   const emailArg = argv.find((arg) => arg.startsWith("--email="));
@@ -49,52 +44,22 @@ export async function grantAdmin(input: {
   email: string;
   role?: AdminRole;
 }): Promise<GrantAdminResult> {
-  const email = input.email.trim().toLowerCase();
-  const role: AdminRole = input.role ?? "admin_super";
-
-  const [user] = await getDB()
-    .select({ id: users.id, email: users.email })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (!user) {
-    throw new Error(
-      `No user with email ${email}. Register the account in the Platform Webapp first.`,
-    );
-  }
-
-  const [existing] = await getDB()
-    .select({ role: adminMembers.role })
-    .from(adminMembers)
-    .where(eq(adminMembers.userId, user.id))
-    .limit(1);
-  if (isAdminRole(existing?.role)) {
-    return { userId: user.id, email: user.email, role: existing.role, granted: false };
-  }
-
-  await withAuditTransaction(async (tx) => {
-    await tx
-      .insert(adminMembers)
-      .values({ userId: user.id, role, grantedBy: null })
-      .onConflictDoUpdate({
-        target: adminMembers.userId,
-        set: { role, grantedAt: new Date(), grantedBy: null },
-      });
-    await recordOperation(tx, {
-      actorId: null,
-      operationType: "admin.grant",
-      resourceType: "user",
-      resourceId: user.id,
-      summary: {
-        targetUserId: user.id,
-        targetEmail: user.email,
-        role,
-        source: "cli-bootstrap",
-      },
+  try {
+    return await grantAdminRole({
+      email: input.email,
+      role: input.role,
+      actorId: null, // 系统引导：没有操作者
+      source: "cli-bootstrap",
     });
-  });
-
-  return { userId: user.id, email: user.email, role, granted: true };
+  } catch (err) {
+    if (err instanceof AdminMemberError && err.code === "user-not-found") {
+      throw new Error(
+        `No user with email ${input.email.trim().toLowerCase()}. ` +
+          `Register the account in the Platform Webapp first.`,
+      );
+    }
+    throw err;
+  }
 }
 
 export async function bootstrapAdmin(argv: string[]): Promise<void> {

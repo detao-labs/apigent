@@ -8,7 +8,8 @@
     "adminGroup": "Administration",
     "adminFooter": "Platform Admin",
     "roleSuper": "Super admin",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "admins": "Admins"
   },
   "auth": {
     "login": {
@@ -56,7 +57,65 @@
     "title": "Audit Log",
     "description": "View platform operation history",
     "emptyTitle": "No audit entries",
-    "emptyDescription": "Operation logs will appear here once the platform is in use."
+    "emptyDescription": "Operation logs will appear here once the platform is in use.",
+    "total": "{count} entries",
+    "colTime": "Time",
+    "colActor": "Actor",
+    "colOperation": "Operation",
+    "colTarget": "Target",
+    "colDetail": "Detail",
+    "systemActor": "System",
+    "noPermission": "This account cannot view the audit log.",
+    "operations": {
+      "admin_grant": "Platform admin granted",
+      "admin_revoke": "Platform admin revoked",
+      "admin_login": "Platform sign-in",
+      "org_create": "Organization created",
+      "repo_create": "Repository created",
+      "member_invite": "Organization member invited",
+      "member_role_change": "Organization member role changed",
+      "member_remove": "Organization member removed",
+      "repo_member_add": "Repository member added",
+      "repo_member_role_change": "Repository member role changed",
+      "repo_member_remove": "Repository member removed",
+      "org_transfer": "Organization ownership transferred"
+    },
+    "roles": {
+      "admin_super": "Super admin",
+      "org_owner": "Owner",
+      "org_admin": "Admin",
+      "org_member": "Member",
+      "repo_owner": "Repository owner",
+      "repo_admin": "Repository admin",
+      "repo_member": "Repository member",
+      "repo_viewer": "Repository viewer"
+    }
+  },
+  "admins": {
+    "title": "Admins",
+    "description": "Platform admins can sign in to this console. Only admin_super can grant or revoke",
+    "colUser": "Account",
+    "colRole": "Role",
+    "colGrantedAt": "Granted at",
+    "colGrantedBy": "Granted by",
+    "bySystem": "System (CLI bootstrap)",
+    "you": "(you)",
+    "grant": "Add admin",
+    "grantTitle": "Add a platform admin",
+    "grantDesc": "Enter the email of an existing user. The account must be registered first.",
+    "email": "Email",
+    "grantSubmit": "Grant",
+    "grantSuccess": "Platform admin granted",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke platform admin access for {name}? They lose access to this console immediately.",
+    "revokeSuccess": "Platform admin revoked",
+    "errors": {
+      "userNotFound": "No user with that email",
+      "alreadyAdmin": "That account is already an admin",
+      "lastAdmin": "Cannot revoke the last admin — nobody would be able to grant admins",
+      "noPermission": "This account cannot manage admins.",
+      "generic": "Operation failed, please try again"
+    }
   },
   "settings": {
     "title": "Settings",

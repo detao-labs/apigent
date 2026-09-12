@@ -14,6 +14,7 @@
     "./authz": "./src/authz/index.ts",
     "./authz/roles": "./src/authz/roles.ts",
     "./audit": "./src/audit/index.ts",
+    "./admin": "./src/admin/index.ts",
     "./openapi": "./src/openapi/index.ts",
     "./queue": "./src/queue/index.ts",
     "./imports": "./src/imports/index.ts",

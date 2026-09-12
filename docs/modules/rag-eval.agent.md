@@ -15,18 +15,18 @@ LLM 只出现在第 2 步；检索指标全靠确定性计算。
 
 ## 输入
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `golden_set` | `GoldenQuery[]` | 标注集：查询 → 预期 endpoint id 集合 |
-| `judge` | `JudgeConfig` | judge 模型、温度、评分大纲（rubric） |
-| `thresholds` | `RetrievalThresholds` | hit@3 / MRR / P95 / empty_rate 阈值 |
+| 字段         | 类型                  | 说明                                 |
+| ------------ | --------------------- | ------------------------------------ |
+| `golden_set` | `GoldenQuery[]`       | 标注集：查询 → 预期 endpoint id 集合 |
+| `judge`      | `JudgeConfig`         | judge 模型、温度、评分大纲（rubric） |
+| `thresholds` | `RetrievalThresholds` | hit@3 / MRR / P95 / empty_rate 阈值  |
 
 ```ts
 interface GoldenQuery {
   id: string;
-  query: string;                // 自然语言，如 "退款接口在哪里"
-  expected_api_ids: string[];   // 预期命中（可能多个）
-  unanswerable?: boolean;       // 该查询不应命中任何 API
+  query: string; // 自然语言，如 "退款接口在哪里"
+  expected_api_ids: string[]; // 预期命中（可能多个）
+  unanswerable?: boolean; // 该查询不应命中任何 API
 }
 ```
 
@@ -36,14 +36,19 @@ interface GoldenQuery {
 {
   "run_at": "2026-09-04T00:00:00Z",
   "retrieval": {
-    "hit@3": 0.94, "mrr": 0.78, "ndcg@3": 0.88,
-    "p95_latency_ms": 1800, "empty_rate": 0.03
+    "hit@3": 0.94,
+    "mrr": 0.78,
+    "ndcg@3": 0.88,
+    "p95_latency_ms": 1800,
+    "empty_rate": 0.03
   },
   "generation": {
-    "correctness": 0.91, "groundedness": 0.93, "relevance": 0.9
+    "correctness": 0.91,
+    "groundedness": 0.93,
+    "relevance": 0.9
   },
   "cost": { "tokens": 120000, "usd": 0.6 },
-  "per_query": [ { "id": "q1", "hit@3": 1.0, "rank_top1": 1 } ]
+  "per_query": [{ "id": "q1", "hit@3": 1.0, "rank_top1": 1 }]
 }
 ```
 
@@ -116,12 +121,12 @@ hit@3 < 0.9 或 MRR < 0.7 或 P95 > 2000ms 或 empty_rate > 0.05  → CI fail
 
 ## 边界情况
 
-| 场景 | 行为 |
-| --- | --- |
-| 查询有多个正确答案 | 任一在 top-k 内即计命中 |
-| judge 不确定 / 接近阈值 | 二次 judge，降低置信度 |
-| `unanswerable` 查询 | 命中任一即判失败；不纳入 hit@k |
-| LLM 不可用 | 跳过 LLM-judge，仍完成检索评测 |
+| 场景                    | 行为                           |
+| ----------------------- | ------------------------------ |
+| 查询有多个正确答案      | 任一在 top-k 内即计命中        |
+| judge 不确定 / 接近阈值 | 二次 judge，降低置信度         |
+| `unanswerable` 查询     | 命中任一即判失败；不纳入 hit@k |
+| LLM 不可用              | 跳过 LLM-judge，仍完成检索评测 |
 
 ## 配置设计（`apigent.config.yaml`）
 
