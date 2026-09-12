@@ -6,7 +6,29 @@
     "settings": "Settings",
     "brandSubtitle": "Admin",
     "adminGroup": "Administration",
-    "adminFooter": "Platform Admin"
+    "adminFooter": "Platform Admin",
+    "roleSuper": "Super admin",
+    "logout": "Sign out"
+  },
+  "auth": {
+    "login": {
+      "title": "Platform admin sign-in",
+      "description": "Platform admins only — separate from your Platform session",
+      "brandSubtitle": "Apigent Admin Console",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…"
+    },
+    "errors": {
+      "invalidCredentials": "Incorrect email or password",
+      "notAdmin": "This account is not a platform admin — ask another admin to grant it",
+      "generic": "Sign-in failed, please try again"
+    }
+  },
+  "forbidden": {
+    "title": "No admin access",
+    "description": "This account is not a platform admin, or the admin role was revoked."
   },
   "dashboard": {
     "title": "Dashboard",

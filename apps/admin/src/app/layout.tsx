@@ -3,8 +3,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { htmlLang, defaultLocale } from "@apigent/core/i18n";
 import type { Locale } from "@apigent/core/i18n";
-import { SidebarInset, SidebarProvider, TooltipProvider } from "@apigent/ui";
-import { AppSidebar } from "@/components/app-sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,16 +10,14 @@ export const metadata: Metadata = {
   description: "Apigent Platform Admin Console",
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Locale comes from the NEXT_LOCALE session cookie (see i18n/request.ts);
   // the URL never contains a language prefix.
   const locale = await getLocale();
   const messages = await getMessages();
 
+  // 这里只放全站共享的壳（i18n）。带门禁的侧栏在 (authed)/layout.tsx 里，
+  // 否则 /login 也会被登录后的框架包住。
   return (
     <html
       lang={htmlLang[locale as Locale] ?? defaultLocale}
@@ -30,14 +26,7 @@ export default async function RootLayout({
     >
       <body className="antialiased">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <TooltipProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <main className="p-6">{children}</main>
-              </SidebarInset>
-            </SidebarProvider>
-          </TooltipProvider>
+          {children}
         </NextIntlClientProvider>
       </body>
     </html>

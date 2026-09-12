@@ -27,7 +27,8 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "test": "vitest run",
-    "seed": "tsx src/db/seed.ts"
+    "seed": "tsx src/db/seed.ts",
+    "admin:grant": "tsx src/db/bootstrap-admin.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.30",

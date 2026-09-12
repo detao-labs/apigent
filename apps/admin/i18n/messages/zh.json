@@ -6,7 +6,29 @@
     "settings": "设置",
     "brandSubtitle": "管理后台",
     "adminGroup": "管理",
-    "adminFooter": "平台管理员"
+    "adminFooter": "平台管理员",
+    "roleSuper": "超级管理员",
+    "logout": "退出登录"
+  },
+  "auth": {
+    "login": {
+      "title": "平台管理员登录",
+      "description": "仅限平台管理员访问，与 Platform 的登录相互独立",
+      "brandSubtitle": "Apigent 管理后台",
+      "email": "邮箱",
+      "password": "密码",
+      "submit": "登录",
+      "submitting": "登录中…"
+    },
+    "errors": {
+      "invalidCredentials": "邮箱或密码不正确",
+      "notAdmin": "该账号不是平台管理员，请联系其他管理员授予",
+      "generic": "登录失败，请稍后重试"
+    }
+  },
+  "forbidden": {
+    "title": "没有管理员权限",
+    "description": "当前账号不是平台管理员，或管理员权限已被撤销。"
   },
   "dashboard": {
     "title": "仪表盘",

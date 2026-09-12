@@ -32,7 +32,7 @@
 | 队列              | Postgres 队列（`packages/server/src/queue/pg-queue.ts`）+ `repository_tasks`                                                     | 已实现；`memory` 仅测试；BullMQ / Redis 未实现     |
 | 认证              | 自研 credentials + HMAC-SHA256 签名 HttpOnly Cookie（`apigent_session`）；计划引入 NextAuth 支持 GitHub/Google                   | 已实现；第三方登录未实现                           |
 | 授权（租户）      | org_owner / org_admin / org_member + repo_owner / repo_admin / repo_member / repo_viewer（仓库目录全站可见，内容按仓库成员门禁） | 已实现（见 §6）                                    |
-| 授权（平台）      | 独立体系：`admin_super`（平台管理员的管理者）+ 全局只读；预留 `admin_operator` / `admin_support`                                 | 模型已定，未实现                                   |
+| 授权（平台）      | 独立体系：`admin_super`（平台管理员的管理者）+ 全局只读；预留 `admin_operator` / `admin_support`                                 | 已实现（`admin_members` + 能力映射 + 独立会话）    |
 | API 密钥          | SecretKey（`api:*` / `mcp:*` scopes）                                                                                            | **仅 schema 与只读列表**；生成/校验/吊销未实现     |
 | 通知              | 站内通知（category / priority / i18n key）+ 用户偏好                                                                             | 已实现                                             |
 | i18n              | next-intl，zh / en，messages 按模块拆分                                                                                          | 已实现                                             |
@@ -137,7 +137,7 @@
 
 - **鉴权的声明式收敛**：仓库级断言已落在每个路由入口（`apps/platform/src/lib/repo-guard.ts`），尚未收敛为 `withRoute({ repo: … })` 的声明式写法（见 tech-design §5.4.4）
 - **端点 × 角色测试**：鉴权已有实现，但缺少表驱动的自动化覆盖（`apps/platform` 尚无测试基建）
-- **Admin 鉴权**：`apps/admin` 当前无任何认证，且 `admin_members` 表尚未创建
+- **Admin 功能面**：登录与门禁已实现（独立 cookie / 密钥 / `/login`）；门禁之后的仪表盘、审计、用户、管理员管理四个页面仍是占位
 - **操作审计（部分落地）**：成员类事件（`member.*` / `repo.member_*` / `org.transfer`）与创建类事件（`org.create` / `repo.create`）已与业务写同事务落库，仓库设置页与组织详情 Tab 可查看；导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP、密钥、`admin.*` 仍未接线
 - **SecretKey**：生成 / 校验 / 吊销均未实现；设置页按钮为禁用状态；无任何请求校验过 SecretKey
 - **认证**：GitHub / Google 第三方登录
@@ -164,7 +164,7 @@
 7. 认证：注册 → 登录 → Session 生效。
 8. 越权防护：非组织成员访问该组织的组织 / 仓库资源返回 403；只读用户执行写操作返回 403；任何已登录用户携带他人 `repositoryId`（含用别的仓库前缀请求任务详情 / 重试）的请求必须被拒绝。实现已落地（入口守卫 + 任务按仓库过滤），尚缺「端点 × 角色」表驱动测试。
 9. 仓库成员管理：仓库目录对所有登录用户可见，但仓库内容严格按成员判定——无仓库角色且非组织管理员时返回 403。成员页能添加 / 改角色 / 移除显式成员，并把组织隐含成员单独标出；显式角色可以向下覆盖组织角色，非组织成员不可授予。
-10. Admin 门禁（未实现）：仅 `admin_super` 可进入 Admin；`admin_super` 无法创建 / 修改仓库内容与组织 / 仓库成员；授予 / 移除管理员角色写入审计。
+10. Admin 门禁（已实现）：仅 `admin_super` 可进入 Admin——独立 cookie（`apigent_admin_session`）+ 独立密钥（`auth.adminSecret`）+ token 的 `aud` 三重隔离，Platform 的会话进不来、Admin 的会话也不被 Platform 接受；`admin_super` 不持有任何 `repo:*` / `org:*` 能力，因此无法创建 / 修改仓库内容与组织 / 仓库成员；第一个管理员由 CLI 授予并写入 `admin.grant` 审计。门禁之后的页面（仪表盘 / 审计 / 用户 / 管理员管理）仍是占位。
 11. 审计（成员类已实现，其余待接线）：成员与权限变更在**同一事务**内写入 `operation_logs`，写入失败时业务操作一并回滚——`recordOperation(tx, …)` 只接受事务句柄，因此不存在"业务成功、日志缺失"的写法。仓库设置 →「操作日志」与组织详情「操作日志」Tab 可读。尚未接线：导入 / 版本 / MCP / 密钥 / `admin.*`，以及导入明细表。
 12. 界面：接口详情以内嵌分栏页呈现（参考 APIFox）；仓库导航 rail + Tab 子路由可直达；中英切换与深浅主题可用。
 13. RAG 评测（未实现）：预置 20 条标注查询，hit@3 ≥90%、MRR ≥0.7、P95 查询延迟 ≤2s、无召回率（空结果 / 回退）<5%。

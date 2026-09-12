@@ -132,8 +132,7 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   };
   const embEnvKey = embApiKeyMap[config.rag.embedding.provider];
   if (embEnvKey && process.env[embEnvKey]) {
-    (config.rag.embedding as unknown as Record<string, unknown>).apiKey =
-      process.env[embEnvKey];
+    (config.rag.embedding as unknown as Record<string, unknown>).apiKey = process.env[embEnvKey];
   }
   if (config.rag.embedding.provider === "cohere" && process.env.APIGENT_COHERE_API_KEY) {
     (config.rag.embedding as unknown as Record<string, unknown>).apiKey =
@@ -153,6 +152,10 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   // Auth secrets
   if (process.env.APIGENT_AUTH_SECRET) {
     config.auth.secret = process.env.APIGENT_AUTH_SECRET;
+  }
+  // Admin Webapp session secret — separate plane, never derived from auth.secret
+  if (process.env.APIGENT_AUTH_ADMIN_SECRET) {
+    config.auth.adminSecret = process.env.APIGENT_AUTH_ADMIN_SECRET;
   }
   // Create OAuth config objects based on the providers list (not pre-existing objects)
   if (config.auth.providers.includes("github")) {

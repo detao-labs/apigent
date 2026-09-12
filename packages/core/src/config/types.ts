@@ -376,6 +376,12 @@ export type AuthProviderType = "credentials" | "github" | "google";
 export interface AuthConfig {
   /** Secret for signing JWT / session cookies */
   secret: string;
+  /**
+   * Separate secret for the Admin Webapp session cookie. Deliberately has no
+   * fallback to {@link secret}: the admin plane must be isolated, and a missing
+   * value should fail loudly instead of silently sharing the tenant secret.
+   */
+  adminSecret?: string;
   /** Enabled auth providers */
   providers: AuthProviderType[];
   /** Session max age in seconds */

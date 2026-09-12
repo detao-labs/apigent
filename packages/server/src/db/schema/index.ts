@@ -5,6 +5,7 @@
 // 文件按**领域**划分，依赖方向自上而下（下面的层可以引用上面的层）：
 //
 //   auth          身份与凭据            users · secret_keys
+//   admin         平台管理员            admin_members
 //   organization  租户与组织成员         organizations · organization_members
 //   repository    仓库与仓库成员         repositories · repository_members
 //   version       版本 / 快照 / 版本树   versions · version_commits · version_entity_links
@@ -19,6 +20,9 @@
 
 // 身份与凭据
 export { users, secretKeys } from "./auth";
+
+// 平台管理员
+export { adminMembers } from "./admin";
 
 // 租户
 export { organizations, organizationMembers } from "./organization";

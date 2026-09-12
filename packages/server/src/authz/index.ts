@@ -1,6 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
-// RBAC — 组织角色 + 仓库成员
+// RBAC — 租户平面（组织角色 + 仓库成员）与平台平面（平台管理员）
 // ═══════════════════════════════════════════════════════════════════
+//
+// **两套独立体系**：租户平面的 org_*/repo_* 管内容，平台平面的 admin_* 管
+// 部署本身。平台角色不持有任何租户权限（见 admin-capabilities.ts 与它的测试）。
 //
 // 模型（见 docs/tech-design.md §2.8）：
 //   - 仓库**目录**全站可见；仓库**内容**是显式成员制
@@ -31,12 +34,35 @@ export {
   type RepoRole,
 } from "./roles";
 
-export async function getUserOrgRole(userId: string, organizationId: string): Promise<OrgRole | null> {
+// 平台平面：admin_super 与实际权限断言
+export {
+  ADMIN_CAPABILITIES,
+  ADMIN_ROLES,
+  ADMIN_ROLE_CAPABILITIES,
+  adminCapabilitiesOf,
+  assertAdminCapability,
+  getAdminRole,
+  hasAdminCapability,
+  isAdminRole,
+  roleHasAdminCapability,
+  type AdminCapability,
+  type AdminRole,
+} from "./admin";
+
+export async function getUserOrgRole(
+  userId: string,
+  organizationId: string,
+): Promise<OrgRole | null> {
   const db = getDB();
   const [row] = await db
     .select({ role: organizationMembers.role })
     .from(organizationMembers)
-    .where(and(eq(organizationMembers.userId, userId), eq(organizationMembers.organizationId, organizationId)))
+    .where(
+      and(
+        eq(organizationMembers.userId, userId),
+        eq(organizationMembers.organizationId, organizationId),
+      ),
+    )
     .limit(1);
   if (row) return row.role as OrgRole;
   // 组织 owner 视为隐式 org_owner（兼容缺失成员行的旧数据）
@@ -49,11 +75,16 @@ export async function getUserOrgRole(userId: string, organizationId: string): Pr
 }
 
 /** 用户在仓库上的显式成员角色；不是成员返回 null。 */
-export async function getRepoMemberRole(userId: string, repositoryId: string): Promise<RepoRole | null> {
+export async function getRepoMemberRole(
+  userId: string,
+  repositoryId: string,
+): Promise<RepoRole | null> {
   const [row] = await getDB()
     .select({ role: repositoryMembers.role })
     .from(repositoryMembers)
-    .where(and(eq(repositoryMembers.userId, userId), eq(repositoryMembers.repositoryId, repositoryId)))
+    .where(
+      and(eq(repositoryMembers.userId, userId), eq(repositoryMembers.repositoryId, repositoryId)),
+    )
     .limit(1);
   return (row?.role as RepoRole) ?? null;
 }

@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  varchar,
-  text,
-  boolean,
-  timestamp,
-  jsonb,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 // ═══════════════════════════════════════════════════════════════════
 // Users
@@ -21,7 +13,6 @@ export const users = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     avatarUrl: text("avatar_url"),
     ssoProviders: jsonb("sso_providers").$type<string[]>().default([]),
-    isPlatformAdmin: boolean("is_platform_admin").default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()

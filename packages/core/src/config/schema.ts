@@ -327,6 +327,7 @@ export const QueueConfigSchema = z.discriminatedUnion("provider", [
 export const AuthConfigSchema = z
   .object({
     secret: z.string(),
+    adminSecret: z.string().optional(),
     providers: z.array(z.enum(["credentials", "github", "google"])),
     sessionMaxAge: z.number().int(),
     github: z

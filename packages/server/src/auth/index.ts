@@ -4,9 +4,11 @@
 
 export { hashPassword, verifyPassword } from "./password";
 export {
-  SESSION_COOKIE,
+  SESSION_COOKIES,
+  SESSION_SCOPES,
   createSessionToken,
   getSessionMaxAge,
   verifySessionToken,
+  type SessionScope,
   type SessionPayload,
 } from "./session";

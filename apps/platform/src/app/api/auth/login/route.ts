@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AuthError, issueSessionToken, loginUser } from "@/services/auth";
-import { getSessionMaxAge, SESSION_COOKIE } from "@apigent/server/auth";
+import { getSessionMaxAge, SESSION_COOKIES } from "@apigent/server/auth";
 import { withRoute } from "@/lib/route";
 
 export const POST = withRoute(async ({ request }) => {
@@ -15,7 +15,7 @@ export const POST = withRoute(async ({ request }) => {
     const user = await loginUser(body);
 
     const response = NextResponse.json({ user });
-    response.cookies.set(SESSION_COOKIE, issueSessionToken(user.id), {
+    response.cookies.set(SESSION_COOKIES.platform, issueSessionToken(user.id), {
       httpOnly: true,
       sameSite: "lax",
       path: "/",

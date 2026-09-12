@@ -284,9 +284,11 @@ Repository content (detail page and every /api/repos/*)
 
 Admin roles apply to the whole deployment and live in `admin_members(userId, role, grantedAt, grantedBy)` — one row means "this user can sign in to the Admin Webapp".
 
+The table ships in migration `0002_admin_members.sql`; it replaced the unused `users.is_platform_admin` boolean, dropped in the same migration. The first row can only be created by `pnpm --filter @apigent/server admin:grant -- --email=…` (§2.8.8).
+
 | Role ID          | Status                     | Description                                                                                            |
 | ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `admin_super`    | **V0 target**              | Super administrator. Manages who else is an admin, and has read-only access to platform stats / audit. |
+| `admin_super`    | **✅ implemented**         | Super administrator. Manages who else is an admin, and has read-only access to platform stats / audit. |
 | `admin_operator` | Reserved (not implemented) | Operations: account lifecycle (disable / enable), statistics, audit                                    |
 | `admin_support`  | Reserved (not implemented) | Support: read-only plus a few restricted actions (e.g. disable an account, but never delete it)        |
 
@@ -312,6 +314,8 @@ Permission names follow `admin:<domain>:<action>`.
 
 `admin_super` holds exactly the four V0 permissions above. It holds **no** `repo:*` or `org:*` permission, so "read-only on the Platform Webapp" is a structural property, not a convention.
 
+The mapping lives in `packages/server/src/authz/admin-capabilities.ts` (zero-dependency, so it can be imported from client components); the DB-backed checks are `getAdminRole()` / `hasAdminCapability()` / `assertAdminCapability()` in `authz/admin.ts`. `admin-capabilities.test.ts` asserts every capability starts with `admin:` — adding a `repo:*` / `org:*` mapping to any admin role fails the suite.
+
 ### 2.8.7 Cross-System Rules
 
 1. **Writes come from the tenant system.** `org:*` / `repo:*` permissions are the only source of content and membership writes inside a tenant.
@@ -327,9 +331,15 @@ Permission names follow `admin:<domain>:<action>`.
 | `org_owner`                                                 | Only via Organization ownership transfer                                                                                     |
 | `org_admin` / `org_member`                                  | `org_admin`+ of that Organization                                                                                            |
 | `repo_viewer` / `repo_member` / `repo_admin` / `repo_owner` | Anyone with an effective role of `repo_admin`+ on that repository (including the implied roles of `org_admin` / `org_owner`) |
-| `admin_super`                                               | Another `admin_super`, or the bootstrap seed                                                                                 |
+| `admin_super`                                               | Another `admin_super`, or the bootstrap CLI                                                                                  |
 
-The **first** `admin_super` is created by an explicit seed command, never through the Admin Webapp — otherwise there is no one able to grant the first admin (a bootstrapping deadlock). The **first `repo_owner` of a new repository** is its creator (§2.8.4, item 6) and needs no grant.
+The **first** `admin_super` is created by an explicit CLI command, never through the Admin Webapp — otherwise there is no one able to grant the first admin (a bootstrapping deadlock):
+
+```bash
+pnpm --filter @apigent/server admin:grant -- --email=you@example.com
+```
+
+The target account must already exist; the command is idempotent and writes the `admin.grant` audit row in the same transaction (actor `NULL` = system). The **first `repo_owner` of a new repository** is its creator (§2.8.4, item 6) and needs no grant.
 
 > Repository member management only adds/removes **explicit `repository_members` rows**. The `repo_admin` / `repo_owner` of Organization admins and owners are implicit and never stored, so "removing" them from the member page does nothing — revoke by changing the Organization role instead.
 
@@ -556,11 +566,15 @@ A separate application for the operator of this deployment. Accessible only to u
 
 ## 4.1 Authentication
 
-| Feature               | Description                                                        | V0 status                                                     |
-| --------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------- |
-| **Admin Login**       | Separate sign-in from the Platform Webapp                          | ⏳ not implemented (V0 ships a shell with no auth)            |
-| **Admin Role Check**  | Only `admin_super` holders can access (see §2.8.5)                 | ⏳ not implemented (`admin_members` table does not exist yet) |
-| **Session Isolation** | Admin session is an independent cookie with its own signing secret | ⏳ not implemented                                            |
+| Feature               | Description                                                        | V0 status                                                      |
+| --------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| **Admin Login**       | Separate sign-in from the Platform Webapp                          | ✅ implemented (`apps/admin/src/app/login`)                    |
+| **Admin Role Check**  | Only `admin_super` holders can access (see §2.8.5)                 | ✅ implemented (`admin_members` + the `(authed)` layout guard) |
+| **Session Isolation** | Admin session is an independent cookie with its own signing secret | ✅ implemented (`apigent_admin_session` + `auth.adminSecret`)  |
+
+Isolation has three independent layers, any one of which would already block cross-plane use: a different cookie name, a different HMAC secret, and an `aud` field inside the token that `verifySessionToken(token, scope)` enforces. This matters because cookies are scoped to the host, not the port — on `localhost` the Platform cookie is physically sent to the Admin app and vice versa.
+
+Admin eligibility is re-read from `admin_members` on every request instead of being baked into the token: revoking an admin takes effect on their next request rather than waiting out the session, and a still-valid cookie lands on `/forbidden` instead of the console.
 
 ## 4.2 Dashboard & Statistics
 
@@ -970,15 +984,15 @@ Every privileged mutation writes an `operation_logs` row **in the same transacti
 
 Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
-| Event                                                                | Actor                      | Status      | Notes                                                      |
-| -------------------------------------------------------------------- | -------------------------- | ----------- | ---------------------------------------------------------- |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                    |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                      |
-| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                         |
-| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ⏳ pending  | The only admin write operation; lands with `admin_members` |
-| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                     |
-| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                            |
+| Event                                                                | Actor                      | Status      | Notes                                                       |
+| -------------------------------------------------------------------- | -------------------------- | ----------- | ----------------------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                     |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                       |
+| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                          |
+| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx  |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`              | 🟡 partial  | CLI bootstrap is audited; in-app grant/revoke UI is not yet |
+| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                      |
+| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                             |
 
 **Landed.** `packages/server/src/audit/` exposes `recordOperation(tx, input)` — a transaction handle is required, so an audit row cannot be written outside the transaction that performs the business write — plus `withAuditTransaction(run)` and `listOperationLogs(filter)`. Two read endpoints ship with it: `GET /api/repos/:id/operations` (`repo_viewer`) and `GET /api/orgs/:id/operations` (`org_member`), rendered on `/repos/:id/settings/audit` and in the Organization detail "Activity log" tab.
 
@@ -992,15 +1006,15 @@ The model above is the target. **Already landed:**
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
 - ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4).
 - ✅ **Membership changes are audited** — every membership mutation (`member.*`, `repo.member_*`, `org.transfer`) and the `org.create` / `repo.create` bootstrap write their `operation_logs` row inside the same transaction as the business write, via `recordOperation(tx, …)`; read paths are `GET /api/repos/:id/operations` and `GET /api/orgs/:id/operations` (§5.4.7). **Still open:** import detail rows (`operation_log_details`), repository edit/delete, version activate/rollback, MCP toggle, secret keys, and the `admin.*` events.
+- ✅ **The Admin Webapp is gated** — `admin_members` exists (`0002_admin_members.sql`), sign-in is separate from Platform (`/login` → `apigent_admin_session` signed with `auth.adminSecret`), the guard sits in `apps/admin/src/app/(authed)/layout.tsx`, and capabilities are checked through `assertAdminCapability()`. The first admin is created by the `admin.grant` CLI, which writes its audit row in the same transaction. **Still open:** every page behind the gate is a placeholder, and there is no in-app grant/revoke UI yet.
 
 **Remaining gaps**, in the order they should be closed:
 
-1. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
-2. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
-3. **Audit coverage is partial** — membership and create events are wired (§5.4.7); import, version activation, MCP, secret keys and `admin.*` are not. Import detail rows (`operation_log_details`) are still empty.
-4. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `org:delete` / `repo:delete` / `repo:manage_mcp` get implemented (documented but not implemented in code).
+1. **Admin surfaces are placeholders** — the gate is real, but the dashboard (hardcoded `0`s), audit, users and settings pages render empty states, and `admin:admins:manage` has no UI: granting a second admin still needs the CLI.
+2. **Audit coverage is partial** — membership and create events are wired (§5.4.7); import, version activation, MCP, secret keys and the in-app `admin.*` events are not. Import detail rows (`operation_log_details`) are still empty.
+3. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `org:delete` / `repo:delete` / `repo:manage_mcp` get implemented (documented but not implemented in code).
 
-Suggested order: 1 → 2 / 3 → 4.
+Suggested order: 1 → 2 → 3.
 
 ### 5.4.9 Planned: third-party authentication (NextAuth)
 

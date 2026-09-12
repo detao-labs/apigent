@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
-  SESSION_COOKIE,
+  SESSION_COOKIES,
   createSessionToken,
   hashPassword,
   verifyPassword,
@@ -18,10 +18,7 @@ import {
 } from "@apigent/server/auth";
 import { getDB, users } from "@apigent/server/db";
 import { generateId } from "@apigent/server/id";
-import {
-  loginBodySchema,
-  registerBodySchema,
-} from "@/lib/openapi-schemas";
+import { loginBodySchema, registerBodySchema } from "@/lib/openapi-schemas";
 import type { ZodError } from "zod/v4";
 
 export class AuthError extends Error {
@@ -37,10 +34,10 @@ export interface SessionUser {
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIES.platform)?.value;
   if (!token) return null;
 
-  const payload = verifySessionToken(token);
+  const payload = verifySessionToken(token, "platform");
   if (!payload) return null;
 
   const [user] = await getDB()
@@ -95,11 +92,7 @@ export async function loginUser(input: unknown): Promise<SessionUser> {
   const parsed = loginBodySchema.safeParse(input);
   if (!parsed.success) throw new AuthError("invalid-credentials");
   const email = parsed.data.email.trim().toLowerCase();
-  const [user] = await getDB()
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
+  const [user] = await getDB().select().from(users).where(eq(users.email, email)).limit(1);
 
   if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
     throw new AuthError("invalid-credentials");
@@ -108,7 +101,7 @@ export async function loginUser(input: unknown): Promise<SessionUser> {
 }
 
 export function issueSessionToken(userId: string): string {
-  return createSessionToken(userId);
+  return createSessionToken(userId, "platform");
 }
 
 function mapRegisterIssue(error: ZodError): string {

@@ -18,8 +18,10 @@ import { LayoutDashboard, Users, ShieldCheck, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { LogoutButton } from "@/components/logout-button";
+import type { AdminSessionUser } from "@/services/auth";
 
-export function AppSidebar() {
+export function AppSidebar({ admin }: { admin: AdminSessionUser }) {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
@@ -75,9 +77,16 @@ export function AppSidebar() {
             <LocaleSwitcher />
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton size="sm">
-              <span className="text-xs text-muted-foreground">{t("adminFooter")}</span>
-            </SidebarMenuButton>
+            <div className="flex flex-col gap-0.5 px-3 py-2">
+              <span className="truncate text-sm font-medium">{admin.name}</span>
+              <span className="truncate text-xs text-muted-foreground">{admin.email}</span>
+              <span className="text-xs text-muted-foreground">
+                {t(admin.role === "admin_super" ? "roleSuper" : "adminFooter")}
+              </span>
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <LogoutButton />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

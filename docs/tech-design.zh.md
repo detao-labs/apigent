@@ -284,9 +284,11 @@ Apigent 由三个应用层组成：
 
 平台角色作用于整个部署，存放在 `admin_members(userId, role, grantedAt, grantedBy)`——表里有一行就意味着"该用户可以登录 Admin Webapp"。
 
+该表随迁移 `0002_admin_members.sql` 落地，并取代了此前一直闲置的 `users.is_platform_admin` 布尔列（同一次迁移删除）。第一行只能由 `pnpm --filter @apigent/server admin:grant -- --email=…` 写入（§2.8.8）。
+
 | 角色 ID          | 状态           | 说明                                                            |
 | ---------------- | -------------- | --------------------------------------------------------------- |
-| `admin_super`    | **V0 目标**    | 超级管理员。管理其他平台管理员，并对平台统计 / 审计拥有只读访问 |
+| `admin_super`    | **✅ 已实现**  | 超级管理员。管理其他平台管理员，并对平台统计 / 审计拥有只读访问 |
 | `admin_operator` | 预留（未实现） | 运营：账号生命周期（禁用 / 启用）、统计、审计                   |
 | `admin_support`  | 预留（未实现） | 客服 / 支持：只读 + 少量受限操作（如禁用账号，但绝不能删除）    |
 
@@ -312,6 +314,8 @@ Apigent 由三个应用层组成：
 
 `admin_super` 恰好持有上表四个 V0 权限，且**不持有任何** `repo:*` 或 `org:*` 权限——因此"在 Platform 上只读"是结构性质，而不是需要靠约定维持的行为。
 
+映射写在 `packages/server/src/authz/admin-capabilities.ts`（零依赖，可被客户端组件引用）；查库的断言是 `authz/admin.ts` 里的 `getAdminRole()` / `hasAdminCapability()` / `assertAdminCapability()`。`admin-capabilities.test.ts` 断言每个能力名都以 `admin:` 开头——任何 `admin_*` 角色映射到 `repo:*` / `org:*` 都会让测试失败。
+
 ### 2.8.7 跨体系规则
 
 1. **写操作来自租户体系。** 租户内的内容与成员写入，唯一来源是 `org:*` / `repo:*` 权限。
@@ -327,9 +331,15 @@ Apigent 由三个应用层组成：
 | `org_owner`                                                 | 只能通过 Organization 所有权转移                                            |
 | `org_admin` / `org_member`                                  | 该 Organization 的 `org_admin`+                                             |
 | `repo_viewer` / `repo_member` / `repo_admin` / `repo_owner` | 该仓库的有效角色 ≥ `repo_admin`（含组织隐含的 `repo_admin` / `repo_owner`） |
-| `admin_super`                                               | 另一个 `admin_super`，或引导种子数据                                        |
+| `admin_super`                                               | 另一个 `admin_super`，或引导 CLI                                            |
 
-**第一个** `admin_super` 由显式的 seed 命令创建，绝不通过 Admin Webapp——否则没人能授予第一个管理员，形成引导死锁。**新仓库的第一位 `repo_owner`** 则是创建者本人（§2.8.4 第 6 条），不需要别人授予。
+**第一个** `admin_super` 由显式 CLI 命令创建，绝不通过 Admin Webapp——否则没人能授予第一个管理员，形成引导死锁：
+
+```bash
+pnpm --filter @apigent/server admin:grant -- --email=you@example.com
+```
+
+目标账号必须已存在；命令是幂等的，并在同一事务内写入 `admin.grant` 审计行（actor 为 `NULL`，即系统）。**新仓库的第一位 `repo_owner`** 则是创建者本人（§2.8.4 第 6 条），不需要别人授予。
 
 > 仓库成员管理只能增删**显式的 `repository_members` 行**。组织管理员 / 拥有者的 `repo_admin` / `repo_owner` 是隐式的、不落表，因此在成员页上"移除"对他们无效——收回权限要改组织角色。
 
@@ -556,11 +566,15 @@ Key 格式：`apigent_sk_<random_hex>`
 
 ## 4.1 认证
 
-| 功能               | 说明                                       | V0 状态                                 |
-| ------------------ | ------------------------------------------ | --------------------------------------- |
-| **管理员登录**     | 独立于 Platform Webapp 的登录流程          | ⏳ 未实现（V0 只有无鉴权的壳）          |
-| **管理员权限检查** | 仅 `admin_super` 持有者可访问（见 §2.8.5） | ⏳ 未实现（`admin_members` 表尚未创建） |
-| **Session 隔离**   | 管理员会话使用独立 Cookie 与独立签名密钥   | ⏳ 未实现                               |
+| 功能               | 说明                                       | V0 状态                                                   |
+| ------------------ | ------------------------------------------ | --------------------------------------------------------- |
+| **管理员登录**     | 独立于 Platform Webapp 的登录流程          | ✅ 已实现（`apps/admin/src/app/login`）                   |
+| **管理员权限检查** | 仅 `admin_super` 持有者可访问（见 §2.8.5） | ✅ 已实现（`admin_members` + `(authed)` 布局守卫）        |
+| **Session 隔离**   | 管理员会话使用独立 Cookie 与独立签名密钥   | ✅ 已实现（`apigent_admin_session` + `auth.adminSecret`） |
+
+隔离由三层互相独立的手段保证，任意一层单独生效即可拦住跨平面使用：不同的 cookie 名、不同的 HMAC 密钥、以及 token 里的 `aud` 字段（由 `verifySessionToken(token, scope)` 强制校验）。这一点很关键——cookie 是按主机而非端口隔离的，在本机 `localhost` 上 Platform 的 cookie 会被物理发送给 Admin，反之亦然。
+
+管理员资格每次请求都现查 `admin_members`，而不是写进 token：撤销后下一个请求立刻生效，不必等会话过期；手里那张仍然"有效"的 cookie 会被送到 `/forbidden`。
 
 ## 4.2 仪表盘与统计
 
@@ -969,15 +983,15 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 
 需要记录的事件（完整方案见 [modules/audit-log.md](./modules/audit-log.md)）：
 
-| 事件                                                                 | 操作者               | 状态      | 说明                                            |
-| -------------------------------------------------------------------- | -------------------- | --------- | ----------------------------------------------- |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                                    |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                                    |
-| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                                  |
-| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入           |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`        | ⏳ 待实现 | 平台侧**唯一**的写操作，随 `admin_members` 落地 |
-| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                                  |
-| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                                |
+| 事件                                                                 | 操作者               | 状态      | 说明                                        |
+| -------------------------------------------------------------------- | -------------------- | --------- | ------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                                |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                                |
+| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                              |
+| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入       |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`        | 🟡 部分   | CLI 引导已接线；应用内的授予 / 撤销 UI 待做 |
+| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                              |
+| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                            |
 
 **已落地。** `packages/server/src/audit/` 提供 `recordOperation(tx, input)`——**必须传入事务句柄**，因此不可能在业务事务之外单独写审计行——以及 `withAuditTransaction(run)` 与 `listOperationLogs(filter)`。配套两个只读接口：`GET /api/repos/:id/operations`（`repo_viewer`）、`GET /api/orgs/:id/operations`（`org_member`），分别渲染在 `/repos/:id/settings/audit` 与组织详情的「操作日志」Tab。
 
@@ -991,15 +1005,15 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
 - ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。
 - ✅ **成员变更已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）以及 `org.create` / `repo.create` 的引导写入，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.*` 事件。
+- ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent_admin_session`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查统一走 `assertAdminCapability()`。第一个管理员由 `admin.grant` CLI 创建，审计行同事务落库。**仍未落地：** 门禁之后的所有页面都还是占位，应用内的授予 / 撤销 UI 也没有。
 
 **剩余缺口**，按应修复的顺序排列：
 
-1. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
-2. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
-3. **审计覆盖仍不完整**——成员与创建类事件已接线（§5.4.7）；导入、版本设为当前、MCP、密钥与 `admin.*` 未接线，导入明细（`operation_log_details`）仍为空。
-4. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`org:delete` / `repo:delete` / `repo:manage_mcp` 是否先实现（文档已描述，代码未实现）。
+1. **Admin 各页面仍是占位**——门禁是真的，但仪表盘（硬编码的 `0`）、审计、用户、设置四页都只渲染空态，`admin:admins:manage` 也没有界面：加第二个管理员目前还得走 CLI。
+2. **审计覆盖仍不完整**——成员与创建类事件已接线（§5.4.7）；导入、版本设为当前、MCP、密钥，以及应用内的 `admin.*` 事件未接线，导入明细（`operation_log_details`）仍为空。
+3. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`org:delete` / `repo:delete` / `repo:manage_mcp` 是否先实现（文档已描述，代码未实现）。
 
-建议顺序：1 → 2 / 3 → 4。
+建议顺序：1 → 2 → 3。
 
 ### 5.4.9 计划：引入第三方认证（NextAuth）
 
