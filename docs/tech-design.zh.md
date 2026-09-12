@@ -39,6 +39,16 @@ Apigent 由三个应用层组成：
 - **Admin Webapp** — 面向平台管理员的后台
 - **Core Engine** — API 知识流水线（OpenAPI Parser → Business Context Agent → MCP Gateway；Knowledge Graph 为 V1+ 可选增强），详见 [docs/modules/](./modules/)
 
+**应用地图**（各 APP 使用的运行时）：
+
+| APP             | 运行时                    | 端口 | 职责                                                                          |
+| --------------- | ------------------------- | ---- | ----------------------------------------------------------------------------- |
+| `apps/platform` | **Next.js**（App Router） | 3000 | 面向开发者的 Webapp **以及** Platform REST API（`src/app/api/**` 路由处理器） |
+| `apps/admin`    | **Next.js**（App Router） | 3001 | Admin Webapp（V0 仅壳；完整功能V1）                                           |
+| `apps/open`     | **Hono**                  | 3002 | Open Gateway —— 面向机器的接入面（当前 health，V1 提供 MCP 端点）             |
+
+共享的、与框架无关的逻辑放在 `packages/*`，由这些 APP 直接引用，而不是单独部署成一个服务。
+
 ---
 
 # 2. 核心领域模型
@@ -179,24 +189,30 @@ Apigent 由三个应用层组成：
 
 ## 2.8 RBAC 模型
 
-Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**是**权限**的命名集合。用户通过被分配角色来获得权限——在 Organization 级、Repository 级或 Platform 级。
+授权拆成**两套互相独立的体系**。它们共用身份（`users`），但不共用词汇：租户角色永远不会授予平台能力，平台角色也永远不会授予租户内容权限。
 
-### 2.8.1 角色定义
+| 体系          | 作用域                         | 使用方          | 存储位置                                   |
+| ------------- | ------------------------------ | --------------- | ------------------------------------------ |
+| **租户 RBAC** | 单个 Organization / Repository | Platform Webapp | `organization_members`、`repo_permissions` |
+| **平台 RBAC** | 整个部署（实例级）             | Admin Webapp    | `admin_members`                            |
 
-| 角色 ID          | 级别           | 说明                                       |
-| ---------------- | -------------- | ------------------------------------------ |
-| `org_owner`      | Organization   | 完全控制 Organization 及其所有仓库         |
-| `org_admin`      | Organization   | 管理成员和组织内所有仓库                   |
-| `org_member`     | Organization   | 基础组织成员；仓库访问取决于仓库级角色     |
-| `repo_admin`     | Repository     | 完全控制特定仓库                           |
-| `repo_editor`    | Repository     | 编辑 API 描述、导入新版本                  |
-| `repo_viewer`    | Repository     | 只读访问 API 和模型                        |
-| `project_owner`  | Project（V1+） | 完全控制 Project 及其 Repository 关联      |
-| `project_admin`  | Project（V1+） | 管理 Project 成员与 Repository 关联        |
-| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文          |
-| `platform_admin` | Platform       | 跨 Organization 管理员访问（Admin Webapp） |
+> **为什么是两套：** 租户角色回答"你在这个租户里能做什么"，平台角色回答"作为这个部署的运营方你能做什么"。两者是正交的——单一角色层级**无法**表达"能管理平台管理员、但不能修改仓库内容"，而这恰好是平台运营角色必须具备（且必须不越界）的形态。
 
-### 2.8.2 权限枚举
+### 2.8.1 租户角色
+
+| 角色 ID          | 级别           | 说明                                        |
+| ---------------- | -------------- | ------------------------------------------- |
+| `org_owner`      | Organization   | 完全控制 Organization 及其所有仓库          |
+| `org_admin`      | Organization   | 管理成员和组织内所有仓库                    |
+| `org_member`     | Organization   | 基础组织成员；仓库访问由继承 / 覆盖角色决定 |
+| `repo_admin`     | Repository     | 完全控制特定仓库                            |
+| `repo_editor`    | Repository     | 编辑 API 描述与业务上下文、导入新版本       |
+| `repo_viewer`    | Repository     | 只读访问 API 和模型                         |
+| `project_owner`  | Project（V1+） | 完全控制 Project 及其 Repository 关联       |
+| `project_admin`  | Project（V1+） | 管理 Project 成员与 Repository 关联         |
+| `project_viewer` | Project（V1+） | 查看 Project 及其聚合的使用上下文           |
+
+### 2.8.2 租户权限枚举
 
 | 权限                      | 级别           | 说明                                  |
 | ------------------------- | -------------- | ------------------------------------- |
@@ -207,7 +223,7 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 | `repo:write`              | Repository     | 编辑 API 描述和能力上下文             |
 | `repo:import`             | Repository     | 导入新 OpenAPI 版本                   |
 | `repo:delete`             | Repository     | 删除仓库                              |
-| `repo:manage_permissions` | Repository     | 分配和修改仓库用户角色                |
+| `repo:manage_permissions` | Repository     | 分配和修改**仓库级**角色（覆盖层）    |
 | `repo:manage_mcp`         | Repository     | 开启/关闭 MCP、配置工具暴露范围       |
 | `project:read`            | Project（V1+） | 查看 Project 及其聚合的使用上下文     |
 | `project:manage`          | Project（V1+） | 管理 Project 设置与成员               |
@@ -217,11 +233,8 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 | `mcp:search`              | MCP            | 访问 `search_apis` 工具               |
 | `mcp:detail`              | MCP            | 访问 `get_api_detail` 工具            |
 | `mcp:context`             | MCP            | 访问 `get_project_context` 工具       |
-| `admin:manage_users`      | Platform       | 查看、禁用、启用、删除用户账号        |
-| `admin:view_stats`        | Platform       | 查看平台统计数据                      |
-| `admin:view_audit`        | Platform       | 查看审计日志和安全事件                |
 
-### 2.8.3 角色 → 权限映射
+### 2.8.3 租户角色 → 权限映射
 
 | 角色             | 权限                                                                              |
 | ---------------- | --------------------------------------------------------------------------------- |
@@ -234,9 +247,10 @@ Apigent 采用正式的基于角色的访问控制（RBAC）模型。**角色**�
 | `project_owner`  | `project:*`（V1+）                                                                |
 | `project_admin`  | `project:read`、`project:manage`、`project:link_repo`（V1+）                      |
 | `project_viewer` | `project:read`（V1+）                                                             |
-| `platform_admin` | `admin:*`、跨 Organization 只读访问                                               |
 
-### 2.8.4 继承与覆盖规则
+> ⚠️ **待定项 —— `org_admin` 与 `repo:*`：** 上表以本文档为准，但实现里 `org_admin → repo_editor`，**不含** `repo:manage_permissions`、`repo:delete`、`repo:manage_mcp`。按当前代码，Organization 管理员**无法**管理组织内任何仓库的成员——除非在每个仓库上被单独授予 `repo_admin`。要么改代码对齐本表（一行），要么收窄本表——见 §5.4.8。
+
+### 2.8.4 继承与覆盖（租户）
 
 ```
 Organization 角色 (org_owner / org_admin / org_member)
@@ -251,12 +265,59 @@ Organization 角色 (org_owner / org_admin / org_member)
                    则该成员对仓库 X 拥有完全控制权，对其他仓库仍为 viewer
 ```
 
-**规则：**
+1. 用户对某仓库的**有效角色**取继承角色与 `repo_permissions` 覆盖角色中**较高**者。`repo_viewer` 覆盖无法将 `org_owner` 降级。
+2. 仓库成员在 **Platform Webapp** 管理（仓库设置 → 成员），不在 Admin Webapp。页面分为两组：**继承**（组织成员，此处只读）与**覆盖**（显式授予的仓库角色，可编辑）。
 
-1. 用户对某仓库的**有效权限**取以下两者中较高的：继承自 Organization 角色的权限 **或** 显式分配的仓库级角色
-2. `platform_admin` 对所有 Organization 和仓库有只读权限（用于审计），但除非被显式添加为成员，否则不能修改
-3. MCP 工具与外部 REST API 均受 Secret Key `scopes` 控制——即使用户拥有 `repo:read`，其 Secret Key 也必须具有 `mcp:*`（MCP）或 `api:*`（REST）范围
-4. **双层访问规则（V1+）：** Project 成员身份只决定"能否看到项目存在"；项目内任何 Repository 的内容访问始终走 `repo:*` 权限——项目视图按用户有权限的 repo 子集组装
+### 2.8.5 平台角色
+
+平台角色作用于整个部署，存放在 `admin_members(userId, role, grantedAt, grantedBy)`——表里有一行就意味着"该用户可以登录 Admin Webapp"。
+
+| 角色 ID          | 状态           | 说明                                                            |
+| ---------------- | -------------- | --------------------------------------------------------------- |
+| `admin_super`    | **V0 目标**    | 超级管理员。管理其他平台管理员，并对平台统计 / 审计拥有只读访问 |
+| `admin_operator` | 预留（未实现） | 运营：账号生命周期（禁用 / 启用）、统计、审计                   |
+| `admin_support`  | 预留（未实现） | 客服 / 支持：只读 + 少量受限操作（如禁用账号，但绝不能删除）    |
+
+说明：
+
+- **不存在租户级平台角色。** Organization / Repository 的成员与角色管理留在 Platform Webapp（§3.8），因此 Admin Webapp 永远不需要租户级作用域。这也意味着 `admin_super` 没有任何路径可以触碰租户数据——它无法先把自己加进某个租户、再去改内容。
+- **当前不设只读平台角色**（`admin_viewer` 评估后砍掉）。当出现"需要全局可见但不能改动"的人时，再加 `admin_support`。
+- 角色值遵循既有的 `作用域_层级` 约定（与 `org_*` / `repo_*` 一致）。避免 `admin_member`（与 `org_member`"成员=最低、无特权"的含义冲突）和 `admin_sub`（不表达任何能力信息）。
+
+### 2.8.6 平台权限枚举
+
+权限名遵循 `admin:<域>:<动作>`。
+
+| 权限                  | 状态 | 说明                                               |
+| --------------------- | ---- | -------------------------------------------------- |
+| `admin:admins:manage` | V0   | 授予 / 移除平台管理员角色（仅 `admin_super` 持有） |
+| `admin:stats:view`    | V0   | 查看平台统计                                       |
+| `admin:audit:view`    | V0   | 查看平台级审计日志                                 |
+| `admin:users:view`    | V0   | 查看用户列表与用户详情                             |
+| `admin:users:disable` | 预留 | 禁用 / 重新启用用户账号                            |
+| `admin:users:delete`  | 预留 | 永久删除用户账号及其数据                           |
+| `admin:content:read`  | 待定 | 为排障读取任意仓库内容（默认**不授予**）           |
+
+`admin_super` 恰好持有上表四个 V0 权限，且**不持有任何** `repo:*` 或 `org:*` 权限——因此"在 Platform 上只读"是结构性质，而不是需要靠约定维持的行为。
+
+### 2.8.7 跨体系规则
+
+1. **写操作来自租户体系。** 租户内的内容与成员写入，唯一来源是 `org:*` / `repo:*` 权限。
+2. **平台体系绝不能持有内容写权限。** 用测试强制：任何 `admin_*` 角色都不得映射到 `repo:write`、`repo:import`、`repo:delete`、`repo:manage_permissions`、`repo:manage_mcp` 或任何 `org:*` 写权限。加了这样的映射应当让 CI 失败，而不是靠代码评审发现。
+3. **`admin_super` 不是数据超级用户。** 它唯一的写能力是 `admin:admins:manage`；既不能改内容，也不能增删 Organization / Repository 成员。
+4. **Secret Key 是独立平面。** MCP 工具与外部 REST API 由用户签发的 Secret Key 认证，携带 `mcp:*` / `api:*` 范围；租户或平台会话角色本身永远不够。（SecretKey 的签发 / 校验链路尚未实现——见 §5.4.8。）
+5. **双层访问规则（V1+）：** Project 成员身份只决定"能否看到项目存在"；项目内任何 Repository 的内容访问始终走 `repo:*` 权限。
+
+### 2.8.8 授予与引导
+
+| 角色                                                 | 谁能授予                                  |
+| ---------------------------------------------------- | ----------------------------------------- |
+| `org_owner`                                          | 只能通过 Organization 所有权转移          |
+| `org_admin` / `org_member`                           | 该 Organization 的 `org_admin`+           |
+| `repo_admin` / `repo_editor` / `repo_viewer`（覆盖） | 该仓库的 `repo:manage_permissions` 持有者 |
+| `admin_super`                                        | 另一个 `admin_super`，或引导种子数据      |
+
+**第一个** `admin_super` 由显式的 seed 命令创建，绝不通过 Admin Webapp——否则没人能授予第一个管理员，形成引导死锁。
 
 ---
 
@@ -298,13 +359,13 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ## 3.1 认证系统
 
-| 功能             | 说明                                     |
-| ---------------- | ---------------------------------------- |
-| **邮箱注册**     | 邮箱 + 密码注册，邮箱验证                |
-| **邮箱登录**     | 邮箱 + 密码登录，Session 管理            |
-| **SSO 登录**     | GitHub OAuth、Google OAuth               |
-| **密码重置**     | 通过邮箱重置密码                         |
-| **Session 管理** | 基于 JWT 的会话管理，Refresh Token，登出 |
+| 功能             | 说明                                                            | V0 状态                                     |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------- |
+| **邮箱注册**     | 邮箱 + 密码注册                                                 | ✅ 已实现（暂无邮箱验证）                   |
+| **邮箱登录**     | 在 `users` 表校验凭据，然后签发签名 Cookie                      | ✅ 已实现                                   |
+| **SSO 登录**     | GitHub OAuth、Google OAuth                                      | ⏳ 未实现（已预留 `auth.providers` 配置槽） |
+| **密码重置**     | 通过邮箱重置密码                                                | ⏳ 未实现                                   |
+| **Session 管理** | HMAC-SHA256 签名 httpOnly Cookie（`apigent_session`），登出清除 | ✅ 已实现（V0 无 Refresh Token / 吊销）     |
 
 ## 3.2 用户配置
 
@@ -337,12 +398,12 @@ Organization 角色 (org_owner / org_admin / org_member)
 
 ### 3.5.1 创建与导入
 
-| 操作             | 说明                                     |
-| ---------------- | ---------------------------------------- |
-| **创建仓库**     | 填写名称 + 可选描述                      |
+| 操作             | 说明                                                        |
+| ---------------- | ----------------------------------------------------------- |
+| **创建仓库**     | 填写名称 + 可选描述                                         |
 | **导入 OpenAPI** | 上传 JSON/YAML 文件，或从 URL 获取；确认后异步执行（见 §7） |
-| **自动识别版本** | 从 OpenAPI `info.version` 字段提取版本号 |
-| **校验**         | 导入前验证 Spec 合法性，展示错误信息     |
+| **自动识别版本** | 从 OpenAPI `info.version` 字段提取版本号                    |
+| **校验**         | 导入前验证 Spec 合法性，展示错误信息                        |
 
 > **异步执行（V0 目标）**：提交后立即返回任务 ID，解析/落库由队列 Worker 在后台执行，进度通过顶栏消息通知与仓库状态徽章可见（详见 [Async Queue 模块文档](./modules/async-queue.md)）。
 
@@ -472,15 +533,17 @@ Key 格式：`apigent_sk_<random_hex>`
 
 # 4. Admin Webapp
 
-独立的管理后台应用，仅管理员可访问。
+面向**部署运营方**的独立应用，仅持有平台管理员角色（`admin_members`，当前为 `admin_super`，见 §2.8.5）的用户可访问。
+
+**范围边界：** Admin Webapp 不是管理租户数据的地方。Organization 与 Repository 的成员、角色与内容都在 **Platform Webapp**（§3.8）管理——包括仓库级角色覆盖。Admin 对租户数据只读，其唯一的写能力是管理"谁是平台管理员"。
 
 ## 4.1 认证
 
-| 功能               | 说明                                    |
-| ------------------ | --------------------------------------- |
-| **管理员登录**     | 独立于 Platform Webapp 的认证流程       |
-| **管理员权限检查** | 仅具有 `admin` 标记的用户可访问         |
-| **Session 隔离**   | 管理员 Session 与 Platform Session 独立 |
+| 功能               | 说明                                       | V0 状态                                 |
+| ------------------ | ------------------------------------------ | --------------------------------------- |
+| **管理员登录**     | 独立于 Platform Webapp 的登录流程          | ⏳ 未实现（V0 只有无鉴权的壳）          |
+| **管理员权限检查** | 仅 `admin_super` 持有者可访问（见 §2.8.5） | ⏳ 未实现（`admin_members` 表尚未创建） |
+| **Session 隔离**   | 管理员会话使用独立 Cookie 与独立签名密钥   | ⏳ 未实现                               |
 
 ## 4.2 仪表盘与统计
 
@@ -495,6 +558,8 @@ Key 格式：`apigent_sk_<random_hex>`
 
 ## 4.3 用户管理
 
+这些是**实例级账号操作**——与 Organization / Repository 成员管理是两条不同的轴，后者留在 Platform Webapp。
+
 | 功能         | 说明                                    |
 | ------------ | --------------------------------------- |
 | **用户列表** | 可搜索、可筛选的全量用户列表            |
@@ -502,6 +567,8 @@ Key 格式：`apigent_sk_<random_hex>`
 | **禁用账号** | 临时暂停用户账号                        |
 | **启用账号** | 重新激活已禁用的账号                    |
 | **删除账号** | 永久删除用户及其数据（需确认 + 冷却期） |
+
+账号生命周期能力（`admin:users:disable` / `admin:users:delete`）**已预留但 V0 不实现**——它们是把平台侧引入第二档管理员（`admin_operator` / `admin_support`）时最自然的第一批能力。
 
 ## 4.4 安全审计
 
@@ -520,38 +587,37 @@ Key 格式：`apigent_sk_<random_hex>`
 
 ```
 apps/
-├── platform/          # Platform Webapp（Next.js App Router）
-│   ├── app/           # 页面
-│   ├── components/    # React 组件
-│   └── lib/           # Webapp 专用工具函数
-├── admin/             # Admin Webapp（Next.js App Router）
-│   ├── app/
-│   ├── components/
-│   └── lib/
-├── server/            # Apigent Core API Server（Hono，独立进程）
-│   ├── services/      # Platform Services（OpenAPI Parser、Knowledge Graph 等）
-│   ├── agents/        # AI Agents（Business Context、Semantic Search）
-│   ├── mcp/           # MCP Gateway（HTTP + Streamable HTTP）
-│   ├── jobs/          # 异步任务 Worker（BullMQ）
-│   ├── db/            # 数据库 Schema 与迁移
-│   └── index.ts       # Server 入口
-└── packages/           # 共享包
-    ├── types/          # 共享 TypeScript 类型
-    ├── ui/             # 共享 UI 组件
-    └── auth/           # 共享认证工具
+├── platform/          # Platform Webapp —— Next.js App Router（端口 3000）
+│   └── src/
+│       ├── app/       # 页面 + 路由处理器（src/app/api/** 即 Platform REST API）
+│       ├── components/ # React 组件
+│       ├── services/  # Webapp 侧胶水层，调用 @apigent/server
+│       └── lib/       # Zod 契约、withRoute 包装、日志、错误处理
+├── admin/             # Admin Webapp —— Next.js App Router（端口 3001，V0 仅壳）
+│   └── src/
+└── open/              # Open Gateway —— Hono 进程（端口 3002）
+    └── src/index.ts   # 当前 `/` + `/health`；MCP 端点规划在 V1
+
+packages/
+├── core/              # 配置（YAML + .env）、DI 容器、共享类型、i18n、agent registry
+├── server/            # 领域与基础设施，与框架无关：
+│                      # db（Drizzle Schema + 迁移）、openapi parser、imports、versions、
+│                      # contexts、queue、auth、authz、notifications、logging、ai（AI SDK 适配器）
+└── ui/                # shadcn/ui 组件（Base UI + Tailwind v4）
 ```
 
-> **说明：** 这是*目标*应用结构。当前仓库里 Hono 服务位于 `apps/open`，共享服务端模块（OpenAPI 解析、上下文、版本、导入、队列、鉴权/授权、通知）位于 `packages/server`，且目前没有 `mcp/` 或 `jobs/` 目录——MCP Gateway 与 BullMQ 工作进程仍是设计，尚未实现。
+> **说明：** 以上即当前仓库结构。`packages/server` 是**共享库**，不是独立服务——它没有 HTTP 入口，由 Next.js Webapp 直接引用（后续也会被 Hono 网关引用）。目前没有 `mcp/` 或 `jobs/` 目录——MCP Gateway 与 BullMQ 工作进程仍是设计，尚未实现。
 
-### 为什么 Core API Server 用 Hono？
+### API 分别跑在哪里？
 
-将 Core API Server 与 Next.js 分离，基于三个理由：
+Platform REST API 与面向 Agent 的 MCP 接入面刻意采用不同运行时：
 
-| 考量           |                             Next.js API Routes                             |                              独立 Server（Hono）                               |
-| -------------- | :------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
-| **独立扩缩**   |                        耦合在 Webapp 进程生命周期中                        |                    MCP 流量和页面流量可独立部署、扩缩、监控                    |
-| **无超时焦虑** | Serverless 平台有 10–60s 硬限制；`search_apis` 涉及 LLM + 语义理解可能超限 |                              常驻进程，无超时限制                              |
-| **部署灵活**   |                    绑定 Vercel/Node.js serverless 模型                     | 可部署到 VPS、K8s、Docker，甚至未来迁移到边缘运行时（Bun、Cloudflare Workers） |
+| 接入面                       | 运行时                                                                             | 原因                                                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Platform REST API**        | Next.js 路由处理器（`apps/platform/src/app/api/**`）→ 同进程调用 `@apigent/server` | 与 Webapp 共享进程与部署目标：没有 HTTP 跳转，V0 不需要多跑一个服务。服务层保持与框架无关，未来可被任意运行时复用。                                   |
+| **面向 Agent 的网关（MCP）** | Hono（`apps/open`）                                                                | 机器间流量与页面渲染的扩缩特性、生命周期不同：可独立部署、扩缩、监控；常驻进程不受 Serverless 10–60s 限制，而 `search_apis` 这类 LLM 工具有可能超限。 |
+
+“把 API Server 与 Next.js 分离”的原始理由依然成立——只是它现在适用于**网关**，而不是 Webapp 的 REST API。`apps/open` 已声明 `@modelcontextprotocol/sdk`，V1 挂载 MCP 端点后会直接调用 `@apigent/server`（内部调用无 HTTP 开销）。
 
 ### MCP 传输模式
 
@@ -571,24 +637,25 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 
 每个可替换组件由 **TypeScript 接口**定义，并附带**默认实现**。用户可通过实现接口并在配置中注册来替换任何组件。详见 [5.5 可扩展架构](#55-可扩展架构)。
 
-| 层              | 默认实现                                | 抽象接口            | 选型理由                                                                        |
-| --------------- | --------------------------------------- | ------------------- | ------------------------------------------------------------------------------- |
-| **Webapp 前端** | Next.js App Router、React、TypeScript   | —                   | SSR、Streaming、Server Components、丰富生态                                     |
-| **Webapp 样式** | Tailwind CSS                            | —                   | 原子化 CSS，快速 UI 开发                                                        |
-| **API Server**  | Hono（TypeScript）                      | —                   | 轻量（12KB）、多运行时、Web 标准 `Request`/`Response`、Express 风格 API         |
-| **类型桥梁**    | REST + Hono RPC（`hc`）+ OpenAPI（Zod） | —                   | 标准 REST 契约；Hono RPC 提供类型安全客户端；OpenAPI 文档由 Zod Schema 自动生成 |
-| **数据库**      | PostgreSQL                              | `DatabaseAdapter`   | V0 关系型存储；仅支持 PostgreSQL（Drizzle pg-core Schema）                         |
-| **向量存储**    | pgvector                                | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                    |
-| **ORM**         | Drizzle                                 | `DatabaseAdapter`   | SQL 优先、类型安全；V0 使用 PostgreSQL（pg-core）——其他方言规划中，暂未支持       |
-| **异步任务**    | Postgres 队列（V0）/ BullMQ + Redis（扩容） | `QueueProvider`  | OpenAPI 导入、LLM 推理、批处理——可通过配置切换 RabbitMQ/SQS                   |
-| **认证**        | NextAuth.js（credentials + OAuth）      | `AuthProvider`      | Next.js 生态成熟、灵活的认证方案；可接自定义 OIDC/LDAP                          |
-| **LLM**         | Qwen API（阿里云百炼）                  | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型         |
-| **Embedding**   | Qwen Embedding（text-embedding-v4）     | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型                   |
-| **MCP**         | @modelcontextprotocol/sdk               | —                   | 标准 MCP 实现，Streamable HTTP 传输                                             |
-| **存储**        | 本地文件系统                            | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                            |
-| **Diff**        | diff（或自研渲染器）                    | —                   | 版本对比和 AI 编辑建议展示                                                      |
+| 层               | 默认实现                                    | 抽象接口            | 选型理由                                                                             |
+| ---------------- | ------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------ |
+| **Webapp 前端**  | Next.js App Router、React、TypeScript       | —                   | SSR、Streaming、Server Components、丰富生态                                          |
+| **Webapp 样式**  | Tailwind CSS                                | —                   | 原子化 CSS，快速 UI 开发                                                             |
+| **Platform API** | Next.js 路由处理器 + `@apigent/server`      | —                   | 与 Platform Webapp 同进程：没有 HTTP 跳转，V0 只有一个部署目标；服务层保持与框架无关 |
+| **Open Gateway** | Hono（TypeScript）                          | —                   | 面向机器流量（MCP）的独立进程；多运行时、Web 标准 `Request`/`Response`               |
+| **类型桥梁**     | Zod Schema + `zod-openapi`                  | —                   | 路由处理器用 Zod 校验；OpenAPI 3.1 文档由同一份 Schema 离线生成                      |
+| **数据库**       | PostgreSQL                                  | `DatabaseAdapter`   | V0 关系型存储；仅支持 PostgreSQL（Drizzle pg-core Schema）                           |
+| **向量存储**     | pgvector                                    | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                         |
+| **ORM**          | Drizzle                                     | `DatabaseAdapter`   | SQL 优先、类型安全；V0 使用 PostgreSQL（pg-core）——其他方言规划中，暂未支持          |
+| **异步任务**     | Postgres 队列（V0）/ BullMQ + Redis（扩容） | `QueueProvider`     | OpenAPI 导入、LLM 推理、批处理——可通过配置切换 RabbitMQ/SQS                          |
+| **认证**         | Credentials + HMAC 签名 Cookie              | `AuthProvider`      | V0 用邮箱 + 密码 + 无状态签名 httpOnly Cookie；接口是后续接 OAuth/OIDC/LDAP 的扩展点 |
+| **LLM**          | Qwen API（阿里云百炼）                      | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型              |
+| **Embedding**    | Qwen Embedding（text-embedding-v4）         | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型                        |
+| **MCP**          | @modelcontextprotocol/sdk                   | —                   | 标准 MCP 实现，Streamable HTTP 传输                                                  |
+| **存储**         | 本地文件系统                                | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                                 |
+| **Diff**         | diff（或自研渲染器）                        | —                   | 版本对比和 AI 编辑建议展示                                                           |
 
-> **实现状态：** 上表是*目标* V0 技术栈。当前代码里 DI 容器只注册了 `memory` 向量库、`local` 存储与 Postgres 队列。LLM、Embedding、pgvector、BullMQ 以及 MCP Gateway 只在 config/types 中定义，尚无工厂实现——`getLLM()`、`getEmbedding()`、`getVectorStore()`（非 `memory`）、`getQueue()`（非 `postgres`/`memory`）都会以 `not implemented` 快速失败（参见 `packages/core/src/di/container.test.ts`）。
+> **实现状态：** LLM 调用已可用——产品代码（业务上下文生成、Agent 运行时）走 `@apigent/server/ai`（基于 Vercel AI SDK 的 `createAIModel()`），DI 容器里的 `getLLM()` 仍是快速失败的桩。容器只注册了 `memory` 向量库、`local` 存储与 Postgres 队列；Embedding、pgvector、BullMQ 以及 MCP Gateway 只在 config/types 中定义，尚无工厂实现——`getEmbedding()`、`getVectorStore()`（非 `memory`）、`getQueue()`（非 `postgres`/`memory`）都会以 `not implemented` 快速失败（参见 `packages/core/src/di/container.test.ts`）。
 
 ## 5.3 API 层设计
 
@@ -598,41 +665,40 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
                        │  （Platform / Admin）        │
                        │  认证：Session Cookie        │
                        └──────────────┬───────────────┘
-                                      │ REST + Hono RPC（hc）
+                                      │ 同进程服务调用
+                                      │（Next.js 路由处理器 → @apigent/server）
                        ┌──────────────┴───────────────┐
                        │  外部开发者 / SDK             │
                        │  认证：Bearer SecretKey      │
                        │  （api:* scopes）            │
                        └──────────────┬───────────────┘
-                                      │ REST（同一份契约）
-                                      ▼
-                       ┌──────────────────────────────┐
+                                      │ 按 OpenAPI 规范提供 REST（尚未对外提供）
+                       ┌──────────────┴───────────────┐
                        │  外部 AI Agent               │
                        │  认证：Bearer SecretKey      │
                        │  （mcp:* scopes）            │
                        └──────────────┬───────────────┘
                                       │ MCP（Streamable HTTP）
                                       ▼
-                      Core API Server (Hono)
-                      ├── REST 路由（@hono/zod-openapi）
-                      └── MCP Gateway（直接调用 Services）
+                      Open Gateway（Hono，apps/open）
+                      └── MCP Gateway（规划中）→ 直接调用 @apigent/server
                                       │
                                       ▼
-                             PostgreSQL + Vector DB
+                        PostgreSQL（+ pgvector / pg-fts）
 ```
 
 **三种调用方式——一份 REST 契约、三条认证路径：**
 
-| 调用方式      | 通道                           | 认证                              | 类型安全                     |
-| ------------- | ------------------------------ | --------------------------------- | ---------------------------- |
-| 内部 Webapp   | REST + Hono RPC（`hc`）        | Session Cookie（NextAuth JWT）    | 服务端路由类型（无 codegen） |
-| 外部 OpenAPI  | REST（同一份契约）             | Bearer SecretKey + `api:*` scopes | OpenAPI 生成 SDK             |
-| 外部 AI Agent | MCP Gateway（Streamable HTTP） | Bearer SecretKey + `mcp:*` scopes | MCP SDK                      |
+| 调用方式      | 通道                                                            | 认证                              | 类型安全                  |
+| ------------- | --------------------------------------------------------------- | --------------------------------- | ------------------------- |
+| 内部 Webapp   | Next.js 路由处理器（`withRoute`）→ 同进程调用 `@apigent/server` | Session Cookie（HMAC 签名）       | 共享 Zod Schema + TS 类型 |
+| 外部 OpenAPI  | 按导出的 OpenAPI 规范提供 REST（尚未对外提供）                  | Bearer SecretKey + `api:*` scopes | OpenAPI 生成 SDK          |
+| 外部 AI Agent | MCP Gateway（Streamable HTTP，规划中）                          | Bearer SecretKey + `mcp:*` scopes | MCP SDK                   |
 
-- **一份契约**：所有路由用 `@hono/zod-openapi` 定义（Zod 校验 + 自动生成 OpenAPI 文档）。Webapp 的类型化客户端（Hono RPC）与对外 OpenAPI 规范都从同一份路由定义派生，不会互相漂移。
-- **路由可见性**：路由标记为 `internal` / `public`；对外 OpenAPI 规范只暴露 `public` 路由——admin、健康检查、内部端点会被过滤掉。
-- **MCP Gateway** 嵌入同一个 Hono 进程，直接调用 Core Services（内部调用无 HTTP 开销），对外暴露 Streamable HTTP 端点。
-- **两个 Webapp** 是独立的 Next.js 实例；API Server 是独立进程，可单独扩缩。
+- **一份契约**：路由处理器用 `apps/platform/src/lib/openapi-schemas.ts` 的共享 Zod Schema 校验；OpenAPI 3.1 文档由 `zod-openapi` 从同一份 Schema 生成并写入 `apps/platform/openapi/platform.json`（`pnpm openapi:platform`）。校验与文档不会漂移。
+- **规范覆盖范围**：当前导出的文档覆盖公开的 auth 与 organization 路由；运行时不再提供该文档。
+- **MCP Gateway** 将位于 `apps/open` 这个 Hono 进程，直接调用 `@apigent/server`（内部调用无 HTTP 开销），对外暴露 Streamable HTTP 端点。
+- **两个 Webapp** 是独立的 Next.js 实例，各自托管页面；Platform APP 同时托管 Platform REST API。`apps/open` 是唯一的 Hono 进程，可单独扩缩。
 - **异步任务**（OpenAPI 导入、Business Context LLM 推理）通过 `QueueProvider` 调度（V0 默认 Postgres 队列，可通过 `apigent.config.yaml` 切换 BullMQ + Redis），由独立 Worker 执行，不阻塞 HTTP 请求（见 [Async Queue 模块文档](./modules/async-queue.md)）。
 
 ## 5.4 认证与 RBAC 实现
@@ -646,80 +712,68 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
     │
     ▼
 ┌──────────────────────────────────────────────┐
-│  Next.js 中间件 (middleware.ts)               │
+│  Next.js 路由处理器 / Server Component         │
 │                                              │
 │  ┌────────────────────┐                      │
-│  │ 1. 身份认证         │  NextAuth.js         │
-│  │    解码 JWT          │  "你是谁？"          │
-│  │    → session.user    │                      │
+│  │ 1. 身份认证         │  @apigent/server/auth│
+│  │    校验签名 Cookie   │  "你是谁？"          │
 │  └────────┬───────────┘                      │
 │           │                                   │
 │  ┌────────▼───────────┐                      │
-│  │ 2. 权限授权         │  RBAC 引擎            │
-│  │    检查权限          │  "你能做什么？"       │
-│  │    → 通过 / 拒绝     │                      │
+│  │ 2. 权限授权         │  @apigent/server/authz│
+│  │    有效角色          │  "你能做什么？"       │
 │  └────────┬───────────┘                      │
 │           │                                   │
 │  ┌────────▼───────────┐                      │
-│  │ 3. 路由处理         │                      │
+│  │ 3. 服务调用         │                      │
 │  │    页面 / API / MCP  │                      │
 │  └────────────────────┘                      │
 └──────────────────────────────────────────────┘
 ```
 
-### 5.4.2 认证流程（NextAuth.js）
+这里**没有 `middleware.ts`**：认证在每个入口显式执行——路由处理器调用 `withRoute({ auth: true })`，在业务逻辑前解析会话用户、未登录直接返回 401；需要登录的页面位于 `(authed)` 路由组，其 layout 调用 `getSessionUser()`，未登录时跳转 `/login`。授权在服务层由 `assertRepoAccess()` / `assertOrgRole()` 执行。两层都信任同一个签名 Cookie，身份只有一个事实来源。
 
-NextAuth.js（Auth.js v5）配置为 **JWT 策略**——会话 token 是签名后的 JWT，存储在 httpOnly cookie 中。每次请求无需查询数据库。
+### 5.4.2 认证流程（credentials + 签名 Cookie）
 
-**配置（`packages/auth/auth.ts`）：**
+V0 使用自研的 credentials 认证，而非 NextAuth.js。邮箱 + 密码在 `users` 表中校验（scrypt 哈希），会话是**无状态的 HMAC-SHA256 签名 Cookie**——没有 session 表，验证 token 本身也不需要查库。
 
-```ts
-import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
-import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db } from "@/server/db";
+**Token 格式：**
 
-export const { auth, handlers, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db),
-  session: { strategy: "jwt" },
-  providers: [
-    Credentials({
-      credentials: { email: {}, password: {} },
-      authorize: async (credentials) => {
-        // 验证邮箱 + 密码
-        const user = await verifyCredentials(credentials);
-        return user; // { id, email, name }
-      },
-    }),
-    GitHub({ clientId: process.env.GITHUB_ID, clientSecret: process.env.GITHUB_SECRET }),
-    Google({ clientId: process.env.GOOGLE_ID, clientSecret: process.env.GOOGLE_SECRET }),
-  ],
-  callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) token.userId = user.id;
-      return token;
-    },
-    session: async ({ session, token }) => {
-      session.user.id = token.userId as string;
-      return session;
-    },
-  },
-});
+```
+base64url(JSON { uid, iat, exp }) + "." + base64url(HMAC-SHA256(payload, auth.secret))
 ```
 
-**JWT Payload 结构：**
+**实现（`packages/server/src/auth/`）：**
+
+```ts
+// packages/server/src/auth/session.ts
+export const SESSION_COOKIE = "apigent_session";
+
+function sign(payload: string): string {
+  return createHmac("sha256", getAuthConfig().secret).update(payload).digest("base64url");
+}
+
+export function createSessionToken(userId: string): string {
+  /* uid + iat + exp，再签名 */
+}
+export function verifySessionToken(token: string): SessionPayload | null {
+  /* 恒定时间比较 */
+}
+```
+
+**配置（`apigent.config.yaml` + `.env`）：** `auth.providers: [credentials]`；签名密钥与有效期来自 `APIGENT_AUTH_SECRET`（`auth.secret`）与 `auth.sessionMaxAge`。OAuth 尚未实现——`auth.providers` 是为它预留的配置槽。
+
+**会话 Payload：**
 
 ```ts
 {
-  sub: "user_abc123",      // 用户 ID
-  email: "dev@example.com",
-  name: "Jiahui Wu",
-  iat: 1722000000,         // 签发时间
-  exp: 1722600000,         // 过期时间（7 天）
+  uid: "user_abc123",  // 用户 ID
+  iat: 1722000000,     // 签发时间（秒）
+  exp: 1722600000,     // 过期时间（配置项：auth.sessionMaxAge）
 }
 ```
+
+> **V0 已知限制：** 签名是对称的，且没有吊销列表——登出只在客户端清除 Cookie，已签发的 token 在 `exp` 前依然有效。若需要吊销能力，升级路径是引入 session 表或密钥轮换。
 
 ### 5.4.3 RBAC 权限检查
 
@@ -728,185 +782,105 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
 **解析顺序：**
 
 ```
-checkPermission(userId, resourceType, resourceId, requiredPermission)
+checkPermission → 有效角色
 
-步骤 1：用户是 platform_admin？
-        └── 是 → 通过（跳过后续检查）
+步骤 1：解析用户对目标资源的 Organization 角色
+        └── organization_members.role，回退到 organizations.owner_id → org_owner
 
-步骤 2：是否存在显式的 RepoPermission 记录（userId, repoId）？
-        └── 有 → 使用该覆盖角色对应的权限
-        └── 无 → 进入步骤 3
+步骤 2：解析仓库级显式覆盖
+        └── repo_permissions（userId, repoId）→ 仓库角色（可能不存在）
 
-步骤 3：用户在 Organization 中的角色是什么？
-        └── org_owner  → 继承 repo_admin（Organization 内所有仓库）
-        └── org_admin  → 继承 repo_editor（Organization 内所有仓库）
-        └── org_member → 继承 repo_viewer（Organization 内所有仓库）
+步骤 3：有效仓库角色 = max(继承角色, 覆盖角色)
+        └── org_owner  → repo_admin
+        └── org_admin  → repo_editor
+        └── org_member → repo_viewer
 
-步骤 4：映射角色 → 权限列表，检查 requiredPermission 是否包含其中
-        └── 是 → 通过
-        └── 否 → 拒绝（403）
+步骤 4：与所需最低角色比较等级
+        └── rank(有效角色) >= rank(所需角色) → 通过
+        └── 否则                             → 拒绝（ForbiddenError → 403）
 ```
 
-**参考实现（`packages/auth/rbac.ts`）：**
+**参考实现（`packages/server/src/authz/`）：**
 
 ```ts
-import { db } from "@/server/db";
-import { orgMembers, repoPermissions, users } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+// packages/server/src/authz/roles.ts —— 纯角色模型，无 DB 依赖
+export type OrgRole = "org_owner" | "org_admin" | "org_member";
+export type RepoRole = "repo_admin" | "repo_editor" | "repo_viewer";
 
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  org_owner: [
-    "org:manage_members",
-    "org:delete",
-    "org:manage_settings",
-    "repo:read",
-    "repo:write",
-    "repo:import",
-    "repo:delete",
-    "repo:manage_permissions",
-    "repo:manage_mcp",
-  ],
-  org_admin: [
-    "org:manage_members",
-    "org:manage_settings",
-    "repo:read",
-    "repo:write",
-    "repo:import",
-    "repo:delete",
-    "repo:manage_permissions",
-    "repo:manage_mcp",
-  ],
-  org_member: ["repo:read"],
-  repo_admin: [
-    "repo:read",
-    "repo:write",
-    "repo:import",
-    "repo:delete",
-    "repo:manage_permissions",
-    "repo:manage_mcp",
-  ],
-  repo_editor: ["repo:read", "repo:write", "repo:import"],
-  repo_viewer: ["repo:read"],
-  platform_admin: ["admin:manage_users", "admin:view_stats", "admin:view_audit"],
-};
+const ORG_RANK = { org_member: 1, org_admin: 2, org_owner: 3 };
+const REPO_RANK = { repo_viewer: 1, repo_editor: 2, repo_admin: 3 };
 
-const ORG_ROLE_INHERITANCE: Record<string, string> = {
-  org_owner: "repo_admin",
-  org_admin: "repo_editor",
-  org_member: "repo_viewer",
-};
+/** Organization 角色 → 继承的仓库角色 */
+export function orgRoleToRepoRole(role: OrgRole): RepoRole { /* owner→admin、admin→editor、member→viewer */ }
 
-async function checkPermission(
-  userId: string,
-  resourceType: "org" | "repo" | "mcp" | "admin",
-  resourceId: string,
-  requiredPermission: string,
-): Promise<boolean> {
-  // 1. 检查 platform_admin
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: { role: true },
-  });
-  if (user?.role === "platform_admin") return true;
+/** 有效仓库角色 = max(继承, 覆盖)；两者都没有则为 null */
+export function resolveEffectiveRepoRole(
+  orgRole?: OrgRole | null,
+  override?: RepoRole | null,
+): RepoRole | null { … }
 
-  // 2. 仓库级权限检查
-  if (resourceType === "repo" || resourceType === "mcp") {
-    // 2a. 检查显式仓库级角色覆盖
-    const explicitRole = await db.query.repoPermissions.findFirst({
-      where: and(eq(repoPermissions.userId, userId), eq(repoPermissions.repoId, resourceId)),
-    });
-    if (explicitRole) {
-      return ROLE_PERMISSIONS[explicitRole.role]?.includes(requiredPermission) ?? false;
-    }
-
-    // 2b. 回退到继承的 Organization 角色
-    const { orgId } =
-      (await db.query.repos.findFirst({
-        where: eq(repos.id, resourceId),
-        columns: { orgId: true },
-      })) ?? {};
-    if (orgId) {
-      const membership = await db.query.orgMembers.findFirst({
-        where: and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, orgId)),
-      });
-      if (membership) {
-        const inheritedRole = ORG_ROLE_INHERITANCE[membership.role];
-        return ROLE_PERMISSIONS[inheritedRole]?.includes(requiredPermission) ?? false;
-      }
-    }
-  }
-
-  // 3. Organization 级权限检查
-  if (resourceType === "org") {
-    const membership = await db.query.orgMembers.findFirst({
-      where: and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, resourceId)),
-    });
-    if (membership) {
-      return ROLE_PERMISSIONS[membership.role]?.includes(requiredPermission) ?? false;
-    }
-  }
-
-  return false;
+export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean {
+  return !!role && REPO_RANK[role] >= REPO_RANK[min];
 }
 ```
 
-### 5.4.4 中间件集成
+```ts
+// packages/server/src/authz/index.ts —— 路由处理器使用的 DB 检查
+getUserOrgRole(userId, orgId); // organization_members.role，owner 兜底
+getRepoOverrideRole(userId, repoId); // repo_permissions.role
+getEffectiveRepoRole(userId, repoId); // max(继承, 覆盖)
+assertRepoAccess(userId, repoId, min); // 抛 ForbiddenError → 映射为 403
+assertOrgRole(userId, orgId, min);
+listAccessibleRepoIds(userId); // 组织成员 + owner + 显式授权
+```
 
-Next.js 中间件在每个请求前执行。它串联身份认证（NextAuth.js）和权限授权（RBAC）：
+角色按**等级**比较，因此显式仓库覆盖只会相对继承角色升高或降低——`org_owner` 不会被覆盖降级为 `repo_viewer`。
 
-**`middleware.ts`：**
+**平台作用域单独解析。** `admin_members` 是不同的表、不同的词汇（§2.8.5–2.8.7）：平台能力用 `assertAdminCapability(userId, "admin:admins:manage")` 校验，**绝不**走租户角色阶梯。两套体系只有一个交汇点——`withRoute` 上的资源声明决定某条路由适用哪一套。
+
+**rank 与 permission。** 租户能力是**真嵌套**的（`repo_viewer ⊂ repo_editor ⊂ repo_admin`），所以 rank 比较是对的工具，保持不动。平台体系与它们正交，因此改用命名能力（`admin:<域>:<动作>`）。如果将来租户侧出现非嵌套需求（例如"能管仓库成员但不能删仓库"），那就是在租户侧引入 permission 名层的信号；在那之前，rank 更简单且不会漂移。
+
+### 5.4.4 鉴权执行（三层）
+
+鉴权分层执行：入口层让它**不可能被漏掉**，服务层表达业务级要求，后台 Worker 以系统主体运行。
+
+| 层       | 位置                                  | 职责                                                        |
+| -------- | ------------------------------------- | ----------------------------------------------------------- |
+| 入口声明 | `withRoute` 选项（`lib/route.ts`）    | 声明路由操作的资源与最低角色——没有声明就没有处理器          |
+| 服务断言 | `packages/server/src/authz` 调用点    | 把细粒度要求写在它保护的操作旁边                            |
+| 系统主体 | 队列 Worker（`imports` / `contexts`） | 授权发生在**入队**时；Worker 以 system 主体执行，不重复校验 |
+
+**入口声明**（目标形态）：
 
 ```ts
-import { auth } from "@/packages/auth/auth";
-import { checkPermission } from "@/packages/auth/rbac";
+export const POST = withRoute(
+  { auth: true, repo: { param: "id", min: "repo_editor" } },
+  async ({ request, params, user }) => { … },
+);
 
-// 不需要认证的公开路由
-const PUBLIC_ROUTES = ["/login", "/register", "/api/auth/*"];
-
-// 路由 → 所需权限映射
-const ROUTE_PERMISSIONS: Record<string, { type: string; permission: string }> = {
-  "/api/repos/:repoId/edit": { type: "repo", permission: "repo:write" },
-  "/api/repos/:repoId/import": { type: "repo", permission: "repo:import" },
-  "/api/repos/:repoId/settings": { type: "repo", permission: "repo:manage_permissions" },
-  "/api/repos/:repoId/mcp": { type: "repo", permission: "repo:manage_mcp" },
-  "/api/orgs/:orgId/members": { type: "org", permission: "org:manage_members" },
-  "/api/orgs/:orgId/settings": { type: "org", permission: "org:manage_settings" },
-  "/api/admin/*": { type: "admin", permission: "admin:view_stats" },
-};
-
-export default auth((req) => {
-  const { pathname } = req.nextUrl;
-
-  // 放行公开路由
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
-    return; // 无需认证，直接通过
-  }
-
-  // 要求已登录
-  if (!req.auth?.user?.id) {
-    return Response.redirect(new URL("/login", req.url));
-  }
-
-  // 检查路由级权限
-  const routeConfig = matchRoute(pathname, ROUTE_PERMISSIONS);
-  if (routeConfig) {
-    const allowed = checkPermission(
-      req.auth.user.id,
-      routeConfig.type,
-      extractResourceId(pathname), // 例如从 "/api/repos/repo_123/edit" 中提取 "repo_123"
-      routeConfig.permission,
-    );
-    if (!allowed) {
-      return new Response("Forbidden", { status: 403 });
-    }
-  }
-});
-
-// 路由匹配器配置
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+{ auth: true, org:   { param: "id", min: "org_admin" } }
+{ auth: true, admin: "admin:admins:manage" }
 ```
+
+**服务断言**——同一要求直接声明，非 HTTP 调用方也能覆盖：
+
+```ts
+await assertRepoAccess(user.id, id, "repo_editor");
+await assertOrgRole(user.id, orgId, "org_admin");
+```
+
+**系统主体**——入队的导入任务在创建时已通过授权，Worker 没有可校验的请求上下文，因此**不应**重复做用户校验。重试类端点由 HTTP 触发，**仍要**在入口层重新校验。
+
+**页面**依赖 `apps/platform/src/app/(authed)/layout.tsx` 做认证；资源级授权在页面的数据加载处执行：
+
+```tsx
+const user = await getSessionUser();
+if (!user) redirect("/login");
+```
+
+认证对每个请求只解析一次，来源是签名 Cookie——API 走 `withRoute`，页面走 `getSessionUser()`——绝不信任客户端传入的值。公开路由（登录、注册）不加 `auth: true` 即可放行。
+
+这里没有 `middleware.ts`：Next.js 中间件无法把 `AsyncLocalStorage` 传入路由处理器，因此由 `withRoute` 在入口开启日志上下文（reqId / userId）并校验会话。
 
 ### 5.4.5 MCP Tool 授权
 
@@ -937,27 +911,78 @@ MCP 工具使用独立的认证路径——API Key 而非 Session Cookie：
 └─────────────────────────────────┘
 ```
 
-### 5.4.6 共享 Auth 包结构
+### 5.4.6 共享 Auth 代码结构
+
+认证代码放在 `packages/server`（所有运行时共享），Platform APP 里只有一层很薄的 Next.js 胶水：
 
 ```
-packages/auth/
-├── auth.ts              # NextAuth.js 配置
-├── auth.config.ts       # 路由匹配器、公开路由列表
-├── middleware.ts         # Next.js 中间件（认证 + RBAC）
-├── rbac.ts              # checkPermission()、角色↔权限映射表
-├── mcp-auth.ts          # MCP API Key 验证（供 Hono 服务端使用）
-└── types.ts             # Session、Role、Permission 类型定义
+packages/server/src/auth/           # credentials + session 原语（与运行时无关）
+├── index.ts                        # barrel：SESSION_COOKIE、createSessionToken、verifySessionToken…
+├── password.ts                     # hashPassword() / verifyPassword()（scrypt）
+└── session.ts                      # HMAC-SHA256 签名 Cookie payload
+
+packages/server/src/authz/          # RBAC
+├── roles.ts                        # 纯角色模型 + 等级比较（无 DB）
+└── index.ts                        # assertRepoAccess()、assertOrgRole()、listAccessibleRepoIds()
+
+apps/platform/src/services/auth.ts  # Next.js 胶水：cookies() + users 表 → SessionUser
+apps/platform/src/lib/route.ts      # withRoute({ auth: true }) —— 业务逻辑前返回 401
 ```
 
 **关键设计决策：**
 
-| 决策                                       | 理由                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------- |
-| JWT 策略（而非数据库 Session）             | 中间件每次请求无需查 DB；更快，水平扩展友好                                     |
-| httpOnly cookie（而非 localStorage）       | 免疫 XSS 攻击；浏览器自动在每次请求中携带 cookie                                |
-| 中间件级 RBAC（而非每个 handler 各自检查） | 集中化、可审计；避免单个路由遗漏权限检查                                        |
-| MCP 使用 API Key（而非 Session）           | 外部 Agent（Cursor/CLI）没有浏览器 Session；Bearer token 是标准的机器间认证模式 |
-| `packages/auth/` 跨 Webapp 共享            | Platform 和 Admin Webapp 使用相同的认证逻辑；共享包避免重复代码                 |
+| 决策                                 | 理由                                                                                                                                       |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| HMAC 签名 Cookie（而非 session 表）  | 验证 token 不需要查库；V0 明确不要求吊销能力                                                                                               |
+| httpOnly cookie（而非 localStorage） | 免疫 XSS 攻击；浏览器自动在每次请求中携带 cookie                                                                                           |
+| Auth 原语放在 `packages/server`      | Platform Webapp 与未来的 Hono 网关用同一份代码校验同一个 Cookie                                                                            |
+| 入口层校验（而非 `middleware.ts`）   | Next.js 中间件无法把 `AsyncLocalStorage` 传入路由处理器，因此由 `withRoute` 在入口开启日志上下文并校验会话；授权则紧贴它所保护的操作用执行 |
+| MCP 使用 API Key（而非 Session）     | 外部 Agent（Cursor/CLI）没有浏览器 Session；Bearer token 是标准的机器间认证模式                                                            |
+
+### 5.4.7 审计日志
+
+每一次特权变更都必须**与业务写操作在同一事务内**写入 `operation_logs`。否则会出现"变更成功、日志缺失"，而这条审计链是"平台管理员无法触碰租户数据"这条边界唯一可验证的证据。
+
+需要记录的事件（完整方案见 [modules/audit-log.md](./modules/audit-log.md)）：
+
+| 事件                                                                | 操作者                           | 说明                   |
+| ------------------------------------------------------------------- | -------------------------------- | ---------------------- |
+| `admin.grant` / `admin.revoke`                                      | `admin_super`                    | 平台侧**唯一**的写操作 |
+| `member.invite` / `member.role_change` / `member.remove`            | `org_admin`+                     | 组织成员变更           |
+| `repo.permission_grant` / `permission_change` / `permission_revoke` | `repo:manage_permissions` 持有者 | 仓库级角色覆盖变更     |
+| `org.transfer`                                                      | `org_owner`                      | 组织所有权转移         |
+| `admin.login`                                                       | `admin_super`                    | 可选                   |
+
+`operation_logs.orgId` 在平台级操作时为 NULL，而现有索引是 `(orgId, operationType, createdAt)`——NULL 行不参与该索引，因此查询平台级事件需要额外索引或不同的查询条件。
+
+### 5.4.8 已知缺口与落地顺序
+
+上面的模型是目标态。当前缺口按应修复的顺序排列：
+
+1. **三个 service 缺少鉴权**——`imports`、`contexts`、`versions` 接收 `repoId` 却不校验调用者角色。任何已登录用户只要知道 `repoId`，就能预览/导入版本、读取并**写入**接口业务上下文、查看任意仓库的版本历史。目前只有 org/repo 的增删改查和少数版本路由受保护。
+2. **仓库成员无法管理**——`repo_permissions` 只有读取，全仓没有任何写入入口；Platform Webapp 需要仓库成员页（继承 vs 覆盖，§2.8.4）。
+3. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
+4. **审计未接线**——表已建，无人写入。
+5. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
+6. **版本权限不一致**——`/versions/:id/activate` 要求 `repo_admin`，而 `/versions/:id/rollback` 只要求 `repo_editor`，但两者都在改默认版本的指向。
+7. **待定项**——`org_admin` 的仓库权限（§2.8.3）；`admin_super` 能否读仓库内容（`admin:content:read`）；仓库覆盖是否允许授予非组织成员；SecretKey 的签发/校验是否先于外部接口落地。
+
+建议顺序：1 → 2 → 4 → 3 → 5 / 6 / 7。
+
+### 5.4.9 计划：引入第三方认证（NextAuth）
+
+V0 使用自研 credentials 认证。GitHub / Google 登录已排期，方向是采用 Auth.js / NextAuth，但**仅负责认证**部分——授权仍留在 `packages/server`，如本节所述。
+
+| 决策                                          | 理由                                                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| NextAuth 只负责身份                           | RBAC 依旧只吃 `userId`，因此路由处理器、`withRoute`、`authz/*` 都不用改                        |
+| 新增 `packages/auth` 存放共享配置工厂         | `packages/server` 保持与框架无关；Hono 网关永远不能依赖 `next-auth`                            |
+| Platform 与 Admin 各自独立实例、Cookie 与密钥 | Admin 是更高权限面：独立登出、更短有效期、独立密钥轮换                                         |
+| 共用 `users` 表，不建独立管理员用户体系       | 管理员本来就是持有平台角色的平台用户；独立身份源会破坏账号绑定                                 |
+| 保留邮箱 + 密码登录                           | 自托管部署需要本地兜底——这也是会话保持 JWT 形态的原因（Auth.js credentials 不支持 DB session） |
+| 角色永不写入 token                            | 授权每请求从数据库解析，角色变更立即生效                                                       |
+
+迁移成本被 `getSessionUser()` 这个接缝限制住：换的是"用户 id 从哪来"，而不是"怎么被消费"。
 
 ## 5.5 可扩展架构
 
@@ -996,14 +1021,14 @@ Apigent 是一个**开源、自托管**的平台。不同团队有不同的基�
 
 ### 5.5.2 可替换组件
 
-| 组件                 | 接口                | 默认实现                            | 常见替代方案                                            |
-| -------------------- | ------------------- | ----------------------------------- | ------------------------------------------------------- |
-| **向量存储**         | `VectorStore`       | pgvector                            | Milvus、Qdrant、Weaviate、Pinecone、Chroma              |
-| **LLM 提供商**       | `LLMProvider`       | Qwen API（阿里云百炼）              | Claude、OpenAI、Gemini、Ollama（本地）、vLLM            |
-| **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | Claude Embedding、OpenAI Embedding、Cohere、BGE（本地） |
-| **存储提供商**       | `StorageProvider`   | 本地文件系统                        | AWS S3、MinIO、Google Cloud Storage、Azure Blob         |
-| **队列提供商**       | `QueueProvider`     | Postgres 队列（`PgQueueProvider`）  | BullMQ + Redis、RabbitMQ、AWS SQS                        |
-| **认证提供商**       | `AuthProvider`      | NextAuth.js                         | 自定义 OIDC、LDAP、SAML、Authentik                      |
+| 组件                 | 接口                | 默认实现                            | 常见替代方案                                                       |
+| -------------------- | ------------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| **向量存储**         | `VectorStore`       | pgvector                            | Milvus、Qdrant、Weaviate、Pinecone、Chroma                         |
+| **LLM 提供商**       | `LLMProvider`       | Qwen API（阿里云百炼）              | Claude、OpenAI、Gemini、Ollama（本地）、vLLM                       |
+| **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | Claude Embedding、OpenAI Embedding、Cohere、BGE（本地）            |
+| **存储提供商**       | `StorageProvider`   | 本地文件系统                        | AWS S3、MinIO、Google Cloud Storage、Azure Blob                    |
+| **队列提供商**       | `QueueProvider`     | Postgres 队列（`PgQueueProvider`）  | BullMQ + Redis、RabbitMQ、AWS SQS                                  |
+| **认证提供商**       | `AuthProvider`      | Credentials + HMAC 签名 Cookie      | 自定义 OAuth/OIDC、LDAP、SAML、Authentik（配置槽已预留，尚未实现） |
 
 ### 5.5.3 Vector Store 接口
 
@@ -1266,11 +1291,11 @@ export interface QueueProvider {
 
 Apigent 使用**双层配置系统**，方便开发环境和部署环境之间无缝切换：
 
-| 层           | 文件                  | 放什么                                                                   | 示例                                                               |
-| ------------ | --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释）                 | `llm.provider: qwen`、`rag.retrieval.retrievalMode: hybrid`        |
+| 层           | 文件                  | 放什么                                                                                                              | 示例                                                               |
+| ------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **方案选择** | `apigent.config.yaml` | 使用哪个 provider / 模型 / 策略（结构化 YAML，支持注释）                                                            | `llm.provider: qwen`、`rag.retrieval.retrievalMode: hybrid`        |
 | **密钥**     | `.env`                | 仅敏感数据：API key、密码、连接字符串。不再提供任何 provider/方案选择环境变量——方案选择一律在 `apigent.config.yaml` | `DASHSCOPE_API_KEY`、`APIGENT_DATABASE_URL`、`APIGENT_AUTH_SECRET` |
-| **编程配置** | `apigent.config.ts`   | 自定义 provider 工厂、高级配置（**规划中，V0 未实现**；大多数用户只需 `.yaml` + `.env`） | 自定义 `VectorStore` 实现、插件注册 |
+| **编程配置** | `apigent.config.ts`   | 自定义 provider 工厂、高级配置（**规划中，V0 未实现**；大多数用户只需 `.yaml` + `.env`）                            | 自定义 `VectorStore` 实现、插件注册                                |
 
 **默认工作流 — apigent.config.yaml + .env（95% 用户）：**
 
@@ -1502,18 +1527,19 @@ const config: ApigentConfig = {
 
 综合 blueprint 路线图，V0 覆盖最小可用产品：
 
-| 领域             | V0 功能                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------- |
-| **认证**         | 邮箱登录/注册、Session 管理                                                                             |
-| **Organization** | 创建组织、邀请成员、基础角色                                                                            |
-| **仓库**         | 创建仓库、导入 OpenAPI（文件/URL）、版本列表                                                            |
-| **浏览**         | 接口列表（按 tag 分组）、数据模型列表、语义搜索（自然语言）                                             |
-| **Core Engine**  | OpenAPI Parser → Business Context Agent（能力上下文；Knowledge Graph 为 V1+ 可选增强，默认关闭）        |
-| **MCP**          | 基础 MCP Gateway，提供 `search_apis` + `get_api_detail`（`get_project_context` 随 Project 在 V1+ 提供） |
-| **Secret Key**   | 生成、查看、删除密钥                                                                                    |
-| **Dashboard**    | 简单仓库列表 + 最近活动                                                                                 |
-| **Admin**        | 基础用户列表、平台统计                                                                                  |
-| **Project**      | 仅领域模型定义，V0 不实现功能                                                                           |
+| 领域             | V0 功能                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| **认证**         | 邮箱登录/注册、Session 管理                                                                      |
+| **Organization** | 创建组织、邀请成员、基础角色                                                                     |
+| **仓库**         | 创建仓库、导入 OpenAPI（文件/URL）、版本列表                                                     |
+| **版本化**       | 版本分支、快照（commit）、回滚、对比 —— 已提前落地（原计划 V1）                                  |
+| **浏览**         | 接口列表（按 tag 分组）、数据模型列表、语义搜索（自然语言）                                      |
+| **Core Engine**  | OpenAPI Parser → Business Context Agent（能力上下文；Knowledge Graph 为 V1+ 可选增强，默认关闭） |
+| **Secret Key**   | 生成、查看、删除密钥                                                                             |
+| **Dashboard**    | 简单仓库列表 + 最近活动                                                                          |
+| **Project**      | 仅领域模型定义，V0 不实现功能                                                                    |
+
+> **范围说明：** MCP Gateway 挂载与 **Admin Webapp 完整功能**均移至 **V1**（V0 聚焦 Platform Webapp）：外部 Agent 接入（`search_apis` / `get_api_detail`）随 V1 提供，`get_project_context` 仍随 Project 在 V1+；Admin 在 V0 仅保留壳。
 
 ---
 

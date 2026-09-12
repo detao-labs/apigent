@@ -39,6 +39,16 @@ Apigent consists of three application layers:
 - **Admin Webapp** — the admin panel for platform operators
 - **Core Engine** — the API knowledge pipeline (OpenAPI Parser → Business Context Agent → MCP Gateway; Knowledge Graph is a V1+ optional enhancement), detailed in [docs/modules/](./modules/)
 
+**Application map** (which runtime each app uses):
+
+| App             | Runtime                  | Port | Role                                                                                       |
+| --------------- | ------------------------ | ---- | ------------------------------------------------------------------------------------------ |
+| `apps/platform` | **Next.js** (App Router) | 3000 | Developer-facing webapp **and** the Platform REST API (Route Handlers in `src/app/api/**`) |
+| `apps/admin`    | **Next.js** (App Router) | 3001 | Admin webapp (shell in V0; full features in V1)                                            |
+| `apps/open`     | **Hono**                 | 3002 | Open Gateway — machine-facing surface (health today, MCP endpoint in V1)                   |
+
+Shared, framework-agnostic logic lives in `packages/*` and is imported by these apps rather than deployed as its own service.
+
 ---
 
 # 2. Core Domain Model
@@ -179,24 +189,30 @@ User-level API key for MCP access. External AI Agents use this key to authentica
 
 ## 2.8 RBAC Model
 
-Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a named collection of **permissions**. Users gain permissions by being assigned roles — at the Organization level, Repository level, or Platform level.
+Authorization is split into **two independent systems**. They share identity (`users`) but never share vocabulary: a tenant role can never grant an admin capability, and an admin role can never grant tenant content rights.
 
-### 2.8.1 Roles
+| System          | Scope                                  | Used by         | Stored in                                  |
+| --------------- | -------------------------------------- | --------------- | ------------------------------------------ |
+| **Tenant RBAC** | One Organization / Repository          | Platform Webapp | `organization_members`, `repo_permissions` |
+| **Admin RBAC**  | The whole deployment (instance-scoped) | Admin Webapp    | `admin_members`                            |
 
-| Role ID          | Level         | Description                                                           |
-| ---------------- | ------------- | --------------------------------------------------------------------- |
-| `org_owner`      | Organization  | Full control over Organization and all its repos                      |
-| `org_admin`      | Organization  | Manage members and all repos within the Organization                  |
-| `org_member`     | Organization  | Basic Organization membership; repo access depends on repo-level role |
-| `repo_admin`     | Repository    | Full control over a specific Repository                               |
-| `repo_editor`    | Repository    | Edit API descriptions, import new versions                            |
-| `repo_viewer`    | Repository    | Read-only access to APIs and models                                   |
-| `project_owner`  | Project (V1+) | Full control over a Project and its Repository links                  |
-| `project_admin`  | Project (V1+) | Manage Project members and Repository links                           |
-| `project_viewer` | Project (V1+) | View a Project and its aggregated usage context                       |
-| `platform_admin` | Platform      | Cross-Organization admin access (Admin Webapp)                        |
+> **Why two systems:** tenant roles answer "what can you do inside this tenant", admin roles answer "what can you do as the operator of this deployment". They are orthogonal — a single role hierarchy cannot express "can manage platform admins, but cannot edit repository content", which is exactly what the platform operator role must be able to do (and not do).
 
-### 2.8.2 Permissions
+### 2.8.1 Tenant Roles
+
+| Role ID          | Level         | Description                                                            |
+| ---------------- | ------------- | ---------------------------------------------------------------------- |
+| `org_owner`      | Organization  | Full control over the Organization and all its repos                   |
+| `org_admin`      | Organization  | Manage members and all repos within the Organization                   |
+| `org_member`     | Organization  | Basic membership; repo access comes from the inherited / override role |
+| `repo_admin`     | Repository    | Full control over one Repository                                       |
+| `repo_editor`    | Repository    | Edit API descriptions and business context; import new versions        |
+| `repo_viewer`    | Repository    | Read-only access to APIs and models                                    |
+| `project_owner`  | Project (V1+) | Full control over a Project and its Repository links                   |
+| `project_admin`  | Project (V1+) | Manage Project members and Repository links                            |
+| `project_viewer` | Project (V1+) | View a Project and its aggregated usage context                        |
+
+### 2.8.2 Tenant Permissions
 
 | Permission                | Level         | Description                                     |
 | ------------------------- | ------------- | ----------------------------------------------- |
@@ -207,7 +223,7 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 | `repo:write`              | Repository    | Edit API descriptions and capability context    |
 | `repo:import`             | Repository    | Import new OpenAPI versions                     |
 | `repo:delete`             | Repository    | Delete the Repository                           |
-| `repo:manage_permissions` | Repository    | Assign/change user roles on the Repository      |
+| `repo:manage_permissions` | Repository    | Assign / change **repo-level** roles (override) |
 | `repo:manage_mcp`         | Repository    | Enable/disable MCP, configure tool exposure     |
 | `project:read`            | Project (V1+) | View a Project and its aggregated usage context |
 | `project:manage`          | Project (V1+) | Manage Project settings and members             |
@@ -217,11 +233,8 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 | `mcp:search`              | MCP           | Access `search_apis` tool                       |
 | `mcp:detail`              | MCP           | Access `get_api_detail` tool                    |
 | `mcp:context`             | MCP           | Access `get_project_context` tool               |
-| `admin:manage_users`      | Platform      | View, disable, enable, delete user accounts     |
-| `admin:view_stats`        | Platform      | View platform statistics                        |
-| `admin:view_audit`        | Platform      | View audit logs and security events             |
 
-### 2.8.3 Role → Permission Mapping
+### 2.8.3 Tenant Role → Permission Mapping
 
 | Role             | Permissions                                                                       |
 | ---------------- | --------------------------------------------------------------------------------- |
@@ -234,9 +247,10 @@ Apigent uses a formal Role-Based Access Control (RBAC) model. A **role** is a na
 | `project_owner`  | `project:*` (V1+)                                                                 |
 | `project_admin`  | `project:read`, `project:manage`, `project:link_repo` (V1+)                       |
 | `project_viewer` | `project:read` (V1+)                                                              |
-| `platform_admin` | `admin:*`, cross-Organization read access                                         |
 
-### 2.8.4 Inheritance & Override Rules
+> ⚠️ **Open item — `org_admin` vs `repo:*`:** the table above follows this document, but the implementation maps `org_admin → repo_editor`, which does **not** include `repo:manage_permissions`, `repo:delete` or `repo:manage_mcp`. Under the current code an Organization admin cannot manage the members of any Repository in their Organization unless they are granted `repo_admin` explicitly on each repo. Either align the code to this table (one line) or narrow this table — see §5.4.8.
+
+### 2.8.4 Inheritance & Override (Tenant)
 
 ```
 Organization Role (org_owner / org_admin / org_member)
@@ -252,12 +266,59 @@ Organization Role (org_owner / org_admin / org_member)
                         a viewer on all other Organization repos.
 ```
 
-**Rules:**
+1. A user's effective repository role = the **higher** of the inherited Organization-role and any explicit `repo_permissions` override. A `repo_viewer` override cannot demote an `org_owner`.
+2. Repository members are managed in the **Platform Webapp** (repo settings → members), not in the Admin Webapp. The page shows two groups: **inherited** (Organization members, read-only there) and **overridden** (explicitly granted repo roles, editable).
 
-1. A user's effective permission on a Repository = the higher of: their inherited Organization-role permission **or** any explicit repo-level role assignment
-2. `platform_admin` has read access to all Organizations and repos for audit purposes, but cannot modify unless explicitly added as a member
-3. MCP tools and the external REST API are controlled by Secret Key `scopes` — even if a user has `repo:read`, their Secret Key must also have `mcp:*` (MCP) or `api:*` (REST) scopes
-4. **Double-layer rule (V1+):** Project membership only grants visibility of the Project itself. Content inside linked Repositories is always governed by `repo:*` permissions — Project views are assembled from the Repositories the user can access
+### 2.8.5 Admin Roles
+
+Admin roles apply to the whole deployment and live in `admin_members(userId, role, grantedAt, grantedBy)` — one row means "this user can sign in to the Admin Webapp".
+
+| Role ID          | Status                     | Description                                                                                            |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `admin_super`    | **V0 target**              | Super administrator. Manages who else is an admin, and has read-only access to platform stats / audit. |
+| `admin_operator` | Reserved (not implemented) | Operations: account lifecycle (disable / enable), statistics, audit                                    |
+| `admin_support`  | Reserved (not implemented) | Support: read-only plus a few restricted actions (e.g. disable an account, but never delete it)        |
+
+Notes:
+
+- **No tenant-scoped admin role exists.** Managing Organization / Repository members and roles stays in the Platform Webapp (§3.8), so the Admin Webapp never needs a per-tenant scope. This also means `admin_super` has no path to tenant data: it cannot add itself to a tenant and then edit content.
+- **No read-only admin role right now** (`admin_viewer` was considered and dropped). Add `admin_support` when someone needs global visibility without the ability to change anything.
+- Role values follow the `scope_tier` convention already used by `org_*` / `repo_*`. Avoid `admin_member` (collides with the "member = lowest, unprivileged tier" meaning of `org_member`) and `admin_sub` (says nothing about what the role can do).
+
+### 2.8.6 Admin Permissions
+
+Permission names follow `admin:<domain>:<action>`.
+
+| Permission            | Status        | Description                                                                      |
+| --------------------- | ------------- | -------------------------------------------------------------------------------- |
+| `admin:admins:manage` | V0            | Grant / revoke admin roles (only `admin_super` holds it)                         |
+| `admin:stats:view`    | V0            | View platform statistics                                                         |
+| `admin:audit:view`    | V0            | View the platform-wide audit log                                                 |
+| `admin:users:view`    | V0            | List users and open a user detail page                                           |
+| `admin:users:disable` | Reserved      | Disable / re-enable a user account                                               |
+| `admin:users:delete`  | Reserved      | Permanently delete a user account and its data                                   |
+| `admin:content:read`  | Open question | Read arbitrary Repository content for troubleshooting (default: **not granted**) |
+
+`admin_super` holds exactly the four V0 permissions above. It holds **no** `repo:*` or `org:*` permission, so "read-only on the Platform Webapp" is a structural property, not a convention.
+
+### 2.8.7 Cross-System Rules
+
+1. **Writes come from the tenant system.** `org:*` / `repo:*` permissions are the only source of content and membership writes inside a tenant.
+2. **The admin system must never hold content-write permissions.** Enforced by a test: no `admin_*` role may map to `repo:write`, `repo:import`, `repo:delete`, `repo:manage_permissions`, `repo:manage_mcp`, or any `org:*` write permission. Adding such a mapping fails CI rather than being caught in review.
+3. **`admin_super` is not a data superuser.** Its only write capability is `admin:admins:manage`; it cannot edit content and cannot add or remove Organization / Repository members.
+4. **Secret Keys are a separate plane.** MCP tools and the external REST API are authenticated with user-issued Secret Keys carrying `mcp:*` / `api:*` scopes; a tenant or admin session role is never sufficient on its own. (The SecretKey issue/verify path is not implemented yet — see §5.4.8.)
+5. **Double-layer rule (V1+):** Project membership only grants visibility of the Project itself. Content inside linked Repositories is always governed by `repo:*` permissions — Project views are assembled from the Repositories the user can access.
+
+### 2.8.8 Assignment & Bootstrap
+
+| Role                                                    | Who can grant it                                  |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| `org_owner`                                             | Only via Organization ownership transfer          |
+| `org_admin` / `org_member`                              | `org_admin`+ of that Organization                 |
+| `repo_admin` / `repo_editor` / `repo_viewer` (override) | Holders of `repo:manage_permissions` in that repo |
+| `admin_super`                                           | Another `admin_super`, or the bootstrap seed      |
+
+The **first** `admin_super` is created by an explicit seed command, never through the Admin Webapp — otherwise there is no one able to grant the first admin (a bootstrapping deadlock).
 
 ---
 
@@ -299,13 +360,13 @@ The main application for developers to manage their APIs as Agent-accessible kno
 
 ## 3.1 Authentication
 
-| Feature                | Description                                       |
-| ---------------------- | ------------------------------------------------- |
-| **Email Registration** | Sign up with email + password, email verification |
-| **Email Login**        | Email + password with session management          |
-| **SSO Login**          | GitHub OAuth, Google OAuth                        |
-| **Password Reset**     | Email-based password reset flow                   |
-| **Session Management** | JWT-based sessions, refresh tokens, logout        |
+| Feature                | Description                                                              | V0 status                                            |
+| ---------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------- |
+| **Email Registration** | Sign up with email + password                                            | ✅ implemented (no email verification yet)           |
+| **Email Login**        | Verify credentials against `users`, then issue the signed cookie         | ✅ implemented                                       |
+| **SSO Login**          | GitHub OAuth, Google OAuth                                               | ⏳ not implemented (`auth.providers` config slot)    |
+| **Password Reset**     | Email-based password reset flow                                          | ⏳ not implemented                                   |
+| **Session Management** | HMAC-SHA256 signed httpOnly cookie (`apigent_session`); logout clears it | ✅ implemented (no refresh token / revocation in V0) |
 
 ## 3.2 User Profile
 
@@ -338,12 +399,12 @@ After login, users see:
 
 ### 3.5.1 Create & Import
 
-| Action                  | Description                                       |
-| ----------------------- | ------------------------------------------------- |
-| **Create Repository**   | Name + optional description                       |
+| Action                  | Description                                                                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Create Repository**   | Name + optional description                                                                                                               |
 | **Import OpenAPI**      | Upload JSON/YAML file, or fetch from URL; runs asynchronously after confirmation (see [Async Queue module doc](./modules/async-queue.md)) |
-| **Auto-detect Version** | Extract version from OpenAPI `info.version` field |
-| **Validation**          | Validate spec before import, show errors          |
+| **Auto-detect Version** | Extract version from OpenAPI `info.version` field                                                                                         |
+| **Validation**          | Validate spec before import, show errors                                                                                                  |
 
 > **Async execution (V0 target)**: the request returns a task ID immediately; parse/persistence runs in a queue worker, with progress surfaced through top-bar notifications and a repo status badge (see [Async Queue module doc](./modules/async-queue.md)).
 
@@ -473,15 +534,17 @@ Key format: `apigent_sk_<random_hex>`
 
 # 4. Admin Webapp
 
-A separate application for platform administrators. Accessible only by users with admin privileges.
+A separate application for the operator of this deployment. Accessible only to users holding an admin role (`admin_members`), currently `admin_super` — see §2.8.5.
+
+**Scope boundary:** the Admin Webapp is not where tenant data is managed. Organization and Repository members, roles and content are managed in the **Platform Webapp** (§3.8) — including repo-level role overrides. The Admin Webapp is read-only with respect to tenant data, and its only write capability is managing who is an admin.
 
 ## 4.1 Authentication
 
-| Feature               | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| **Admin Login**       | Separate auth flow from Platform Webapp             |
-| **Admin Role Check**  | Only users with `admin` flag can access             |
-| **Session Isolation** | Admin sessions are independent of Platform sessions |
+| Feature               | Description                                                        | V0 status                                                     |
+| --------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| **Admin Login**       | Separate sign-in from the Platform Webapp                          | ⏳ not implemented (V0 ships a shell with no auth)            |
+| **Admin Role Check**  | Only `admin_super` holders can access (see §2.8.5)                 | ⏳ not implemented (`admin_members` table does not exist yet) |
+| **Session Isolation** | Admin session is an independent cookie with its own signing secret | ⏳ not implemented                                            |
 
 ## 4.2 Dashboard & Statistics
 
@@ -496,6 +559,8 @@ A separate application for platform administrators. Accessible only by users wit
 
 ## 4.3 User Management
 
+These are **instance-level account operations** — a different axis from Organization / Repository membership, which stays in the Platform Webapp.
+
 | Feature             | Description                                                                   |
 | ------------------- | ----------------------------------------------------------------------------- |
 | **User List**       | Searchable, filterable list of all users                                      |
@@ -503,6 +568,8 @@ A separate application for platform administrators. Accessible only by users wit
 | **Disable Account** | Temporarily suspend a user account                                            |
 | **Enable Account**  | Reactivate a disabled account                                                 |
 | **Delete Account**  | Permanently remove a user and their data (with confirmation + cooling period) |
+
+The account-lifecycle capabilities (`admin:users:disable` / `admin:users:delete`) are **reserved but not implemented in V0** — they are the natural first addition when a second admin tier (`admin_operator` / `admin_support`) is introduced.
 
 ## 4.4 Security Audit
 
@@ -521,38 +588,37 @@ A separate application for platform administrators. Accessible only by users wit
 
 ```
 apps/
-├── platform/          # Platform Webapp (Next.js App Router)
-│   ├── app/           # Pages
-│   ├── components/    # React components
-│   └── lib/           # Webapp-specific utilities
-├── admin/             # Admin Webapp (Next.js App Router)
-│   ├── app/
-│   ├── components/
-│   └── lib/
-├── server/            # Apigent Core API Server (Hono, independent process)
-│   ├── services/      # Platform Services (OpenAPI Parser, Knowledge Graph, etc.)
-│   ├── agents/        # AI Agents (Business Context, Semantic Search)
-│   ├── mcp/           # MCP Gateway (HTTP + Streamable HTTP)
-│   ├── jobs/          # Async task workers (BullMQ)
-│   ├── db/            # Database schema & migrations
-│   └── index.ts       # Server entry point
-└── packages/           # Shared packages
-    ├── types/          # Shared TypeScript types
-    ├── ui/             # Shared UI components
-    └── auth/           # Shared auth utilities
+├── platform/          # Platform Webapp — Next.js App Router (port 3000)
+│   └── src/
+│       ├── app/       # Pages + Route Handlers (src/app/api/** = the Platform REST API)
+│       ├── components/ # React components
+│       ├── services/  # Webapp-side glue over @apigent/server services
+│       └── lib/       # Zod contracts, withRoute wrapper, logging, error handling
+├── admin/             # Admin Webapp — Next.js App Router (port 3001, shell in V0)
+│   └── src/
+└── open/              # Open Gateway — Hono process (port 3002)
+    └── src/index.ts   # `/` + `/health` today; MCP endpoint planned (V1)
+
+packages/
+├── core/              # Config (YAML + .env), DI container, shared types, i18n, agent registry
+├── server/            # Domain + infrastructure, framework-agnostic:
+│                      # db (Drizzle schema + migrations), openapi parser, imports, versions,
+│                      # contexts, queue, auth, authz, notifications, logging, ai (AI SDK adapter)
+└── ui/                # shadcn/ui components (Base UI + Tailwind v4)
 ```
 
-> **Note:** This is the *target* application structure. In the current repo the Hono server lives at `apps/open`, shared server modules (OpenAPI parser, contexts, versions, imports, queue, auth/authz, notifications) live in `packages/server`, and there are no `mcp/` or `jobs/` folders yet — the MCP Gateway and BullMQ workers are designed, not implemented.
+> **Note:** this mirrors the current repo. `packages/server` is a **shared library**, not a standalone service — it has no HTTP entry point and is imported directly by the Next.js webapps (and, later, by the Hono gateway). There are no `mcp/` or `jobs/` folders yet: the MCP Gateway and BullMQ workers are designed, not implemented.
 
-### Why Hono for the API Server?
+### Where does the API live?
 
-The Core API Server is separated from Next.js for three reasons:
+The Platform REST API and the agent-facing MCP surface deliberately run in different runtimes:
 
-| Concern                    |                                                 Next.js API Routes                                                  |                           Independent Server (Hono)                            |
-| -------------------------- | :-----------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
-| **Independent scaling**    |                                         Coupled to Webapp process lifecycle                                         |      Deploy, scale, and monitor MCP traffic independently from web pages       |
-| **No timeout anxiety**     | Serverless platforms impose 10–60s hard limits; `search_apis` with LLM + Business Context inference may exceed them |                   Long-lived process, no artificial timeout                    |
-| **Deployment flexibility** |                                       Tied to Vercel/Node.js serverless model                                       | Deploy anywhere — VPS, K8s, Docker, or edge runtimes (Bun, Cloudflare Workers) |
+| Surface                        | Runtime                                                                                | Why                                                                                                                                                                                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Platform REST API**          | Next.js Route Handlers (`apps/platform/src/app/api/**`) → `@apigent/server` in-process | Shares the webapp's process and deploy target: no HTTP hop, no second service to run in V0. The service layer stays framework-agnostic, so it can back any future runtime.                                                                                       |
+| **Agent-facing gateway (MCP)** | Hono (`apps/open`)                                                                     | Machine-to-machine traffic has different scaling and lifetime characteristics than page rendering: deploy, scale, and monitor it independently; a long-lived process avoids the 10–60s serverless limits that LLM-backed tools such as `search_apis` can exceed. |
+
+The original "separate the API server from Next.js" rationale still applies — but to the **gateway**, not to the webapp's REST API. `apps/open` declares `@modelcontextprotocol/sdk` and will call `@apigent/server` directly (no HTTP overhead) once the MCP endpoint is mounted in V1.
 
 ### MCP Transport
 
@@ -572,24 +638,25 @@ All tools are **plain request-response** — no streaming, no server push, no pe
 
 Each swappable component is defined by a **TypeScript interface** and shipped with a **default implementation**. Users can replace any component by implementing the interface and registering it via configuration. See [5.5 Extensibility Architecture](#55-extensibility-architecture) for details.
 
-| Layer               | Default                                | Abstraction (Interface) | Rationale                                                                                  |
-| ------------------- | -------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------ |
-| **Webapp Frontend** | Next.js App Router, React, TypeScript  | —                       | SSR, streaming, Server Components, rich ecosystem                                          |
-| **Webapp Styling**  | Tailwind CSS                           | —                       | Utility-first, rapid UI development                                                        |
-| **API Server**      | Hono (TypeScript)                      | —                       | Lightweight (12KB), multi-runtime, Web standard `Request`/`Response`, Express-like API     |
-| **Type Bridge**     | REST + Hono RPC (`hc`) + OpenAPI (Zod) | —                       | Standard REST contract; typed client via Hono RPC; OpenAPI docs generated from Zod schemas |
-| **Database**        | PostgreSQL                             | `DatabaseAdapter`       | V0 relational store; PostgreSQL only (Drizzle pg-core schema)                              |
-| **Vector Store**    | pgvector                               | `VectorStore`           | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale                       |
-| **ORM**             | Drizzle                                | `DatabaseAdapter`       | SQL-first, type-safe; PostgreSQL (pg-core) for V0 — other dialects planned, not yet supported |
-| **Async Tasks**     | Postgres queue (V0) / BullMQ + Redis (scale) | `QueueProvider`   | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS via config          |
-| **Auth**            | NextAuth.js (credentials + OAuth)      | `AuthProvider`          | Mature, flexible auth for Next.js; supports custom OIDC/LDAP providers                     |
-| **LLM**             | Qwen API (Alibaba Cloud Model Studio)  | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models             |
-| **Embedding**       | Qwen Embedding (text-embedding-v4)     | `EmbeddingProvider`     | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models            |
-| **MCP**             | @modelcontextprotocol/sdk              | —                       | Standard MCP implementation, Streamable HTTP transport                                     |
-| **Storage**         | Local filesystem                       | `StorageProvider`       | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage                                |
-| **Diff**            | diff (or custom renderer)              | —                       | Side-by-side comparison for version history and AI edits                                   |
+| Layer               | Default                                      | Abstraction (Interface) | Rationale                                                                                                           |
+| ------------------- | -------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Webapp Frontend** | Next.js App Router, React, TypeScript        | —                       | SSR, streaming, Server Components, rich ecosystem                                                                   |
+| **Webapp Styling**  | Tailwind CSS                                 | —                       | Utility-first, rapid UI development                                                                                 |
+| **Platform API**    | Next.js Route Handlers + `@apigent/server`   | —                       | In-process with the Platform webapp: no HTTP hop, one deploy target in V0; services stay framework-agnostic         |
+| **Open Gateway**    | Hono (TypeScript)                            | —                       | Standalone process for machine-facing traffic (MCP); multi-runtime, Web standard `Request`/`Response`               |
+| **Type Bridge**     | Zod schemas + `zod-openapi`                  | —                       | Route Handlers validate with Zod; the OpenAPI 3.1 document is generated offline from the same schemas               |
+| **Database**        | PostgreSQL                                   | `DatabaseAdapter`       | V0 relational store; PostgreSQL only (Drizzle pg-core schema)                                                       |
+| **Vector Store**    | pgvector                                     | `VectorStore`           | In-PG vector search for V0; swap to Milvus/Qdrant/Weaviate for scale                                                |
+| **ORM**             | Drizzle                                      | `DatabaseAdapter`       | SQL-first, type-safe; PostgreSQL (pg-core) for V0 — other dialects planned, not yet supported                       |
+| **Async Tasks**     | Postgres queue (V0) / BullMQ + Redis (scale) | `QueueProvider`         | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS via config                                   |
+| **Auth**            | Credentials + HMAC-signed cookie             | `AuthProvider`          | Email + password with a stateless signed httpOnly cookie in V0; the interface is the seam for OAuth/OIDC/LDAP later |
+| **LLM**             | Qwen API (Alibaba Cloud Model Studio)        | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models                                      |
+| **Embedding**       | Qwen Embedding (text-embedding-v4)           | `EmbeddingProvider`     | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models                                     |
+| **MCP**             | @modelcontextprotocol/sdk                    | —                       | Standard MCP implementation, Streamable HTTP transport                                                              |
+| **Storage**         | Local filesystem                             | `StorageProvider`       | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage                                                         |
+| **Diff**            | diff (or custom renderer)                    | —                       | Side-by-side comparison for version history and AI edits                                                            |
 
-> **Implementation status:** the table above is the *target* V0 stack. In the current codebase the DI container registers only the `memory` vector store, `local` storage, and Postgres queue. LLM, Embedding, pgvector, BullMQ and the MCP Gateway are defined in config/types but have no factory yet — `getLLM()`, `getEmbedding()`, `getVectorStore()` (non-`memory`), and `getQueue()` (non-`postgres`/`memory`) fail fast with `not implemented` (see `packages/core/src/di/container.test.ts`).
+> **Implementation status:** LLM calls are live — product code (business-context generation, agent runtime) goes through `@apigent/server/ai` (`createAIModel()` on the Vercel AI SDK), while the DI container's `getLLM()` remains a fail-fast stub. The container registers only the `memory` vector store, `local` storage, and the Postgres queue; Embedding, pgvector, BullMQ and the MCP Gateway are defined in config/types but have no factory yet — `getEmbedding()`, `getVectorStore()` (non-`memory`), and `getQueue()` (non-`postgres`/`memory`) fail fast with `not implemented` (see `packages/core/src/di/container.test.ts`).
 
 ## 5.3 API Layer Design
 
@@ -599,42 +666,41 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
                        │  (Platform / Admin)          │
                        │  Auth: Session Cookie        │
                        └──────────────┬───────────────┘
-                                      │ REST + Hono RPC (hc)
+                                      │ in-process service calls
+                                      │ (Next.js Route Handlers → @apigent/server)
                        ┌──────────────┴───────────────┐
                        │  External Developers / SDK   │
                        │  Auth: Bearer SecretKey      │
                        │  (api:* scopes)              │
                        └──────────────┬───────────────┘
-                                      │ REST (same contract)
-                                      ▼
-                       ┌──────────────────────────────┐
+                                      │ REST against the OpenAPI spec (surface not served yet)
+                       ┌──────────────┴───────────────┐
                        │  External AI Agents          │
                        │  Auth: Bearer SecretKey      │
                        │  (mcp:* scopes)              │
                        └──────────────┬───────────────┘
                                       │ MCP (Streamable HTTP)
                                       ▼
-                      Core API Server (Hono)
-                      ├── REST routes (@hono/zod-openapi)
-                      └── MCP Gateway (calls Services directly)
+                      Open Gateway (Hono, apps/open)
+                      └── MCP Gateway (planned) → calls @apigent/server directly
                                       │
                                       ▼
-                             PostgreSQL + Vector DB
+                        PostgreSQL (+ pgvector / pg-fts)
 ```
 
 **Three calling modes — one REST contract, three auth paths:**
 
-| Calling Mode       | Channel                       | Auth                              | Type Safety                     |
-| ------------------ | ----------------------------- | --------------------------------- | ------------------------------- |
-| Internal Webapps   | REST + Hono RPC (`hc`)        | Session cookie (NextAuth JWT)     | Server route types (no codegen) |
-| External OpenAPI   | REST (same contract)          | Bearer SecretKey + `api:*` scopes | OpenAPI-generated SDK           |
-| External AI Agents | MCP Gateway (Streamable HTTP) | Bearer SecretKey + `mcp:*` scopes | MCP SDK                         |
+| Calling Mode       | Channel                                                             | Auth                              | Type Safety                   |
+| ------------------ | ------------------------------------------------------------------- | --------------------------------- | ----------------------------- |
+| Internal Webapps   | Next.js Route Handlers (`withRoute`) → `@apigent/server` in-process | Session cookie (HMAC-signed)      | Shared Zod schemas + TS types |
+| External OpenAPI   | REST against the exported OpenAPI spec (not served yet)             | Bearer SecretKey + `api:*` scopes | OpenAPI-generated SDK         |
+| External AI Agents | MCP Gateway (Streamable HTTP, planned)                              | Bearer SecretKey + `mcp:*` scopes | MCP SDK                       |
 
-- **One contract**: all routes are defined with `@hono/zod-openapi` (Zod validation + OpenAPI generation). The Webapps' typed client (Hono RPC) and the public OpenAPI spec are both derived from the same route definitions, so they cannot drift.
-- **Route visibility**: routes are tagged `internal` or `public`; the public OpenAPI spec exposes only `public` routes — admin, health checks, and internal endpoints are filtered out.
-- **MCP Gateway** is embedded in the same Hono process; it calls Core Services directly (no HTTP overhead), and exposes a Streamable HTTP endpoint for external agents.
-- **Both Webapps** are separate Next.js instances; the API Server is an independent process that can be scaled separately.
-- **Async tasks** (OpenAPI import, Business Context LLM inference) are dispatched through the `QueueProvider` (Postgres queue by default in V0; switchable to BullMQ + Redis via `apigent.config.yaml`), executed by dedicated workers without blocking HTTP requests (see [Async Queue module doc](./modules/async-queue.md)).
+- **One contract**: Route Handlers validate with the shared Zod schemas in `apps/platform/src/lib/openapi-schemas.ts`; the OpenAPI 3.1 document is generated from those same schemas by `zod-openapi` and written to `apps/platform/openapi/platform.json` (`pnpm openapi:platform`). Validation and documentation cannot drift.
+- **Spec coverage**: the exported document currently covers the public auth and organization routes; it is not served at runtime.
+- **MCP Gateway** will live in the `apps/open` Hono process; it calls `@apigent/server` directly (no HTTP overhead) and exposes a Streamable HTTP endpoint for external agents.
+- **Both Webapps** are separate Next.js instances, each hosting its own pages; the Platform app also hosts the Platform REST API. `apps/open` is the only Hono process and can be scaled independently.
+- **Async tasks** (OpenAPI import, Business Context LLM inference) are dispatched through the `QueueProvider` (Postgres queue by default in V0; switchable to BullMQ + Redis via `apigent.config.yaml`) and executed by dedicated workers without blocking HTTP requests (see [Async Queue module doc](./modules/async-queue.md)).
 
 ## 5.4 Auth & RBAC Implementation
 
@@ -647,80 +713,69 @@ Browser Request
     │
     ▼
 ┌──────────────────────────────────────────────┐
-│  Next.js Middleware (middleware.ts)           │
+│  Next.js Route Handler / Server Component      │
 │                                              │
 │  ┌────────────────────┐                      │
-│  │ 1. Authentication  │  NextAuth.js         │
-│  │    Decode JWT       │  "Who are you?"     │
-│  │    → session.user   │                      │
+│  │ 1. Authentication  │  @apigent/server/auth│
+│  │    Verify signed    │  "Who are you?"     │
+│  │    session cookie   │                      │
 │  └────────┬───────────┘                      │
 │           │                                   │
 │  ┌────────▼───────────┐                      │
-│  │ 2. Authorization   │  RBAC Engine          │
-│  │    Check Permission │  "Can you do this?"  │
-│  │    → allow / deny   │                      │
+│  │ 2. Authorization   │  @apigent/server/authz│
+│  │    Effective role   │  "Can you do this?"  │
 │  └────────┬───────────┘                      │
 │           │                                   │
 │  ┌────────▼───────────┐                      │
-│  │ 3. Route Handler   │                      │
+│  │ 3. Service call    │                      │
 │  │    Page / API / MCP│                      │
 │  └────────────────────┘                      │
 └──────────────────────────────────────────────┘
 ```
 
-### 5.4.2 Authentication Flow (NextAuth.js)
+There is **no `middleware.ts`**: authentication runs at each entry point — Route Handlers call `withRoute({ auth: true })`, which resolves the session user and returns 401 before the handler runs; authorized pages live under the `(authed)` route group whose layout calls `getSessionUser()` and redirects to `/login` when absent. Authorization is enforced in the service layer via `assertRepoAccess()` / `assertOrgRole()`. Both layers trust the same signed cookie, so there is a single source of truth for identity.
 
-NextAuth.js (Auth.js v5) is configured with **JWT strategy** — the session token is a signed JWT stored in an httpOnly cookie. No database lookup is needed on every request.
+### 5.4.2 Authentication Flow (credentials + signed cookie)
 
-**Configuration (`packages/auth/auth.ts`):**
+V0 ships first-party credentials auth instead of NextAuth.js. Email + password is verified against the `users` table (scrypt hashing), and the session is a **stateless HMAC-SHA256 signed cookie** — no session table, no session lookup to verify the token itself.
 
-```ts
-import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
-import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db } from "@/server/db";
+**Token format:**
 
-export const { auth, handlers, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db),
-  session: { strategy: "jwt" },
-  providers: [
-    Credentials({
-      credentials: { email: {}, password: {} },
-      authorize: async (credentials) => {
-        // Verify email + password against DB
-        const user = await verifyCredentials(credentials);
-        return user; // { id, email, name }
-      },
-    }),
-    GitHub({ clientId: process.env.GITHUB_ID, clientSecret: process.env.GITHUB_SECRET }),
-    Google({ clientId: process.env.GOOGLE_ID, clientSecret: process.env.GOOGLE_SECRET }),
-  ],
-  callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) token.userId = user.id;
-      return token;
-    },
-    session: async ({ session, token }) => {
-      session.user.id = token.userId as string;
-      return session;
-    },
-  },
-});
+```
+base64url(JSON { uid, iat, exp }) + "." + base64url(HMAC-SHA256(payload, auth.secret))
 ```
 
-**JWT payload structure:**
+**Implementation (`packages/server/src/auth/`):**
+
+```ts
+// packages/server/src/auth/session.ts
+export const SESSION_COOKIE = "apigent_session";
+
+function sign(payload: string): string {
+  return createHmac("sha256", getAuthConfig().secret).update(payload).digest("base64url");
+}
+
+export function createSessionToken(userId: string): string {
+  /* uid + iat + exp, then sign */
+}
+export function verifySessionToken(token: string): SessionPayload | null {
+  /* timing-safe compare */
+}
+```
+
+**Configuration (`apigent.config.yaml` + `.env`):** `auth.providers: [credentials]`; the signing secret and lifetime come from `APIGENT_AUTH_SECRET` (`auth.secret`) and `auth.sessionMaxAge`. OAuth providers are not implemented — `auth.providers` is the config slot for them.
+
+**Session payload:**
 
 ```ts
 {
-  sub: "user_abc123",      // user ID
-  email: "dev@example.com",
-  name: "Jiahui Wu",
-  iat: 1722000000,         // issued at
-  exp: 1722600000,         // expires (7 days)
+  uid: "user_abc123",  // user ID
+  iat: 1722000000,     // issued at (seconds)
+  exp: 1722600000,     // expires (config: auth.sessionMaxAge)
 }
 ```
+
+> **Known V0 limitation:** signing is symmetric and there is no revocation list — logging out clears the cookie client-side, but an already-issued token stays valid until `exp`. A session table or key rotation is the upgrade path if revocation becomes a requirement.
 
 ### 5.4.3 RBAC Permission Check
 
@@ -729,185 +784,105 @@ The core permission-checking function is called on every authorized request. It 
 **Resolution order:**
 
 ```
-checkPermission(userId, resourceType, resourceId, requiredPermission)
+checkPermission → effective role
 
-Step 1: Is user a platform_admin?
-        └── Yes → ALLOW (bypass further checks)
+Step 1: Resolve the user's Organization role for the target resource
+        └── organization_members.role, falling back to organizations.owner_id → org_owner
 
-Step 2: Is there an explicit RepoPermission for (userId, repoId)?
-        └── Yes → use that role's permissions
-        └── No  → fall through to Step 3
+Step 2: Resolve any explicit per-repo override
+        └── repo_permissions (userId, repoId) → repo role (may be absent)
 
-Step 3: What is the user's Organization role?
-        └── org_owner  → inherits repo_admin (all repos in Organization)
-        └── org_admin  → inherits repo_editor (all repos in Organization)
-        └── org_member → inherits repo_viewer (all repos in Organization)
+Step 3: Effective repo role = max(inherited, override)
+        └── org_owner  → repo_admin
+        └── org_admin  → repo_editor
+        └── org_member → repo_viewer
 
-Step 4: Map role → permissions, check if requiredPermission is included
-        └── Yes → ALLOW
-        └── No  → DENY (403)
+Step 4: Compare ranks against the required minimum
+        └── rank(effective) >= rank(required) → ALLOW
+        └── otherwise                         → DENY (ForbiddenError → 403)
 ```
 
-**Reference implementation (`packages/auth/rbac.ts`):**
+**Reference implementation (`packages/server/src/authz/`):**
 
 ```ts
-import { db } from "@/server/db";
-import { orgMembers, repoPermissions, users } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+// packages/server/src/authz/roles.ts — pure role model, no DB
+export type OrgRole = "org_owner" | "org_admin" | "org_member";
+export type RepoRole = "repo_admin" | "repo_editor" | "repo_viewer";
 
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  org_owner: [
-    "org:manage_members",
-    "org:delete",
-    "org:manage_settings",
-    "repo:read",
-    "repo:write",
-    "repo:import",
-    "repo:delete",
-    "repo:manage_permissions",
-    "repo:manage_mcp",
-  ],
-  org_admin: [
-    "org:manage_members",
-    "org:manage_settings",
-    "repo:read",
-    "repo:write",
-    "repo:import",
-    "repo:delete",
-    "repo:manage_permissions",
-    "repo:manage_mcp",
-  ],
-  org_member: ["repo:read"],
-  repo_admin: [
-    "repo:read",
-    "repo:write",
-    "repo:import",
-    "repo:delete",
-    "repo:manage_permissions",
-    "repo:manage_mcp",
-  ],
-  repo_editor: ["repo:read", "repo:write", "repo:import"],
-  repo_viewer: ["repo:read"],
-  platform_admin: ["admin:manage_users", "admin:view_stats", "admin:view_audit"],
-};
+const ORG_RANK = { org_member: 1, org_admin: 2, org_owner: 3 };
+const REPO_RANK = { repo_viewer: 1, repo_editor: 2, repo_admin: 3 };
 
-const ORG_ROLE_INHERITANCE: Record<string, string> = {
-  org_owner: "repo_admin",
-  org_admin: "repo_editor",
-  org_member: "repo_viewer",
-};
+/** Organization role → inherited repo role */
+export function orgRoleToRepoRole(role: OrgRole): RepoRole { /* owner→admin, admin→editor, member→viewer */ }
 
-async function checkPermission(
-  userId: string,
-  resourceType: "org" | "repo" | "mcp" | "admin",
-  resourceId: string,
-  requiredPermission: string,
-): Promise<boolean> {
-  // 1. Check platform_admin
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: { role: true },
-  });
-  if (user?.role === "platform_admin") return true;
+/** Effective repo role = max(inherited, override); null when neither exists */
+export function resolveEffectiveRepoRole(
+  orgRole?: OrgRole | null,
+  override?: RepoRole | null,
+): RepoRole | null { … }
 
-  // 2. For repo-scoped checks
-  if (resourceType === "repo" || resourceType === "mcp") {
-    // 2a. Check explicit repo-level override
-    const explicitRole = await db.query.repoPermissions.findFirst({
-      where: and(eq(repoPermissions.userId, userId), eq(repoPermissions.repoId, resourceId)),
-    });
-    if (explicitRole) {
-      return ROLE_PERMISSIONS[explicitRole.role]?.includes(requiredPermission) ?? false;
-    }
-
-    // 2b. Fall back to inherited Organization role
-    const { orgId } =
-      (await db.query.repos.findFirst({
-        where: eq(repos.id, resourceId),
-        columns: { orgId: true },
-      })) ?? {};
-    if (orgId) {
-      const membership = await db.query.orgMembers.findFirst({
-        where: and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, orgId)),
-      });
-      if (membership) {
-        const inheritedRole = ORG_ROLE_INHERITANCE[membership.role];
-        return ROLE_PERMISSIONS[inheritedRole]?.includes(requiredPermission) ?? false;
-      }
-    }
-  }
-
-  // 3. For org-scoped checks
-  if (resourceType === "org") {
-    const membership = await db.query.orgMembers.findFirst({
-      where: and(eq(orgMembers.userId, userId), eq(orgMembers.orgId, resourceId)),
-    });
-    if (membership) {
-      return ROLE_PERMISSIONS[membership.role]?.includes(requiredPermission) ?? false;
-    }
-  }
-
-  return false;
+export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean {
+  return !!role && REPO_RANK[role] >= REPO_RANK[min];
 }
 ```
 
-### 5.4.4 Middleware Integration
+```ts
+// packages/server/src/authz/index.ts — DB-backed checks used by Route Handlers
+getUserOrgRole(userId, orgId); // organization_members.role, owner fallback
+getRepoOverrideRole(userId, repoId); // repo_permissions.role
+getEffectiveRepoRole(userId, repoId); // max(inherited, override)
+assertRepoAccess(userId, repoId, min); // throws ForbiddenError → mapped to 403
+assertOrgRole(userId, orgId, min);
+listAccessibleRepoIds(userId); // org membership + ownership + explicit grants
+```
 
-Next.js middleware runs before every request. It chains authentication (NextAuth.js) with authorization (RBAC):
+Roles are compared by **rank**, so an explicit repo override raises or lowers a user's role relative to what the Organization role inherits — an `org_owner` cannot be demoted to `repo_viewer` by an override.
 
-**`middleware.ts`:**
+**The admin scope is resolved separately.** `admin_members` is a different table and a different vocabulary (§2.8.5–2.8.7): admin capabilities are checked with `assertAdminCapability(userId, "admin:admins:manage")` and never through the tenant ladder. The two systems meet in exactly one place — the resource declaration on `withRoute` decides which of them applies to a route.
+
+**Rank vs. permission.** Tenant capabilities are genuinely nested (`repo_viewer ⊂ repo_editor ⊂ repo_admin`), so rank comparison is the right mechanism and stays. The admin system is orthogonal to them, so it uses named capabilities (`admin:<domain>:<action>`) instead. If a tenant requirement ever becomes non-nested — "can manage repo members but cannot delete the repo" — that is the signal to introduce a permission-name layer on the tenant side too; until then rank is simpler and cannot drift.
+
+### 5.4.4 Authorization Enforcement (three layers)
+
+Authorization is enforced in layers: the entry point makes it impossible to forget, the service layer states the business-level requirement, and background workers run as a system actor.
+
+| Layer             | Where                                  | Responsibility                                                                                   |
+| ----------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Entry declaration | `withRoute` options (`lib/route.ts`)   | Declares the resource a route operates on and the minimum role — no handler without a check      |
+| Service assertion | `packages/server/src/authz` call sites | States the fine-grained requirement next to the operation it protects                            |
+| System actor      | Queue workers (`imports` / `contexts`) | Authorization happens at **enqueue** time; workers execute as a system actor and do not re-check |
+
+**Entry declaration** (target shape):
 
 ```ts
-import { auth } from "@/packages/auth/auth";
-import { checkPermission } from "@/packages/auth/rbac";
+export const POST = withRoute(
+  { auth: true, repo: { param: "id", min: "repo_editor" } },
+  async ({ request, params, user }) => { … },
+);
 
-// Routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/register", "/api/auth/*"];
-
-// Route → required permission mapping
-const ROUTE_PERMISSIONS: Record<string, { type: string; permission: string }> = {
-  "/api/repos/:repoId/edit": { type: "repo", permission: "repo:write" },
-  "/api/repos/:repoId/import": { type: "repo", permission: "repo:import" },
-  "/api/repos/:repoId/settings": { type: "repo", permission: "repo:manage_permissions" },
-  "/api/repos/:repoId/mcp": { type: "repo", permission: "repo:manage_mcp" },
-  "/api/orgs/:orgId/members": { type: "org", permission: "org:manage_members" },
-  "/api/orgs/:orgId/settings": { type: "org", permission: "org:manage_settings" },
-  "/api/admin/*": { type: "admin", permission: "admin:view_stats" },
-};
-
-export default auth((req) => {
-  const { pathname } = req.nextUrl;
-
-  // Allow public routes
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
-    return; // proceed without auth
-  }
-
-  // Require authentication
-  if (!req.auth?.user?.id) {
-    return Response.redirect(new URL("/login", req.url));
-  }
-
-  // Check route-level permission
-  const routeConfig = matchRoute(pathname, ROUTE_PERMISSIONS);
-  if (routeConfig) {
-    const allowed = checkPermission(
-      req.auth.user.id,
-      routeConfig.type,
-      extractResourceId(pathname), // e.g., extract "repo_123" from "/api/repos/repo_123/edit"
-      routeConfig.permission,
-    );
-    if (!allowed) {
-      return new Response("Forbidden", { status: 403 });
-    }
-  }
-});
-
-// Route matcher config
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+{ auth: true, org:   { param: "id", min: "org_admin" } }
+{ auth: true, admin: "admin:admins:manage" }
 ```
+
+**Service assertion** — the same requirement stated directly, so non-HTTP callers stay covered:
+
+```ts
+await assertRepoAccess(user.id, id, "repo_editor");
+await assertOrgRole(user.id, orgId, "org_admin");
+```
+
+**System actor** — a queued import was authorized when the task was created, and the worker has no request to check against, so it must not re-run a user check. Retry endpoints are HTTP-triggered and therefore **do** re-check at the entry layer.
+
+**Pages** rely on `apps/platform/src/app/(authed)/layout.tsx` for authentication; per-resource authorization runs in the page's data loader:
+
+```tsx
+const user = await getSessionUser();
+if (!user) redirect("/login");
+```
+
+Authentication is resolved once per request from the signed cookie — `withRoute` for APIs, `getSessionUser()` for pages — and is never taken from a client-supplied value. Public routes (login, register) stay open by omitting `auth: true`.
+
+There is no `middleware.ts`: Next.js middleware cannot carry `AsyncLocalStorage` into Route Handlers, so `withRoute` opens the logging context (reqId / userId) and checks the session at the entry point.
 
 ### 5.4.5 MCP Tool Authorization
 
@@ -938,27 +913,78 @@ External Agent (Cursor/Claude)
 └─────────────────────────────────┘
 ```
 
-### 5.4.6 Shared Auth Package Structure
+### 5.4.6 Shared Auth Code Structure
+
+Auth lives in `packages/server` (shared by every runtime), with a thin Next.js glue layer in the Platform app:
 
 ```
-packages/auth/
-├── auth.ts              # NextAuth.js configuration
-├── auth.config.ts       # Route matchers, public route list
-├── middleware.ts         # Next.js middleware (auth + RBAC)
-├── rbac.ts              # checkPermission(), role→permission maps
-├── mcp-auth.ts          # MCP API key validation (used by Hono server)
-└── types.ts             # Session, Role, Permission type definitions
+packages/server/src/auth/           # credentials + session primitives (runtime-agnostic)
+├── index.ts                        # barrel: SESSION_COOKIE, createSessionToken, verifySessionToken, …
+├── password.ts                     # hashPassword() / verifyPassword() (scrypt)
+└── session.ts                      # HMAC-SHA256 signed cookie payload
+
+packages/server/src/authz/          # RBAC
+├── roles.ts                        # pure role model + rank comparison (no DB)
+└── index.ts                        # assertRepoAccess(), assertOrgRole(), listAccessibleRepoIds()
+
+apps/platform/src/services/auth.ts  # Next.js glue: cookies() + users table → SessionUser
+apps/platform/src/lib/route.ts      # withRoute({ auth: true }) — 401 before the handler
 ```
 
 **Key design decisions:**
 
-| Decision                                | Rationale                                                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| JWT strategy (not database sessions)    | No DB lookup per request in middleware; faster, horizontally scalable                                         |
-| httpOnly cookie (not localStorage)      | Immune to XSS; cookie automatically sent on every request                                                     |
-| Middleware-level RBAC (not per-handler) | Centralized, auditable; no forgotten checks in individual route handlers                                      |
-| MCP uses API key (not session)          | External agents (Cursor/CLI) have no browser session; Bearer token is the standard machine-to-machine pattern |
-| `packages/auth/` shared across webapps  | Both Platform and Admin Webapps use identical auth logic; shared package avoids duplication                   |
+| Decision                                      | Rationale                                                                                                                                                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HMAC-signed cookie (not a session table)      | Token verification needs no DB round-trip; revocation is explicitly out of scope for V0                                                                                                                                |
+| httpOnly cookie (not localStorage)            | Immune to XSS; the browser sends it automatically on every request                                                                                                                                                     |
+| Auth primitives in `packages/server`          | The Platform webapp and the future Hono gateway validate the same cookie with the same code                                                                                                                            |
+| Entry-point enforcement (not `middleware.ts`) | Next.js middleware cannot carry `AsyncLocalStorage` into Route Handlers, so `withRoute` opens the logging context and checks the session at the entry point; authorization then runs next to the operation it protects |
+| MCP uses API key (not session)                | External agents (Cursor/CLI) have no browser session; Bearer token is the standard machine-to-machine pattern                                                                                                          |
+
+### 5.4.7 Audit Logging
+
+Every privileged mutation writes an `operation_logs` row **in the same transaction as the mutation itself**. Otherwise a successful change could be missing from the audit trail — and that trail is the only evidence that the "admin cannot touch tenant data" boundary actually holds.
+
+Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
+
+| Event                                                               | Actor                               | Notes                          |
+| ------------------------------------------------------------------- | ----------------------------------- | ------------------------------ |
+| `admin.grant` / `admin.revoke`                                      | `admin_super`                       | The only admin write operation |
+| `member.invite` / `member.role_change` / `member.remove`            | `org_admin`+                        | Organization membership        |
+| `repo.permission_grant` / `permission_change` / `permission_revoke` | holder of `repo:manage_permissions` | Repository-level override      |
+| `org.transfer`                                                      | `org_owner`                         | Ownership transfer             |
+| `admin.login`                                                       | `admin_super`                       | Optional                       |
+
+`operation_logs.orgId` is NULL for platform-level operations, and the existing index is `(orgId, operationType, createdAt)` — NULL rows do not participate in that index, so querying platform-level events needs an additional index or a different predicate.
+
+### 5.4.8 Known Gaps & Rollout Order
+
+The model above is the target. Current gaps, in the order they should be closed:
+
+1. **Missing authorization on three services** — `imports`, `contexts` and `versions` accept a `repoId` without checking the caller's role, so any signed-in user who knows a `repoId` can preview/import versions, read and **write** endpoint business context, and list version history for any repository. Only org/repo CRUD plus a few version routes are protected today.
+2. **Repository members cannot be managed** — `repo_permissions` is read by the authorization layer but has no write path anywhere; the Platform Webapp needs a repo-members UI (inherited vs. overridden, §2.8.4).
+3. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
+4. **Audit logging is unwired** — the tables exist, nothing writes to them.
+5. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
+6. **Inconsistent version permissions** — `/versions/:id/activate` requires `repo_admin` while `/versions/:id/rollback` only requires `repo_editor`, although both move the default-version pointer.
+7. **Open items** — `org_admin`'s repo permissions (§2.8.3); whether `admin_super` may read repository content (`admin:content:read`); whether repo overrides may target users outside the Organization; whether the SecretKey issue/verify path ships before the external surfaces.
+
+Suggested order: 1 → 2 → 4 → 3 → 5 / 6 / 7.
+
+### 5.4.9 Planned: third-party authentication (NextAuth)
+
+V0 ships first-party credentials auth. GitHub / Google sign-in is planned, and the decision is to adopt Auth.js / NextAuth for the **authentication** part only — authorization stays in `packages/server` as described above.
+
+| Decision                                                       | Rationale                                                                                                                                               |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NextAuth handles identity only                                 | RBAC keeps taking a `userId`, so the route handlers, `withRoute` and `authz/*` do not change                                                            |
+| A new `packages/auth` hosts the shared config factory          | `packages/server` stays framework-agnostic; the Hono gateway must never depend on `next-auth`                                                           |
+| Platform and Admin get separate instances, cookies and secrets | Admin is the higher-privilege surface: independent sign-out, shorter lifetime, independent rotation                                                     |
+| Shared `users` table, no separate admin user store             | An admin is a platform user holding an admin role; separate identity stores break account linking                                                       |
+| Keep email + password login                                    | Self-hosted deployments need a local fallback — and it is why the session stays JWT-based, since Auth.js credentials does not support database sessions |
+| Roles never go into the token                                  | Authorization is resolved from the database per request, so role changes take effect immediately                                                        |
+
+Migration cost stays contained by the `getSessionUser()` seam: swapping its implementation changes where the user id comes from, not how it is consumed.
 
 ## 5.5 Extensibility Architecture
 
@@ -997,14 +1023,14 @@ Apigent is an **open-source, self-hosted** platform. Different teams have differ
 
 ### 5.5.2 Swappable Components
 
-| Component              | Interface           | Default                               | Common Alternatives                                     |
-| ---------------------- | ------------------- | ------------------------------------- | ------------------------------------------------------- |
-| **Vector Store**       | `VectorStore`       | pgvector                              | Milvus, Qdrant, Weaviate, Pinecone, Chroma              |
-| **LLM Provider**       | `LLMProvider`       | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM            |
-| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | Claude Embedding, OpenAI Embedding, Cohere, BGE (local) |
-| **Storage Provider**   | `StorageProvider`   | Local filesystem                      | AWS S3, MinIO, Google Cloud Storage, Azure Blob         |
-| **Queue Provider**     | `QueueProvider`     | Postgres queue (`PgQueueProvider`)    | BullMQ + Redis, RabbitMQ, AWS SQS                        |
-| **Auth Provider**      | `AuthProvider`      | NextAuth.js                           | Custom OIDC, LDAP, SAML, Authentik                      |
+| Component              | Interface           | Default                               | Common Alternatives                                                       |
+| ---------------------- | ------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
+| **Vector Store**       | `VectorStore`       | pgvector                              | Milvus, Qdrant, Weaviate, Pinecone, Chroma                                |
+| **LLM Provider**       | `LLMProvider`       | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM                              |
+| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | Claude Embedding, OpenAI Embedding, Cohere, BGE (local)                   |
+| **Storage Provider**   | `StorageProvider`   | Local filesystem                      | AWS S3, MinIO, Google Cloud Storage, Azure Blob                           |
+| **Queue Provider**     | `QueueProvider`     | Postgres queue (`PgQueueProvider`)    | BullMQ + Redis, RabbitMQ, AWS SQS                                         |
+| **Auth Provider**      | `AuthProvider`      | Credentials + HMAC-signed cookie      | OAuth / OIDC, LDAP, SAML, Authentik (config slot exists, not implemented) |
 
 ### 5.5.3 Vector Store Interface
 
@@ -1267,11 +1293,11 @@ The full design (`impl_queue_jobs` schema, worker lifecycle, config switching, a
 
 Apigent uses a **two-layer configuration system** designed for easy switching between dev and deployment environments:
 
-| Layer                   | File                  | What goes here                                                                                | Examples                                                           |
-| ----------------------- | --------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| **Scheme choices**      | `apigent.config.yaml` | Which provider / model / strategy to use (structured YAML, supports comments)                 | `llm.provider: qwen`, `rag.retrieval.retrievalMode: hybrid`        |
+| Layer                   | File                  | What goes here                                                                                                                               | Examples                                                           |
+| ----------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Scheme choices**      | `apigent.config.yaml` | Which provider / model / strategy to use (structured YAML, supports comments)                                                                | `llm.provider: qwen`, `rag.retrieval.retrievalMode: hybrid`        |
 | **Secrets**             | `.env`                | Sensitive data only — API keys, passwords, connection strings. No provider/scheme env vars; all scheme choices live in `apigent.config.yaml` | `DASHSCOPE_API_KEY`, `APIGENT_DATABASE_URL`, `APIGENT_AUTH_SECRET` |
-| **Programmatic config** | `apigent.config.ts`   | Custom provider factories, advanced wiring (**planned for V1+ — not implemented in V0**; most users only need `.yaml` + `.env`) | Custom `VectorStore` implementation, plugin registration |
+| **Programmatic config** | `apigent.config.ts`   | Custom provider factories, advanced wiring (**planned for V1+ — not implemented in V0**; most users only need `.yaml` + `.env`)              | Custom `VectorStore` implementation, plugin registration           |
 
 **Default workflow — apigent.config.yaml + .env (95% of users):**
 
@@ -1508,6 +1534,7 @@ Consolidating from the blueprint roadmap, V0 covers the minimal usable product:
 | **Auth**         | Email login/register, session management                                                                                         |
 | **Organization** | Create organization, invite members, basic roles                                                                                 |
 | **Repository**   | Create repo, import OpenAPI (file/URL), version list                                                                             |
+| **Versioning**   | Version branches, commits (snapshots), rollback, diff — implemented ahead of the original V1 plan                                |
 | **Browsing**     | Endpoint list (grouped by tag), model list, semantic search (natural language)                                                   |
 | **Core Engine**  | OpenAPI Parser → Business Context Agent (capability context; Knowledge Graph is a V1+ optional enhancement, disabled by default) |
 | **Secret Keys**  | Generate, list, delete keys                                                                                                      |
