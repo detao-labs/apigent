@@ -19,7 +19,7 @@ import {
   ForbiddenError,
   assertOrgRole,
   getUserOrgRole,
-  listAccessibleOrgIds,
+  listAccessibleOrganizationIds,
 } from "@apigent/server/authz";
 import { generateId } from "@apigent/server/id";
 
@@ -33,7 +33,7 @@ export interface OrgSummary {
 }
 
 export async function listOrgs(userId: string): Promise<OrgSummary[]> {
-  const accessible = await listAccessibleOrgIds(userId);
+  const accessible = await listAccessibleOrganizationIds(userId);
   if (accessible.length === 0) return [];
 
   const rows = await getDB()
@@ -48,9 +48,9 @@ export async function listOrgs(userId: string): Promise<OrgSummary[]> {
     .from(organizations)
     .leftJoin(
       organizationMembers,
-      eq(organizationMembers.orgId, organizations.id),
+      eq(organizationMembers.organizationId, organizations.id),
     )
-    .leftJoin(repositories, eq(repositories.orgId, organizations.id))
+    .leftJoin(repositories, eq(repositories.organizationId, organizations.id))
     .where(inArray(organizations.id, accessible))
     .groupBy(organizations.id)
     .orderBy(desc(organizations.createdAt));
@@ -100,11 +100,11 @@ export async function createOrg(input: {
   description?: string;
 }) {
   const db = getDB();
-  const orgId = generateId("org");
+  const organizationId = generateId("org");
   const [org] = await db
     .insert(organizations)
     .values({
-      id: orgId,
+      id: organizationId,
       name: input.name,
       ownerId: input.ownerId,
       description:
@@ -115,7 +115,7 @@ export async function createOrg(input: {
     .returning();
   // 创建者即 org_owner，写入成员表，供 RBAC 生效
   await db.insert(organizationMembers).values({
-    orgId,
+    organizationId,
     userId: input.ownerId,
     role: "org_owner",
   });
@@ -205,7 +205,7 @@ export async function getOrgDetail(
       })
       .from(organizationMembers)
       .innerJoin(users, eq(users.id, organizationMembers.userId))
-      .where(eq(organizationMembers.orgId, id))
+      .where(eq(organizationMembers.organizationId, id))
       .orderBy(organizationMembers.role, users.name),
     db
       .select({
@@ -215,8 +215,8 @@ export async function getOrgDetail(
         endpointCount: sql<number>`${count(endpoints.id)}::int`,
       })
       .from(repositories)
-      .leftJoin(endpoints, eq(endpoints.repoId, repositories.id))
-      .where(eq(repositories.orgId, id))
+      .leftJoin(endpoints, eq(endpoints.repositoryId, repositories.id))
+      .where(eq(repositories.organizationId, id))
       .groupBy(repositories.id)
       .orderBy(repositories.name),
     getUserOrgRole(userId, id),
@@ -251,11 +251,11 @@ export async function loadOrgForPage(
 
 /** 邀请成员（按邮箱找到已有用户并加入）。仅 org_admin+。 */
 export async function inviteOrgMember(
-  orgId: string,
+  organizationId: string,
   actorId: string,
   input: { email: string; role: "org_admin" | "org_member" },
 ) {
-  await assertOrgRole(actorId, orgId, "org_admin");
+  await assertOrgRole(actorId, organizationId, "org_admin");
   const db = getDB();
   const [user] = await db
     .select({ id: users.id, name: users.name, email: users.email })
@@ -268,14 +268,14 @@ export async function inviteOrgMember(
     .from(organizationMembers)
     .where(
       and(
-        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.organizationId, organizationId),
         eq(organizationMembers.userId, user.id),
       ),
     )
     .limit(1);
   if (existing) throw new AlreadyMemberError();
   await db.insert(organizationMembers).values({
-    orgId,
+    organizationId,
     userId: user.id,
     role: input.role,
   });
@@ -284,19 +284,19 @@ export async function inviteOrgMember(
 
 /** 变更成员角色。仅 org_admin+；owner 只能通过转移所有权变更。 */
 export async function updateOrgMemberRole(
-  orgId: string,
+  organizationId: string,
   actorId: string,
   targetUserId: string,
   role: OrgMemberRole,
 ) {
-  await assertOrgRole(actorId, orgId, "org_admin");
+  await assertOrgRole(actorId, organizationId, "org_admin");
   const db = getDB();
   const [member] = await db
     .select({ role: organizationMembers.role })
     .from(organizationMembers)
     .where(
       and(
-        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.organizationId, organizationId),
         eq(organizationMembers.userId, targetUserId),
       ),
     )
@@ -308,7 +308,7 @@ export async function updateOrgMemberRole(
     .set({ role })
     .where(
       and(
-        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.organizationId, organizationId),
         eq(organizationMembers.userId, targetUserId),
       ),
     );
@@ -316,18 +316,18 @@ export async function updateOrgMemberRole(
 
 /** 移除成员。仅 org_admin+；owner 不能直接移除。 */
 export async function removeOrgMember(
-  orgId: string,
+  organizationId: string,
   actorId: string,
   targetUserId: string,
 ) {
-  await assertOrgRole(actorId, orgId, "org_admin");
+  await assertOrgRole(actorId, organizationId, "org_admin");
   const db = getDB();
   const [member] = await db
     .select({ role: organizationMembers.role })
     .from(organizationMembers)
     .where(
       and(
-        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.organizationId, organizationId),
         eq(organizationMembers.userId, targetUserId),
       ),
     )
@@ -338,7 +338,7 @@ export async function removeOrgMember(
     .delete(organizationMembers)
     .where(
       and(
-        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.organizationId, organizationId),
         eq(organizationMembers.userId, targetUserId),
       ),
     );
@@ -346,18 +346,18 @@ export async function removeOrgMember(
 
 /** 转移所有权：新 owner 升为 org_owner，原 owner 降为 org_admin。仅当前 owner。 */
 export async function transferOrgOwnership(
-  orgId: string,
+  organizationId: string,
   actorId: string,
   targetUserId: string,
 ) {
-  await assertOrgRole(actorId, orgId, "org_owner");
+  await assertOrgRole(actorId, organizationId, "org_owner");
   const db = getDB();
   const [target] = await db
     .select({ userId: organizationMembers.userId })
     .from(organizationMembers)
     .where(
       and(
-        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.organizationId, organizationId),
         eq(organizationMembers.userId, targetUserId),
       ),
     )
@@ -368,13 +368,13 @@ export async function transferOrgOwnership(
     await tx
       .update(organizations)
       .set({ ownerId: targetUserId, updatedAt: new Date() })
-      .where(eq(organizations.id, orgId));
+      .where(eq(organizations.id, organizationId));
     await tx
       .update(organizationMembers)
       .set({ role: "org_admin" })
       .where(
         and(
-          eq(organizationMembers.orgId, orgId),
+          eq(organizationMembers.organizationId, organizationId),
           eq(organizationMembers.userId, actorId),
         ),
       );
@@ -383,7 +383,7 @@ export async function transferOrgOwnership(
       .set({ role: "org_owner" })
       .where(
         and(
-          eq(organizationMembers.orgId, orgId),
+          eq(organizationMembers.organizationId, organizationId),
           eq(organizationMembers.userId, targetUserId),
         ),
       );

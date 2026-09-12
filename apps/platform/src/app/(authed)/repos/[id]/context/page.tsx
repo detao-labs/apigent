@@ -40,7 +40,7 @@ export default async function RepoContextPage({
       </div>
 
       <Suspense fallback={null}>
-        <ContextManagement repoId={repo.id} />
+        <ContextManagement repositoryId={repo.id} />
       </Suspense>
     </div>
   );

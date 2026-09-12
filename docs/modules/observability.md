@@ -18,26 +18,28 @@
 
 ## 现状（V0 已做）
 
-| 项 | 现状 |
-| --- | --- |
-| 结构化日志 | ✅ 统一结构性 logger（`packages/server/src/logging`，`platform/lib/logger` 复用同实例），`{ ts, level, event, reqId?, taskId?, ...context }` |
-| 日志级别 | ✅ 由 `observability.logLevel` 控制（debug/info/warn/error），默认 info |
-| 错误日志 | ✅ `logError(event, error, context)`（含 `name` / `message` / 可选 stack） |
-| 业务打点 | ✅ 导入/上下文等关键节点 `logInfo/logError`（如 `openapi.import.*`） |
-| 请求级贯穿 | ✅ `withRequestContext` 生成 reqId（导入提交路由已接入） |
-| 任务级贯穿 | ✅ `withTaskContext` 带 taskId（导入 Worker 已接入） |
-| Metrics | ❌ 无（无 Prometheus 指标、无计数器/直方图） |
-| Tracing | ❌ 无（无 OpenTelemetry Trace / span 贯穿） |
-| 采集/汇聚/导出 | ❌ 无（日志仅 stdout/stderr，未接日志系统 / SigNoz） |
+| 项             | 现状                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 结构化日志     | ✅ 统一结构性 logger（`packages/server/src/logging`，`platform/lib/logger` 复用同实例），`{ ts, level, event, reqId?, taskId?, ...context }` |
+| 日志级别       | ✅ 由 `observability.logLevel` 控制（debug/info/warn/error），默认 info                                                                      |
+| 错误日志       | ✅ `logError(event, error, context)`（含 `name` / `message` / 可选 stack）                                                                   |
+| 业务打点       | ✅ 导入/上下文等关键节点 `logInfo/logError`（如 `openapi.import.*`）                                                                         |
+| 请求级贯穿     | ✅ `withRequestContext` 生成 reqId（导入提交路由已接入）                                                                                     |
+| 任务级贯穿     | ✅ `withTaskContext` 带 taskId（导入 Worker 已接入）                                                                                         |
+| Metrics        | ❌ 无（无 Prometheus 指标、无计数器/直方图）                                                                                                 |
+| Tracing        | ❌ 无（无 OpenTelemetry Trace / span 贯穿）                                                                                                  |
+| 采集/汇聚/导出 | ❌ 无（日志仅 stdout/stderr，未接日志系统 / SigNoz）                                                                                         |
 
 ## 缺口与落地步骤（分阶段，待讨论）
 
 ### 阶段 A · 日志规范统一 ✅（已实现）
-- 统一字段：`ts / level / event` + 上下文 `reqId / taskId / userId / orgId / repoId`。
+
+- 统一字段：`ts / level / event` + 上下文 `reqId / taskId / userId / organizationId / repositoryId`。
 - 结构性 logger（`packages/server/src/logging`，引擎 **pino**），输出 JSON lines 到 stdout/stderr；调用点 `logInfo / logError` 签名不变。
 - 采集 stdouts → SigNoz（Loki）；pino 自带 child/redact 能力可后续按需启用。
 
 ### 阶段 B · 请求/任务级贯穿 ✅（已实现，待铺开）
+
 - HTTP 入口用 `withRequestContext` 生成 `reqId`；任务 worker 用 `withTaskContext` 带 `taskId`。
 - 同一 AsyncLocalStorage 实例贯穿 platform 与 server（`platform/lib/logger` re-export server）。
 - **已接入**：导入提交路由 + 导入 Worker（一次导入从提交→解析→落库→通知可串联）。
@@ -45,17 +47,19 @@
 - 接 OTel 时把 `reqId` 提升为 `traceId` 无缝演进。
 
 ### 阶段 C · Metrics
+
 - 暴露 `/metrics`（Prometheus 格式）。
 - HTTP 中间件：QPS、P50/P95 延迟、错误率。
 - 领域计数：导入成功/失败、业务上下文生成成功/失败/耗时、队列积压、LLM 调用次数与耗时、token/成本。
 - 可选：DB 连接池、查询耗时、矢量检索延迟。
 
 ### 阶段 D · Tracing（OpenTelemetry）
+
 - 引入 `@opentelemetry/sdk-node` + exporter（OTLP / Jaeger）。
 - 为 HTTP / DB / 队列 / LLM 调用加 instrumentations，建立 span 与父子关系，支持跨进程。
 - 与 RAG 观测对接（[rag-observability.md](./rag-observability.md)：检索 trace、各阶段耗时、召回/重排分数、token 与成本）。
 
-> 备注：当前日志已覆盖"事件发生 + 错误信息"；排查单次失败可用 `event` + `context`（如 `taskId` / `repoId`）在本地 grep。**指标与追踪**用于趋势、瓶颈与跨请求定位。
+> 备注：当前日志已覆盖"事件发生 + 错误信息"；排查单次失败可用 `event` + `context`（如 `taskId` / `repositoryId`）在本地 grep。**指标与追踪**用于趋势、瓶颈与跨请求定位。
 
 ## 接入清单（阶段 B，已铺开）
 

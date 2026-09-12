@@ -22,7 +22,7 @@ import type { BusinessContext } from "@apigent/core/agent";
 /** 页面上下文（get_page_context 的返回） */
 export interface AgentPageContext {
   url: string;
-  repoId?: string;
+  repositoryId?: string;
   endpointId?: string;
   locale: string;
   formDraft?: BusinessContext | null;

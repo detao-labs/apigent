@@ -26,7 +26,7 @@ import {
   ForbiddenError,
   assertOrgRole,
   assertRepoAccess,
-  listAccessibleRepoIds,
+  listAccessibleRepositoryIds,
 } from "@apigent/server/authz";
 import { generateId } from "@apigent/server/id";
 import { getOrgById } from "@/services/orgs";
@@ -36,7 +36,7 @@ export interface RepoSummary {
   name: string;
   description: string | null;
   orgName: string | null;
-  orgId: string | null;
+  organizationId: string | null;
   endpointCount: number;
   currentVersion: string | null;
   mcpEnabled: boolean;
@@ -46,8 +46,8 @@ export interface RepoSummary {
 }
 
 export class OrgNotFoundError extends Error {
-  constructor(orgId: string) {
-    super(`Organization not found: ${orgId}`);
+  constructor(organizationId: string) {
+    super(`Organization not found: ${organizationId}`);
     this.name = "OrgNotFoundError";
   }
 }
@@ -56,7 +56,7 @@ export interface CreatedRepo {
   id: string;
   name: string;
   description: string | null;
-  orgId: string;
+  organizationId: string;
   orgName: string;
   mcpEnabled: boolean;
   createdAt: Date;
@@ -64,22 +64,22 @@ export interface CreatedRepo {
 
 export async function createRepo(
   input: {
-    orgId: string;
+    organizationId: string;
     name: string;
     description?: string;
   },
   userId: string,
 ): Promise<CreatedRepo> {
-  await assertOrgRole(userId, input.orgId, "org_member");
-  const org = await getOrgById(input.orgId);
-  if (!org) throw new OrgNotFoundError(input.orgId);
+  await assertOrgRole(userId, input.organizationId, "org_member");
+  const org = await getOrgById(input.organizationId);
+  if (!org) throw new OrgNotFoundError(input.organizationId);
 
   const db = getDB();
   const [repo] = await db
     .insert(repositories)
     .values({
       id: generateId("repo"),
-      orgId: org.id,
+      organizationId: org.id,
       name: input.name,
       description:
         input.description && input.description.trim() !== "" ? input.description.trim() : null,
@@ -88,7 +88,7 @@ export async function createRepo(
       id: repositories.id,
       name: repositories.name,
       description: repositories.description,
-      orgId: repositories.orgId,
+      organizationId: repositories.organizationId,
       mcpEnabled: repositories.mcpEnabled,
       createdAt: repositories.createdAt,
     });
@@ -98,7 +98,7 @@ export async function createRepo(
   // 新建仓库即创建默认 main 版本（活线），首个导入前 head 为 NULL。
   await db.insert(versions).values({
     id: generateId("version"),
-    repoId: repo.id,
+    repositoryId: repo.id,
     name: "main",
     isDefault: true,
     headCommitId: null,
@@ -107,7 +107,7 @@ export async function createRepo(
   // 创建者自动成为该仓库 owner——仓库内容是显式成员制，否则新仓库没有第一位
   // 成员，org_member 建完之后自己都打不开。
   await db.insert(repositoryMembers).values({
-    repoId: repo.id,
+    repositoryId: repo.id,
     userId,
     role: "repo_owner",
   });
@@ -120,11 +120,11 @@ export async function createRepo(
 }
 
 export async function updateRepo(
-  repoId: string,
+  repositoryId: string,
   input: { name?: string; description?: string },
   userId: string,
 ) {
-  await assertRepoAccess(userId, repoId, "repo_member");
+  await assertRepoAccess(userId, repositoryId, "repo_member");
   const db = getDB();
   const [repo] = await db
     .update(repositories)
@@ -137,23 +137,23 @@ export async function updateRepo(
         : {}),
       updatedAt: new Date(),
     })
-    .where(eq(repositories.id, repoId))
+    .where(eq(repositories.id, repositoryId))
     .returning({
       id: repositories.id,
       name: repositories.name,
       description: repositories.description,
-      orgId: repositories.orgId,
+      organizationId: repositories.organizationId,
       mcpEnabled: repositories.mcpEnabled,
       updatedAt: repositories.updatedAt,
     });
-  if (!repo) throw new Error(`Repository not found: ${repoId}`);
+  if (!repo) throw new Error(`Repository not found: ${repositoryId}`);
   return { ...repo, mcpEnabled: Boolean(repo.mcpEnabled ?? false) };
 }
 
 export async function listRepos(userId: string): Promise<RepoSummary[]> {
   const db = getDB();
   // 仓库目录全站可见——筛选发生在"能不能打开内容"上，而不是"能不能看到"。
-  const accessible = new Set(await listAccessibleRepoIds(userId));
+  const accessible = new Set(await listAccessibleRepositoryIds(userId));
 
   const rows = await db
     .select({
@@ -161,7 +161,7 @@ export async function listRepos(userId: string): Promise<RepoSummary[]> {
       name: repositories.name,
       description: repositories.description,
       orgName: organizations.name,
-      orgId: organizations.id,
+      organizationId: organizations.id,
       mcpEnabled: repositories.mcpEnabled,
       updatedAt: repositories.updatedAt,
       currentVersion: versions.name,
@@ -173,8 +173,8 @@ export async function listRepos(userId: string): Promise<RepoSummary[]> {
       )`,
     })
     .from(repositories)
-    .leftJoin(organizations, eq(repositories.orgId, organizations.id))
-    .leftJoin(versions, and(eq(versions.repoId, repositories.id), eq(versions.isDefault, true)))
+    .leftJoin(organizations, eq(repositories.organizationId, organizations.id))
+    .leftJoin(versions, and(eq(versions.repositoryId, repositories.id), eq(versions.isDefault, true)))
     .orderBy(desc(repositories.updatedAt));
 
   return rows.map((row) => {
@@ -205,7 +205,7 @@ export interface RepoDetail {
   name: string;
   description: string | null;
   orgName: string | null;
-  orgId: string | null;
+  organizationId: string | null;
   mcpEnabled: boolean;
   currentVersion: string | null;
   currentSpecVersion: string | null;
@@ -225,12 +225,12 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
       name: repositories.name,
       description: repositories.description,
       orgName: organizations.name,
-      orgId: organizations.id,
+      organizationId: organizations.id,
       mcpEnabled: repositories.mcpEnabled,
       capabilityContext: repositories.capabilityContext,
     })
     .from(repositories)
-    .leftJoin(organizations, eq(repositories.orgId, organizations.id))
+    .leftJoin(organizations, eq(repositories.organizationId, organizations.id))
     .where(eq(repositories.id, id))
     .limit(1);
   if (!repo) return null;
@@ -238,7 +238,7 @@ export async function getRepoDetail(id: string, userId: string): Promise<RepoDet
   const allVersions = await db
     .select()
     .from(versions)
-    .where(eq(versions.repoId, id))
+    .where(eq(versions.repositoryId, id))
     .orderBy(desc(versions.createdAt));
   const defaultVersion = allVersions.find((v) => v.isDefault) ?? null;
   const headCommitId = defaultVersion?.headCommitId ?? null;
@@ -349,18 +349,18 @@ export async function loadRepoForPage(id: string, userId: string): Promise<RepoL
   }
 }
 
-async function getRepoOwnerContact(repoId: string): Promise<RepoLoadOwner | null> {
+async function getRepoOwnerContact(repositoryId: string): Promise<RepoLoadOwner | null> {
   const db = getDB();
   const [repo] = await db
-    .select({ orgId: repositories.orgId })
+    .select({ organizationId: repositories.organizationId })
     .from(repositories)
-    .where(eq(repositories.id, repoId))
+    .where(eq(repositories.id, repositoryId))
     .limit(1);
   if (!repo) return null;
   const [org] = await db
     .select({ ownerId: organizations.ownerId })
     .from(organizations)
-    .where(eq(organizations.id, repo.orgId))
+    .where(eq(organizations.id, repo.organizationId))
     .limit(1);
   if (!org) return null;
   const [owner] = await db
@@ -395,21 +395,21 @@ export interface RepoEndpoint {
 }
 
 /** 解析默认主版本 head commit。 */
-async function defaultHeadCommitId(repoId: string): Promise<string | null> {
+async function defaultHeadCommitId(repositoryId: string): Promise<string | null> {
   const db = getDB();
   const [v] = await db
     .select({ headCommitId: versions.headCommitId })
     .from(versions)
-    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .where(and(eq(versions.repositoryId, repositoryId), eq(versions.isDefault, true)))
     .limit(1);
   return v?.headCommitId ?? null;
 }
 
 /** 默认主版本下的接口列表（模块由 tags 派生）。 */
-export async function getRepoEndpoints(repoId: string, userId: string): Promise<RepoEndpoint[]> {
-  await assertRepoAccess(userId, repoId, "repo_viewer");
+export async function getRepoEndpoints(repositoryId: string, userId: string): Promise<RepoEndpoint[]> {
+  await assertRepoAccess(userId, repositoryId, "repo_viewer");
   const db = getDB();
-  const commitId = await defaultHeadCommitId(repoId);
+  const commitId = await defaultHeadCommitId(repositoryId);
   if (!commitId) return [];
 
   const [endpointRows, responseRows] = await Promise.all([
@@ -493,10 +493,10 @@ export interface RepoDataModel {
   } | null;
 }
 
-export async function getRepoDataModels(repoId: string, userId: string): Promise<RepoDataModel[]> {
-  await assertRepoAccess(userId, repoId, "repo_viewer");
+export async function getRepoDataModels(repositoryId: string, userId: string): Promise<RepoDataModel[]> {
+  await assertRepoAccess(userId, repositoryId, "repo_viewer");
   const db = getDB();
-  const commitId = await defaultHeadCommitId(repoId);
+  const commitId = await defaultHeadCommitId(repositoryId);
   if (!commitId) return [];
 
   const rows = await db
@@ -543,13 +543,13 @@ export interface RepoComponentDef {
 }
 
 export async function getRepoComponentDefs(
-  repoId: string,
+  repositoryId: string,
   userId: string,
   kind?: ComponentKind,
 ): Promise<RepoComponentDef[]> {
-  await assertRepoAccess(userId, repoId, "repo_viewer");
+  await assertRepoAccess(userId, repositoryId, "repo_viewer");
   const db = getDB();
-  const commitId = await defaultHeadCommitId(repoId);
+  const commitId = await defaultHeadCommitId(repositoryId);
   if (!commitId) return [];
 
   const conditions = [

@@ -77,7 +77,7 @@ export function RepoMembersView({ view }: { view: RepoMembersViewData }) {
   async function addMember() {
     if (!targetUserId) return;
     setSaving(true);
-    const res = await fetch(`/api/repos/${view.repoId}/members`, {
+    const res = await fetch(`/api/repos/${view.repositoryId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: targetUserId, role }),
@@ -94,7 +94,7 @@ export function RepoMembersView({ view }: { view: RepoMembersViewData }) {
   }
 
   async function changeRole(userId: string, nextRole: RepoRole) {
-    const res = await fetch(`/api/repos/${view.repoId}/members/${userId}`, {
+    const res = await fetch(`/api/repos/${view.repositoryId}/members/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: nextRole }),
@@ -110,7 +110,7 @@ export function RepoMembersView({ view }: { view: RepoMembersViewData }) {
   async function removeMember() {
     if (!removeTarget) return;
     setBusy(true);
-    const res = await fetch(`/api/repos/${view.repoId}/members/${removeTarget}`, {
+    const res = await fetch(`/api/repos/${view.repositoryId}/members/${removeTarget}`, {
       method: "DELETE",
     });
     setBusy(false);

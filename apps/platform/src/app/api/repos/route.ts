@@ -24,7 +24,7 @@ export const POST = withRoute({ auth: true }, async ({ request, user }) => {
   try {
     const repo = await createRepo(
       {
-        orgId: parsed.data.orgId,
+        organizationId: parsed.data.organizationId,
         name: parsed.data.name,
         description: parsed.data.description,
       },

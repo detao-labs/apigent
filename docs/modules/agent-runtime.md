@@ -14,13 +14,13 @@
 
 **技术选型（已确认）：**
 
-| 能力 | 方案 |
-| --- | --- |
-| 流式对话 | Vercel AI SDK v7（`useChat` + `streamText` + `toUIMessageStream` + `createUIMessageStreamResponse`） |
-| 工具分层 | server tools 在 API route 的 `streamText({ tools })` 执行；client tools 经 `onToolCall` + `addToolOutput` 在浏览器执行，协议由 AI SDK 处理 |
-| 提示词模板 | 轻量字符串模板 + zod 结构化输出校验，**不引入 LangChain** |
-| LLM 接入 | `@ai-sdk/openai-compatible`，映射现有 `llm.provider` / `llm.models` 配置 |
-| 工具定义共享 | `packages/core` 的 zod schema 注册表，前后端各自包装执行器 |
+| 能力         | 方案                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 流式对话     | Vercel AI SDK v7（`useChat` + `streamText` + `toUIMessageStream` + `createUIMessageStreamResponse`）                                       |
+| 工具分层     | server tools 在 API route 的 `streamText({ tools })` 执行；client tools 经 `onToolCall` + `addToolOutput` 在浏览器执行，协议由 AI SDK 处理 |
+| 提示词模板   | 轻量字符串模板 + zod 结构化输出校验，**不引入 LangChain**                                                                                  |
+| LLM 接入     | `@ai-sdk/openai-compatible`，映射现有 `llm.provider` / `llm.models` 配置                                                                   |
+| 工具定义共享 | `packages/core` 的 zod schema 注册表，前后端各自包装执行器                                                                                 |
 
 ---
 
@@ -42,7 +42,7 @@
 
 ```
 1. 用户触发"AI 生成"
-2. agent 调 get_page_context (client) → 拿到 repoId / endpointId / 表单草稿
+2. agent 调 get_page_context (client) → 拿到 repositoryId / endpointId / 表单草稿
 3. agent 调 get_endpoint_spec (server) → 后端补齐技术模型（前端只有摘要）
 4. agent 调 generate_context (server) → 生成结构化草稿（不落库）
 5. agent 调 apply_edit_draft (client) → 草稿填充前端表单，用户可见可撤销
@@ -59,8 +59,8 @@
 
 ```ts
 interface AgentTool<Input, Output> {
-  name: string;                 // 机器可读，如 get_endpoint_spec
-  description: string;          // 给 LLM 看的用途说明
+  name: string; // 机器可读，如 get_endpoint_spec
+  description: string; // 给 LLM 看的用途说明
   inputSchema: z.ZodType<Input>;
   scope: "server" | "client";
 }
@@ -84,10 +84,10 @@ interface AgentTool<Input, Output> {
 
 ## 3. API 契约
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/agent/run` | 流式对话入口：接收 `messages` + 工具列表（由注册表决定），返回 `toUIMessageStreamResponse()` |
-| POST | `/api/agent/run/:threadId` | 多轮会话续传（V1，可先无状态） |
+| 方法 | 路径                       | 说明                                                                                         |
+| ---- | -------------------------- | -------------------------------------------------------------------------------------------- |
+| POST | `/api/agent/run`           | 流式对话入口：接收 `messages` + 工具列表（由注册表决定），返回 `toUIMessageStreamResponse()` |
+| POST | `/api/agent/run/:threadId` | 多轮会话续传（V1，可先无状态）                                                               |
 
 请求体沿用 AI SDK `useChat` 默认协议；client tool 结果由 AI SDK 协议自动回传，无需自定义格式。
 
@@ -95,21 +95,21 @@ interface AgentTool<Input, Output> {
 
 ## 4. 工具集（业务上下文场景，V0）
 
-| 工具 | scope | 输入 | 输出 | 说明 |
-| --- | --- | --- | --- | --- |
-| `get_page_context` | client | — | 当前 URL、repoId、endpointId、locale、表单草稿 | 给 LLM 前端视图 |
-| `get_endpoint_spec` | server | repoId、endpointId | 完整技术模型（参数 / requestSchema / responses） | 后端补齐数据 |
-| `generate_context` | server | repoId、endpointId | 结构化上下文草稿（§3.2 输出结构），**不落库** | 调用 `llm.models.business_context` |
-| `apply_edit_draft` | client | draft 字段 | 填充结果 | 写入受控表单 state，可撤销 |
-| `save_business_context` | server | repoId、endpointId、context | 落库结果 | 复用 business-context 保存逻辑 + 通知 |
+| 工具                    | scope  | 输入                              | 输出                                                 | 说明                                  |
+| ----------------------- | ------ | --------------------------------- | ---------------------------------------------------- | ------------------------------------- |
+| `get_page_context`      | client | —                                 | 当前 URL、repositoryId、endpointId、locale、表单草稿 | 给 LLM 前端视图                       |
+| `get_endpoint_spec`     | server | repositoryId、endpointId          | 完整技术模型（参数 / requestSchema / responses）     | 后端补齐数据                          |
+| `generate_context`      | server | repositoryId、endpointId          | 结构化上下文草稿（§3.2 输出结构），**不落库**        | 调用 `llm.models.business_context`    |
+| `apply_edit_draft`      | client | draft 字段                        | 填充结果                                             | 写入受控表单 state，可撤销            |
+| `save_business_context` | server | repositoryId、endpointId、context | 落库结果                                             | 复用 business-context 保存逻辑 + 通知 |
 
 **模式映射：**
 
-| 模式 | 工具调用链 | 落库时机 |
-| --- | --- | --- |
-| 交互（编辑） | get_page_context → get_endpoint_spec → generate_context → apply_edit_draft | 用户点保存（普通表单提交） |
-| 自动（确认） | get_page_context → get_endpoint_spec → generate_context → save_business_context | 用户确认 preview 后 |
-| 自动（批量） | 不走 agent 运行时，直接走 async-queue 批量任务（business-context.md §3） | 任务完成即落库 |
+| 模式         | 工具调用链                                                                      | 落库时机                   |
+| ------------ | ------------------------------------------------------------------------------- | -------------------------- |
+| 交互（编辑） | get_page_context → get_endpoint_spec → generate_context → apply_edit_draft      | 用户点保存（普通表单提交） |
+| 自动（确认） | get_page_context → get_endpoint_spec → generate_context → save_business_context | 用户确认 preview 后        |
+| 自动（批量） | 不走 agent 运行时，直接走 async-queue 批量任务（business-context.md §3）        | 任务完成即落库             |
 
 ---
 
@@ -123,14 +123,14 @@ interface AgentTool<Input, Output> {
 
 ## 6. 边界情况
 
-| 场景 | 行为 |
-| --- | --- |
-| client tool 执行失败（页面跳转 / 组件卸载） | 错误作为 tool 结果回传，agent 重试或终止 |
-| server tool 权限不足 | 返回 403 结果（不泄露细节），agent 提示无权限 |
-| 流式中断 / 重连 | 前端展示重试；无状态阶段从当前消息重发 |
-| 工具循环上限 | 单次会话最多 N 轮（默认 8），超限终止并提示 |
-| 表单编辑冲突 | `apply_edit_draft` 覆盖前备份草稿，前端提供"撤销" |
-| LLM 输出非结构化 | zod 校验失败 → 要求模型重试一次，仍失败则报错 |
+| 场景                                        | 行为                                              |
+| ------------------------------------------- | ------------------------------------------------- |
+| client tool 执行失败（页面跳转 / 组件卸载） | 错误作为 tool 结果回传，agent 重试或终止          |
+| server tool 权限不足                        | 返回 403 结果（不泄露细节），agent 提示无权限     |
+| 流式中断 / 重连                             | 前端展示重试；无状态阶段从当前消息重发            |
+| 工具循环上限                                | 单次会话最多 N 轮（默认 8），超限终止并提示       |
+| 表单编辑冲突                                | `apply_edit_draft` 覆盖前备份草稿，前端提供"撤销" |
+| LLM 输出非结构化                            | zod 校验失败 → 要求模型重试一次，仍失败则报错     |
 
 ---
 

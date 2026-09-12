@@ -104,7 +104,7 @@ const CONTEXT_FIELDS = {
  * 同仓库存在进行中的 context 任务时抛 DuplicateContextTaskError。
  */
 export async function createContextTask(
-  repoId: string,
+  repositoryId: string,
   userId: string,
   options: {
     trigger?: ContextTaskTrigger;
@@ -117,15 +117,15 @@ export async function createContextTask(
   const [repoRow] = await db
     .select({ id: repositories.id })
     .from(repositories)
-    .where(eq(repositories.id, repoId))
+    .where(eq(repositories.id, repositoryId))
     .limit(1);
-  if (!repoRow) throw new RepoNotFoundError(repoId);
+  if (!repoRow) throw new RepoNotFoundError(repositoryId);
 
   // 目标版本 = 默认主版本的 head commit
   const [defVersion] = await db
     .select({ headCommitId: versions.headCommitId })
     .from(versions)
-    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .where(and(eq(versions.repositoryId, repositoryId), eq(versions.isDefault, true)))
     .limit(1);
   const versionId = defVersion?.headCommitId ?? null;
 
@@ -134,7 +134,7 @@ export async function createContextTask(
     .from(repositoryTasks)
     .where(
       and(
-        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.repositoryId, repositoryId),
         eq(repositoryTasks.taskType, "context"),
         inArray(repositoryTasks.status, ["queued", "running"]),
       ),
@@ -150,7 +150,7 @@ export async function createContextTask(
   };
   await db.insert(repositoryTasks).values({
     id: taskId,
-    repoId,
+    repositoryId,
     versionId,
     userId,
     taskType: "context",
@@ -165,7 +165,7 @@ export async function createContextTask(
   });
   await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
-  logInfo("business.context.queued", { taskId, repoId, userId, jobId, trigger });
+  logInfo("business.context.queued", { taskId, repositoryId, userId, jobId, trigger });
   return {
     taskId,
     status: "queued",
@@ -186,7 +186,7 @@ export async function createContextTask(
 
 /** 读取任务详情。按仓库过滤——任务 id 全局唯一，只校验仓库访问权不够。 */
 export async function getContextTask(
-  repoId: string,
+  repositoryId: string,
   taskId: string,
 ): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
@@ -194,7 +194,7 @@ export async function getContextTask(
     .from(repositoryTasks)
     .where(
       and(
-        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.repositoryId, repositoryId),
         eq(repositoryTasks.id, taskId),
         eq(repositoryTasks.taskType, "context"),
       ),
@@ -204,11 +204,11 @@ export async function getContextTask(
 }
 
 /** 最近一次生成任务（前端轮询 / 仓库状态徽章）。 */
-export async function getLatestContextTask(repoId: string): Promise<ContextTaskSummary | null> {
+export async function getLatestContextTask(repositoryId: string): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
     .select(CONTEXT_FIELDS)
     .from(repositoryTasks)
-    .where(and(eq(repositoryTasks.repoId, repoId), eq(repositoryTasks.taskType, "context")))
+    .where(and(eq(repositoryTasks.repositoryId, repositoryId), eq(repositoryTasks.taskType, "context")))
     .orderBy(desc(repositoryTasks.createdAt))
     .limit(1);
   return row ? toSummary(row) : null;
@@ -216,7 +216,7 @@ export async function getLatestContextTask(repoId: string): Promise<ContextTaskS
 
 /** 重试失败任务：状态复位 + 重新入队（payload 保留，scope 不变）。 */
 export async function retryContextTask(
-  repoId: string,
+  repositoryId: string,
   taskId: string,
 ): Promise<ContextTaskSummary> {
   const db = getDB();
@@ -230,7 +230,7 @@ export async function retryContextTask(
     .from(repositoryTasks)
     .where(
       and(
-        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.repositoryId, repositoryId),
         eq(repositoryTasks.id, taskId),
         eq(repositoryTasks.taskType, "context"),
       ),
@@ -262,7 +262,7 @@ export async function retryContextTask(
   });
   await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
-  const summary = await getContextTask(repoId, taskId);
+  const summary = await getContextTask(repositoryId, taskId);
   if (!summary) throw new Error(`Context task not found: ${taskId}`);
   return summary;
 }

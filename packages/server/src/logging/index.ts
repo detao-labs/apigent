@@ -7,7 +7,7 @@
 // pino 负责序列化与级别方法，我们负责 AsyncLocalStorage 上下文贯穿
 // 与 level 过滤。
 //
-// 阶段 B：ALS 贯穿 reqId / taskId / userId / orgId / repoId，让一次
+// 阶段 B：ALS 贯穿 reqId / taskId / userId / organizationId / repositoryId，让一次
 // 请求 / 一次任务的日志自动带上同一 id，可串起全链路。
 // ═══════════════════════════════════════════════════════════════════
 
@@ -20,8 +20,8 @@ export interface LoggingContext {
   reqId?: string;
   taskId?: string;
   userId?: string;
-  orgId?: string;
-  repoId?: string;
+  organizationId?: string;
+  repositoryId?: string;
   entityId?: string;
   [key: string]: unknown;
 }

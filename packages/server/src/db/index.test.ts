@@ -15,7 +15,7 @@ import {
 describe("@apigent/server/db public export", () => {
   it("exposes the Drizzle schema tables with their columns", () => {
     expect(users.email).toBeDefined();
-    expect(repositories.orgId).toBeDefined();
+    expect(repositories.organizationId).toBeDefined();
     expect(secretKeys.keyHash).toBeDefined();
     expect(operationLogs.operationType).toBeDefined();
     expect(knowledgeChunks.embedding).toBeDefined();

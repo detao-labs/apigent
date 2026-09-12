@@ -63,9 +63,9 @@ export function BusinessContextDialog() {
   const searchParams = useSearchParams();
 
   const dialog = searchParams.get("dialog");
-  const repoId = searchParams.get("repo");
+  const repositoryId = searchParams.get("repo");
   const endpointIdParam = searchParams.get("endpoint");
-  const open = dialog === "business-context" && Boolean(repoId);
+  const open = dialog === "business-context" && Boolean(repositoryId);
 
   // 数据与表单
   const [items, setItems] = React.useState<EndpointContextSummary[]>([]);
@@ -108,10 +108,10 @@ export function BusinessContextDialog() {
 
   // 打开时加载接口上下文列表；endpointId 优先，缺省选中第一个
   React.useEffect(() => {
-    if (!open || !repoId) return;
+    if (!open || !repositoryId) return;
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/repos/${repoId}/contexts`, { cache: "no-store" })
+    fetch(`/api/repos/${repositoryId}/contexts`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { contexts: EndpointContextSummary[] }) => {
         if (cancelled) return;
@@ -131,7 +131,7 @@ export function BusinessContextDialog() {
     return () => {
       cancelled = true;
     };
-  }, [open, repoId, endpointIdParam]);
+  }, [open, repositoryId, endpointIdParam]);
 
   // 切换接口时回填表单
   React.useEffect(() => {
@@ -155,11 +155,11 @@ export function BusinessContextDialog() {
   }, [selected]);
 
   async function save() {
-    if (!repoId || !selectedId || !selected) return;
+    if (!repositoryId || !selectedId || !selected) return;
     setSaving(true);
     try {
       const res = await fetch(
-        `/api/repos/${repoId}/contexts/${selectedId}`,
+        `/api/repos/${repositoryId}/contexts/${selectedId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -185,8 +185,8 @@ export function BusinessContextDialog() {
   }
 
   async function refresh() {
-    if (!repoId) return;
-    const res = await fetch(`/api/repos/${repoId}/contexts`, {
+    if (!repositoryId) return;
+    const res = await fetch(`/api/repos/${repositoryId}/contexts`, {
       cache: "no-store",
     });
     const data = (await res.json()) as { contexts: EndpointContextSummary[] };
@@ -194,10 +194,10 @@ export function BusinessContextDialog() {
   }
 
   async function regenerate() {
-    if (!repoId || !selectedId) return;
+    if (!repositoryId || !selectedId) return;
     setRegenerating(true);
     try {
-      const res = await fetch(`/api/repos/${repoId}/contexts/generate`, {
+      const res = await fetch(`/api/repos/${repositoryId}/contexts/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpointIds: [selectedId] }),
@@ -211,7 +211,7 @@ export function BusinessContextDialog() {
         while (Date.now() - started < 5 * 60 * 1000) {
           await new Promise((resolve) => setTimeout(resolve, 3000));
           const taskRes = await fetch(
-            `/api/repos/${repoId}/context-tasks/${taskId}`,
+            `/api/repos/${repositoryId}/context-tasks/${taskId}`,
             { cache: "no-store" },
           );
           const taskData = (await taskRes.json()) as {

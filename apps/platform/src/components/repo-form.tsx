@@ -22,7 +22,7 @@ export function RepoForm({ orgs }: { orgs: OrgSummary[] }) {
   const errors = useTranslations("repos.new.errors");
   const router = useRouter();
 
-  const [orgId, setOrgId] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function RepoForm({ orgs }: { orgs: OrgSummary[] }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orgId,
+          organizationId,
           name,
           description: description.trim() || undefined,
         }),
@@ -74,15 +74,15 @@ export function RepoForm({ orgs }: { orgs: OrgSummary[] }) {
       <CardContent>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <label htmlFor="orgId" className="text-sm font-medium">
+            <label htmlFor="organizationId" className="text-sm font-medium">
               {t("org")}
             </label>
             <select
-              id="orgId"
-              name="orgId"
+              id="organizationId"
+              name="organizationId"
               required
-              value={orgId}
-              onChange={(e) => setOrgId(e.target.value)}
+              value={organizationId}
+              onChange={(e) => setOrganizationId(e.target.value)}
               disabled={orgs.length === 0}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >

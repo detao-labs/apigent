@@ -10,8 +10,8 @@ import {
   vector,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./auth";
-import { repositories } from "./repo";
+import { organizations } from "./organization";
+import { repositories } from "./repository";
 import { versionCommits } from "./version";
 import { endpoints } from "./endpoint";
 
@@ -55,10 +55,10 @@ export const knowledgeChunks = pgTable(
   {
     id: text("id").primaryKey(),
     /** 冗余 org 快照 — 检索前权限过滤；repo 迁移 org 后保持 snapshot 语义 */
-    orgId: text("organization_id")
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    repoId: text("repository_id")
+    repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** 所属 OpenAPI 版本（project/usage-context chunk 可为空） */
@@ -93,9 +93,9 @@ export const knowledgeChunks = pgTable(
   },
   (table) => [
     // 幂等同步锚点：repo 内 chunk_key 唯一
-    uniqueIndex("knowledge_chunks_repository_key_idx").on(table.repoId, table.chunkKey),
+    uniqueIndex("knowledge_chunks_repository_key_idx").on(table.repositoryId, table.chunkKey),
     // 权限过滤（org 级查询）
-    index("knowledge_chunks_organization_idx").on(table.orgId),
+    index("knowledge_chunks_organization_idx").on(table.organizationId),
     // endpoint 级检索 / 上下文扩展
     index("knowledge_chunks_endpoint_idx").on(table.endpointId),
     // 精排后按 parent 加载上下文（L3 → L2）

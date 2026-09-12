@@ -13,7 +13,7 @@ RAG 检索管线的可观测层。采集每次查询的**执行轨迹（trace）
 ## 采集对象：一次查询的 Trace 模型
 
 ```
-root: rag.query                     {repoId, userId, mode, topK, traceId}
+root: rag.query                     {repositoryId, userId, mode, topK, traceId}
 ├── rewrite                        (LLM)        → functionId=rag.rewrite
 │   └── rewrite.cache_hit          (bool)       → 是否命中改写缓存
 ├── retrieve.dense                 (VectorStore) → top-50 + embedding model + dim
@@ -29,15 +29,15 @@ root: rag.query                     {repoId, userId, mode, topK, traceId}
 
 ## 指标（Metrics）
 
-| 指标 | 类型 | 定义 | 目标（建议，待确认） |
-| --- | --- | --- | --- |
-| `rag.query.latency` | histogram | 端到端查询耗时 | p95 ≤ 2s |
-| `rag.stage.latency` | histogram | 各阶段（改写/召回/融合/重排）耗时 | 定位瓶颈 |
-| `rag.recall.empty_rate` | gauge | 空召回/回退占比 | < 5% |
-| `rag.rewrite.llm_calls` | counter | 改写触发 LLM 次数 → 成本 | 期望 cache_hit 高 |
-| `rag.rewrite.cache_hit` | counter | 改写缓存命中率 | ≥ 80%（深搜） |
-| `rag.cost_per_query` | counter | token + 货币成本 | 预算内 |
-| `rag.fallback_rate` | gauge | 检索失败走回退占比 | < 5% |
+| 指标                    | 类型      | 定义                              | 目标（建议，待确认） |
+| ----------------------- | --------- | --------------------------------- | -------------------- |
+| `rag.query.latency`     | histogram | 端到端查询耗时                    | p95 ≤ 2s             |
+| `rag.stage.latency`     | histogram | 各阶段（改写/召回/融合/重排）耗时 | 定位瓶颈             |
+| `rag.recall.empty_rate` | gauge     | 空召回/回退占比                   | < 5%                 |
+| `rag.rewrite.llm_calls` | counter   | 改写触发 LLM 次数 → 成本          | 期望 cache_hit 高    |
+| `rag.rewrite.cache_hit` | counter   | 改写缓存命中率                    | ≥ 80%（深搜）        |
+| `rag.cost_per_query`    | counter   | token + 货币成本                  | 预算内               |
+| `rag.fallback_rate`     | gauge     | 检索失败走回退占比                | < 5%                 |
 
 ## Telemetry 接入（AI SDK + 手动 span）
 
@@ -52,7 +52,7 @@ streamText({
     functionId: "rag.answer",
     recordInputs: true,
     recordOutputs: false, // 避免把业务原文外泄
-    metadata: { repoId: r.repoId, mode: r.mode },
+    metadata: { repositoryId: r.repositoryId, mode: r.mode },
   },
 });
 
@@ -70,25 +70,25 @@ await trace.getTracer("rag").startActiveSpan("retrieve.dense", async (span) => {
 
 通过 OTel exporter 导出，后端在 `apigent.config.yaml` 里切（走现有「接口 + 配置可换」哲学）：
 
-| provider | 优势 | 说明 |
-| --- | --- | --- |
-| `otel` | 通用，Linux 生态 | 自建 Collector → Tempo/Phoenix 等 |
-| `langfuse` | 专做 LLM 追踪，看板友好 | 建议 V0 首选 |
-| `phoenix` | OpenInference，RAG 评测推荐 | 若后续接评测看板 |
-| `none` | 关闭/仅 console | 开发用 |
+| provider   | 优势                        | 说明                              |
+| ---------- | --------------------------- | --------------------------------- |
+| `otel`     | 通用，Linux 生态            | 自建 Collector → Tempo/Phoenix 等 |
+| `langfuse` | 专做 LLM 追踪，看板友好     | 建议 V0 首选                      |
+| `phoenix`  | OpenInference，RAG 评测推荐 | 若后续接评测看板                  |
+| `none`     | 关闭/仅 console             | 开发用                            |
 
 ## 配置设计（`apigent.config.yaml`）
 
 ```yaml
 observability:
-  provider: otel          # none | otel | langfuse | phoenix
+  provider: otel # none | otel | langfuse | phoenix
   enabled: true
-  sampler: parentbased_always_on   # 生产可降采样，例如 parentbased_traceidratio
+  sampler: parentbased_always_on # 生产可降采样，例如 parentbased_traceidratio
   samplerRatio: 1.0
   export:
     otel:
       endpoint: http://localhost:4318
-      protocol: http/json          # http/json | grpc
+      protocol: http/json # http/json | grpc
 ```
 
 > 密钥（ingest key、token）一律走 `.env`，不落在 YAML。
@@ -112,12 +112,12 @@ observability:
 
 ## 边界情况
 
-| 场景 | 行为 |
-| --- | --- |
+| 场景          | 行为                                                       |
+| ------------- | ---------------------------------------------------------- |
 | 空召回 / 回退 | span 打 `fallback=true`，`empty_rate` / `fallback_rate` +1 |
-| 改写失败 | 降级 `fast` 模式，span `status=ERROR` + fallback 标记 |
-| LLM 不可用 | 观测仍可导出（fail-open），仅 LLM 相关 span 缺失 |
-| 敏感内容 | 脱敏，`recordOutputs=false` |
+| 改写失败      | 降级 `fast` 模式，span `status=ERROR` + fallback 标记      |
+| LLM 不可用    | 观测仍可导出（fail-open），仅 LLM 相关 span 缺失           |
+| 敏感内容      | 脱敏，`recordOutputs=false`                                |
 
 ## 待细化
 

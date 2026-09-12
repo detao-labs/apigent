@@ -300,7 +300,7 @@ export function RepoOverview({
       <ImportVersionDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        repoId={repo.id}
+        repositoryId={repo.id}
         repoName={repo.name}
         onImported={() => router.refresh()}
       />

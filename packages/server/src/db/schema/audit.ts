@@ -1,6 +1,7 @@
 import { pgTable, varchar, text, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
-import { users, organizations } from "./auth";
-import { repositories } from "./repo";
+import { users } from "./auth";
+import { organizations } from "./organization";
+import { repositories } from "./repository";
 import { endpoints } from "./endpoint";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -12,8 +13,8 @@ export const operationLogs = pgTable(
   {
     id: text("id").primaryKey(),
     /** NULL = 平台级操作（Admin Webapp） */
-    orgId: text("organization_id").references(() => organizations.id),
-    repoId: text("repository_id").references(() => repositories.id),
+    organizationId: text("organization_id").references(() => organizations.id),
+    repositoryId: text("repository_id").references(() => repositories.id),
     /** NULL = 系统自动操作 */
     actorId: text("actor_id").references(() => users.id),
     operationType: varchar("operation_type", { length: 50 }).notNull(),
@@ -24,7 +25,7 @@ export const operationLogs = pgTable(
   },
   (table) => [
     index("operation_logs_organization_type_time_idx").on(
-      table.orgId,
+      table.organizationId,
       table.operationType,
       table.createdAt.desc(),
     ),

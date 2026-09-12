@@ -6,7 +6,6 @@ import {
   timestamp,
   jsonb,
   uniqueIndex,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -33,39 +32,24 @@ export const users = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════
-// Organizations
+// Secret Keys — MCP / REST API 认证
 // ═══════════════════════════════════════════════════════════════════
+//
+// 用户级 API Key：外部 Agent（Cursor / CLI）没有浏览器 Session，
+// 用 Bearer key 走独立的认证平面，scopes 限定 api:* / mcp:*。
+// 签发 / 校验链路尚未实现（见 docs/tech-design.md §5.4.8）。
 
-export const organizations = pgTable("organizations", {
+export const secretKeys = pgTable("secret_keys", {
   id: text("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  /** 组织描述——未来 RAG 检索的语料（L0 project / org 级 chunk） */
-  description: text("description"),
-  ownerId: text("owner_id")
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  keyHash: varchar("key_hash", { length: 255 }).notNull(),
+  keyPrefix: varchar("key_prefix", { length: 20 }).notNull(),
+  scopes: jsonb("scopes").$type<string[]>().default([]),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
 });
-
-// ═══════════════════════════════════════════════════════════════════
-// Organization Members
-// ═══════════════════════════════════════════════════════════════════
-
-export const organizationMembers = pgTable(
-  "organization_members",
-  {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id),
-    orgId: text("organization_id")
-      .notNull()
-      .references(() => organizations.id),
-    role: varchar("role", { length: 50 }).notNull(),
-    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.userId, table.orgId] })],
-);

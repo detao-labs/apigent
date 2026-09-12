@@ -51,9 +51,9 @@ async function countEntities(commitId: string | null, type: "endpoint" | "data_m
 }
 
 /** 列某仓库的所有版本（分支），按创建倒序。head commit 为空的统计 0。 */
-export async function listVersions(repoId: string): Promise<RepoVersionRow[]> {
+export async function listVersions(repositoryId: string): Promise<RepoVersionRow[]> {
   const db = getDB();
-  const rows = await db.select().from(versions).where(eq(versions.repoId, repoId)).orderBy(desc(versions.createdAt));
+  const rows = await db.select().from(versions).where(eq(versions.repositoryId, repositoryId)).orderBy(desc(versions.createdAt));
 
   return Promise.all(
     rows.map(async (v) => {
@@ -80,11 +80,11 @@ export async function listVersions(repoId: string): Promise<RepoVersionRow[]> {
   );
 }
 
-export async function getDefaultVersionId(repoId: string): Promise<string | null> {
+export async function getDefaultVersionId(repositoryId: string): Promise<string | null> {
   const [row] = await getDB()
     .select({ id: versions.id })
     .from(versions)
-    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .where(and(eq(versions.repositoryId, repositoryId), eq(versions.isDefault, true)))
     .limit(1);
   return row?.id ?? null;
 }
@@ -98,9 +98,9 @@ export interface CreateVersionInput {
 }
 
 /** 新建版本（分支）。默认 `is_default=false`。 */
-export async function createVersion(repoId: string, input: CreateVersionInput): Promise<string> {
+export async function createVersion(repositoryId: string, input: CreateVersionInput): Promise<string> {
   const db = getDB();
-  const parent = input.parentVersionId === undefined ? await getDefaultVersionId(repoId) : input.parentVersionId;
+  const parent = input.parentVersionId === undefined ? await getDefaultVersionId(repositoryId) : input.parentVersionId;
   let headCommitId: string | null = null;
 
   if (!input.empty && parent) {
@@ -116,7 +116,7 @@ export async function createVersion(repoId: string, input: CreateVersionInput): 
     .insert(versions)
     .values({
       id: generateId("version"),
-      repoId,
+      repositoryId,
       name: input.name,
       parentVersionId: parent,
       headCommitId,
@@ -128,41 +128,41 @@ export async function createVersion(repoId: string, input: CreateVersionInput): 
 }
 
 /** 设为默认/主版本。 */
-export async function setDefaultVersion(repoId: string, versionId: string): Promise<void> {
+export async function setDefaultVersion(repositoryId: string, versionId: string): Promise<void> {
   const db = getDB();
   const [version] = await db
     .select({ id: versions.id })
     .from(versions)
-    .where(and(eq(versions.id, versionId), eq(versions.repoId, repoId)))
+    .where(and(eq(versions.id, versionId), eq(versions.repositoryId, repositoryId)))
     .limit(1);
   if (!version) throw new VersionNotFoundError(versionId);
 
   await db
     .update(versions)
     .set({ isDefault: false })
-    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)));
+    .where(and(eq(versions.repositoryId, repositoryId), eq(versions.isDefault, true)));
   await db.update(versions).set({ isDefault: true }).where(eq(versions.id, versionId));
 }
 
 /** 回滚（R1，移指针）：把版本 head 指回目标 commit。 */
-export async function rollbackVersion(repoId: string, versionId: string, targetCommitId: string): Promise<void> {
+export async function rollbackVersion(repositoryId: string, versionId: string, targetCommitId: string): Promise<void> {
   const db = getDB();
   const [version] = await db
     .select({ id: versions.id })
     .from(versions)
-    .where(and(eq(versions.id, versionId), eq(versions.repoId, repoId)))
+    .where(and(eq(versions.id, versionId), eq(versions.repositoryId, repositoryId)))
     .limit(1);
   if (!version) throw new VersionNotFoundError(versionId);
   await db.update(versions).set({ headCommitId: targetCommitId }).where(eq(versions.id, versionId));
 }
 
 /** 回滚（R1，移指针）：把版本 head 沿 parent_commit_id 往回走 N 步。 */
-export async function rollbackVersionSteps(repoId: string, versionId: string, steps: number): Promise<string> {
+export async function rollbackVersionSteps(repositoryId: string, versionId: string, steps: number): Promise<string> {
   const db = getDB();
   const [version] = await db
     .select({ id: versions.id, headCommitId: versions.headCommitId })
     .from(versions)
-    .where(and(eq(versions.id, versionId), eq(versions.repoId, repoId)))
+    .where(and(eq(versions.id, versionId), eq(versions.repositoryId, repositoryId)))
     .limit(1);
   if (!version) throw new VersionNotFoundError(versionId);
 
@@ -185,7 +185,7 @@ export async function rollbackVersionSteps(repoId: string, versionId: string, st
 // 版本对比（diff 两 commit，复用 diff engine）
 // ───────────────────────────────────────────────────────────────
 
-async function loadCommitSnapshot(repoId: string, commitId: string | null): Promise<VersionSnapshot> {
+async function loadCommitSnapshot(repositoryId: string, commitId: string | null): Promise<VersionSnapshot> {
   const db = getDB();
   if (!commitId) {
     return { endpoints: [], schemas: [], components: [] };
@@ -245,14 +245,14 @@ async function loadCommitSnapshot(repoId: string, commitId: string | null): Prom
 
 /** 对比两个 commit。from/to 传 commit id；传版本 id 时会取其 head commit。 */
 export async function compareVersions(
-  repoId: string,
+  repositoryId: string,
   fromCommitId: string,
   toCommitId: string,
 ): Promise<DiffResult> {
   if (fromCommitId === toCommitId) throw new Error("Cannot compare a version with itself");
   const [fromSnapshot, toSnapshot] = await Promise.all([
-    loadCommitSnapshot(repoId, fromCommitId),
-    loadCommitSnapshot(repoId, toCommitId),
+    loadCommitSnapshot(repositoryId, fromCommitId),
+    loadCommitSnapshot(repositoryId, toCommitId),
   ]);
   return diffVersionSnapshots(fromSnapshot, toSnapshot, fromCommitId, toCommitId);
 }
@@ -275,7 +275,7 @@ export interface VersionHistoryEntry {
 }
 
 /** 仓库全部 commit 的变更日志（按时间倒序）。 */
-export async function listVersionHistory(repoId: string): Promise<VersionHistoryEntry[]> {
+export async function listVersionHistory(repositoryId: string): Promise<VersionHistoryEntry[]> {
   const rows = await getDB()
     .select({
       commitId: versionCommits.id,
@@ -289,7 +289,7 @@ export async function listVersionHistory(repoId: string): Promise<VersionHistory
     })
     .from(versionCommits)
     .innerJoin(versions, eq(versions.id, versionCommits.versionId))
-    .where(eq(versionCommits.repoId, repoId))
+    .where(eq(versionCommits.repositoryId, repositoryId))
     .orderBy(desc(versionCommits.createdAt));
   return rows as VersionHistoryEntry[];
 }
@@ -305,7 +305,7 @@ export interface DeleteEntityResult {
  * 历史 commit 引用它），并把版本 head 移到新 commit。可回滚找回。
  */
 export async function deleteVersionEntity(
-  repoId: string,
+  repositoryId: string,
   versionId: string,
   entityId: string,
 ): Promise<DeleteEntityResult> {
@@ -313,7 +313,7 @@ export async function deleteVersionEntity(
   const [version] = await db
     .select({ headCommitId: versions.headCommitId })
     .from(versions)
-    .where(and(eq(versions.id, versionId), eq(versions.repoId, repoId)))
+    .where(and(eq(versions.id, versionId), eq(versions.repositoryId, repositoryId)))
     .limit(1);
   if (!version) throw new VersionNotFoundError(versionId);
   const parentCommitId = version.headCommitId;
@@ -354,7 +354,7 @@ export async function deleteVersionEntity(
   const commitId = generateId("commit");
   await db.insert(versionCommits).values({
     id: commitId,
-    repoId,
+    repositoryId,
     versionId,
     parentCommitId,
     specTitle: parentMeta?.specTitle ?? null,

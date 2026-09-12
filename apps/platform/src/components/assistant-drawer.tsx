@@ -29,7 +29,7 @@ import {
 } from "@apigent/ui";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { AgentPageContext } from "@/hooks/use-agent-chat";
-import { ASSISTANT_PARAM, buildAssistantUrl, repoIdFromPath } from "@/lib/assistant";
+import { ASSISTANT_PARAM, buildAssistantUrl, repositoryIdFromPath } from "@/lib/assistant";
 
 const STORAGE_KEY = "apigent-assistant-conversations";
 const GLOBAL_KEY = "global";
@@ -73,7 +73,7 @@ export function AssistantDrawer() {
   // 打开时快照页面上下文：优先 URL 参数，其次从路径推断仓库。
   const contextRef = React.useRef<AgentPageContext>({
     url: pathname,
-    repoId: searchParams.get("repo") ?? repoIdFromPath(pathname),
+    repositoryId: searchParams.get("repo") ?? repositoryIdFromPath(pathname),
     endpointId: searchParams.get("endpoint") ?? undefined,
     locale,
   });
@@ -82,7 +82,7 @@ export function AssistantDrawer() {
     if (!open) return;
     contextRef.current = {
       url: pathname,
-      repoId: searchParams.get("repo") ?? repoIdFromPath(pathname),
+      repositoryId: searchParams.get("repo") ?? repositoryIdFromPath(pathname),
       endpointId: searchParams.get("endpoint") ?? undefined,
       locale,
     };
@@ -109,7 +109,7 @@ export function AssistantDrawer() {
   React.useEffect(() => {
     if (!open) return;
     const ctx = contextRef.current;
-    const key = ctx.repoId ?? GLOBAL_KEY;
+    const key = ctx.repositoryId ?? GLOBAL_KEY;
     setSessionKey(key);
     const stored = readConversations()[key];
     setMessages(stored && stored.messages.length > 0 ? stored.messages : []);
@@ -262,9 +262,9 @@ export function AssistantDrawer() {
             </div>
             <SheetDescription className="flex flex-wrap items-center gap-1.5">
               {t("description")}
-              {ctx.repoId && (
+              {ctx.repositoryId && (
                 <span className="rounded-full border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px]">
-                  {t("repoChip")}: {ctx.repoId}
+                  {t("repoChip")}: {ctx.repositoryId}
                 </span>
               )}
               {ctx.endpointId && (

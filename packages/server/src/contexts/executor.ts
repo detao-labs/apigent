@@ -327,7 +327,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
   if (task.status !== "queued") {
     logInfo("business.context.skipped", {
       taskId,
-      repoId: task.repoId,
+      repositoryId: task.repositoryId,
       status: task.status,
     });
     return;
@@ -346,7 +346,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
     // task.versionId 已在创建时指向默认主版本的 head commit（一个 commitId）
     const versionId = task.versionId ?? null;
     if (!versionId) {
-      throw new Error(`Repository ${task.repoId} has no version to generate context for.`);
+      throw new Error(`Repository ${task.repositoryId} has no version to generate context for.`);
     }
 
     // 上一版 = 当前 commit 的父 commit（指纹复用来源）
@@ -500,7 +500,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
       } catch (err) {
         logError("business.context.batch_failed", err, {
           taskId,
-          repoId: task.repoId,
+          repositoryId: task.repositoryId,
           batchSize: chunk.length,
         });
         for (const _ep of chunk) {
@@ -525,7 +525,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
         .values({
           id: generateId("context"),
           entityType: "repo",
-          entityId: task.repoId,
+          entityId: task.repositoryId,
           versionId,
           capabilityName: repoProfile.capabilityName,
           intent: repoProfile.intent,
@@ -565,7 +565,7 @@ export async function executeContextTask(taskId: string): Promise<void> {
       : null;
 
     await buildCapabilitySnapshot(
-      task.repoId,
+      task.repositoryId,
       versionId,
       {
         endpointCount: totalCount,
@@ -602,24 +602,24 @@ export async function executeContextTask(taskId: string): Promise<void> {
             ? "notifications.context.readySkipped"
             : "notifications.context.ready",
       titleParams: {
-        repoName: task.repoId,
+        repoName: task.repositoryId,
         generatedCount: generated,
         reusedCount: reused,
         failedCount: failed,
         skippedCount: skipped,
       },
       payload: {
-        href: `/repos/${task.repoId}/context`,
-        repoId: task.repoId,
+        href: `/repos/${task.repositoryId}/context`,
+        repositoryId: task.repositoryId,
         versionId,
         taskId,
       },
-      metadata: { orgId: null },
+      metadata: { organizationId: null },
     });
 
     logInfo("business.context.completed", {
       taskId,
-      repoId: task.repoId,
+      repositoryId: task.repositoryId,
       userId: task.userId,
       versionId,
       trigger: payload.trigger,
@@ -645,17 +645,17 @@ export async function executeContextTask(taskId: string): Promise<void> {
       type: "context.failed",
       priority: "high",
       titleKey: "notifications.context.failed",
-      titleParams: { repoName: task.repoId, error: message },
+      titleParams: { repoName: task.repositoryId, error: message },
       payload: {
-        href: `/repos/${task.repoId}/context`,
-        repoId: task.repoId,
+        href: `/repos/${task.repositoryId}/context`,
+        repositoryId: task.repositoryId,
         taskId,
       },
-      metadata: { orgId: null },
+      metadata: { organizationId: null },
     });
     logError("business.context.failed", err, {
       taskId,
-      repoId: task.repoId,
+      repositoryId: task.repositoryId,
       userId: task.userId,
     });
     throw err;

@@ -51,13 +51,13 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
       severity: "error",
       message: `Failed to parse OpenAPI document: ${(err as Error).message}`,
     });
-    return emptyModel(input.repoId, issues, { openapiVersion: "unknown", parsedAt });
+    return emptyModel(input.repositoryId, issues, { openapiVersion: "unknown", parsedAt });
   }
 
   // Step 2: Detect and validate OpenAPI version
   const openapiVersion = detectVersion(doc, issues);
   if (!openapiVersion) {
-    return emptyModel(input.repoId, issues, { openapiVersion: "unknown", parsedAt });
+    return emptyModel(input.repositoryId, issues, { openapiVersion: "unknown", parsedAt });
   }
 
   // Step 3: Resolve $ref references
@@ -99,7 +99,7 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
   }
 
   // Step 5: Extract API endpoints from paths
-  const apis = extractAPIs(resolved, input.repoId, issues);
+  const apis = extractAPIs(resolved, input.repositoryId, issues);
 
   // Step 6: Extract data models from components/schemas
   const schemas = extractSchemas(resolved, issues);
@@ -108,7 +108,7 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
   const componentDefs = extractComponentDefs(resolved, issues);
 
   return {
-    repoId: input.repoId,
+    repositoryId: input.repositoryId,
     apis,
     schemas,
     componentDefs,
@@ -123,11 +123,11 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
 // ───────────────────────────────────────────────────────────────────
 
 function emptyModel(
-  repoId: string,
+  repositoryId: string,
   issues: ParseIssue[],
   meta: ParseMeta,
 ): ParsedAPIModel {
-  return { repoId, apis: [], schemas: [], componentDefs: [], parseIssues: issues, meta };
+  return { repositoryId, apis: [], schemas: [], componentDefs: [], parseIssues: issues, meta };
 }
 
 function parseContent(
@@ -190,7 +190,7 @@ function detectVersion(
 
 function extractAPIs(
   doc: Record<string, unknown>,
-  repoId: string,
+  repositoryId: string,
   issues: ParseIssue[],
 ): APIEntry[] {
   const apis: APIEntry[] = [];

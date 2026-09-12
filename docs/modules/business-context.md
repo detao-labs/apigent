@@ -197,16 +197,16 @@ businessContext:
 
 ## 5. API 契约
 
-| 方法 | 路径                                               | 说明                                                                                               |
-| ---- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| POST | `/api/repos/:repoId/contexts/generate`             | 手动触发；body `{ endpointIds?: string[], force?: boolean }`，空数组 = 全仓库；返回 202 `{ task }` |
-| GET  | `/api/repos/:repoId/context-tasks/latest`          | 最近任务（前端轮询，2s）                                                                           |
-| GET  | `/api/repos/:repoId/context-tasks/:taskId`         | 任务状态/进度/统计                                                                                 |
-| POST | `/api/repos/:repoId/context-tasks/:taskId/retry`   | 重试失败接口（或全量，`force` 覆盖人工编辑）                                                       |
-| GET  | `/api/repos/:repoId/contexts?status=&endpointId=`  | endpoint context 列表（含接口信息 + 状态徽章所需字段）                                             |
-| GET  | `/api/repos/:repoId/contexts/:endpointId`          | 单接口详情（技术信息 + context）                                                                   |
-| PUT  | `/api/repos/:repoId/contexts/:endpointId`          | 保存人工编辑，`edited_by_human = true`、`confidence = 1`、`needs_review = false`                   |
-| POST | `/api/repos/:repoId/contexts/:endpointId/generate` | 单接口生成（复用同一任务机制）                                                                     |
+| 方法 | 路径                                                     | 说明                                                                                               |
+| ---- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| POST | `/api/repos/:repositoryId/contexts/generate`             | 手动触发；body `{ endpointIds?: string[], force?: boolean }`，空数组 = 全仓库；返回 202 `{ task }` |
+| GET  | `/api/repos/:repositoryId/context-tasks/latest`          | 最近任务（前端轮询，2s）                                                                           |
+| GET  | `/api/repos/:repositoryId/context-tasks/:taskId`         | 任务状态/进度/统计                                                                                 |
+| POST | `/api/repos/:repositoryId/context-tasks/:taskId/retry`   | 重试失败接口（或全量，`force` 覆盖人工编辑）                                                       |
+| GET  | `/api/repos/:repositoryId/contexts?status=&endpointId=`  | endpoint context 列表（含接口信息 + 状态徽章所需字段）                                             |
+| GET  | `/api/repos/:repositoryId/contexts/:endpointId`          | 单接口详情（技术信息 + context）                                                                   |
+| PUT  | `/api/repos/:repositoryId/contexts/:endpointId`          | 保存人工编辑，`edited_by_human = true`、`confidence = 1`、`needs_review = false`                   |
+| POST | `/api/repos/:repositoryId/contexts/:endpointId/generate` | 单接口生成（复用同一任务机制）                                                                     |
 
 复用导入的**重复任务保护**：同仓库存在 running/queued 的 context 任务时返回 409。
 
@@ -216,7 +216,7 @@ businessContext:
 
 ### 6.1 URL 驱动 + 命令式 API
 
-- 全局对话框容器挂在 authed layout；命令式入口 `openBusinessContext({ repoId, endpointId? })`；
+- 全局对话框容器挂在 authed layout；命令式入口 `openBusinessContext({ repositoryId, endpointId? })`；
 - 打开时同步写入 URL：`?dialog=business-context&repo=repo_xxx[&endpoint=api_yyy]`（`router.replace`，不产生历史记录）；关闭时清除参数；
 - 页面加载时读 searchParams 恢复对话框（刷新不丢、可分享深链、浏览器前进后退可用）。
 
@@ -248,10 +248,10 @@ businessContext:
 
 复用通用通知（category `context`，已有）：
 
-| type             | priority | payload                                                           | 文案                                         |
-| ---------------- | -------- | ----------------------------------------------------------------- | -------------------------------------------- |
-| `context.ready`  | medium   | `{ repoId, versionId, generatedCount, reusedCount, failedCount }` | 业务上下文生成完成（含失败数时提示部分失败） |
-| `context.failed` | high     | `{ repoId, taskId, error }`                                       | 生成失败，可重试                             |
+| type             | priority | payload                                                                 | 文案                                         |
+| ---------------- | -------- | ----------------------------------------------------------------------- | -------------------------------------------- |
+| `context.ready`  | medium   | `{ repositoryId, versionId, generatedCount, reusedCount, failedCount }` | 业务上下文生成完成（含失败数时提示部分失败） |
+| `context.failed` | high     | `{ repositoryId, taskId, error }`                                       | 生成失败，可重试                             |
 
 ---
 

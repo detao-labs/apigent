@@ -35,22 +35,22 @@ export interface EndpointContextSummary {
   sourceContextId: string | null;
 }
 
-async function defaultCommitId(repoId: string): Promise<string | null> {
+async function defaultCommitId(repositoryId: string): Promise<string | null> {
   const db = getDB();
   const [v] = await db
     .select({ headCommitId: versions.headCommitId })
     .from(versions)
-    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .where(and(eq(versions.repositoryId, repositoryId), eq(versions.isDefault, true)))
     .limit(1);
   return v?.headCommitId ?? null;
 }
 
 /** 当前版本下所有接口的上下文状态（含未生成的接口）。 */
 export async function listEndpointContexts(
-  repoId: string,
+  repositoryId: string,
 ): Promise<EndpointContextSummary[]> {
   const db = getDB();
-  const commitId = await defaultCommitId(repoId);
+  const commitId = await defaultCommitId(repositoryId);
   if (!commitId) return [];
 
   const rows = await db
@@ -94,10 +94,10 @@ export async function listEndpointContexts(
 
 /** 单接口上下文（未生成时返回 null context 信息）。 */
 export async function getEndpointContext(
-  repoId: string,
+  repositoryId: string,
   endpointId: string,
 ): Promise<EndpointContextSummary | null> {
-  const rows = await listEndpointContexts(repoId);
+  const rows = await listEndpointContexts(repositoryId);
   return rows.find((row) => row.endpointId === endpointId) ?? null;
 }
 
@@ -106,7 +106,7 @@ export interface SaveContextOptions {
 }
 
 export async function saveEndpointContext(
-  repoId: string,
+  repositoryId: string,
   endpointId: string,
   context: BusinessContext,
   options: SaveContextOptions = {},
@@ -117,13 +117,13 @@ export async function saveEndpointContext(
   }
 
   const db = getDB();
-  const commitId = await defaultCommitId(repoId);
-  if (!commitId) throw new Error(`Repository has no version: ${repoId}`);
+  const commitId = await defaultCommitId(repositoryId);
+  if (!commitId) throw new Error(`Repository has no version: ${repositoryId}`);
 
   const [endpoint] = await db
     .select({ id: endpoints.id })
     .from(endpoints)
-    .where(and(eq(endpoints.id, endpointId), eq(endpoints.repoId, repoId)))
+    .where(and(eq(endpoints.id, endpointId), eq(endpoints.repositoryId, repositoryId)))
     .limit(1);
   if (!endpoint) throw new Error(`Endpoint not found: ${endpointId}`);
 
@@ -170,11 +170,11 @@ export async function saveEndpointContext(
     });
   }
 
-  await refreshCapabilitySnapshot(repoId, commitId);
+  await refreshCapabilitySnapshot(repositoryId, commitId);
 }
 
 async function refreshCapabilitySnapshot(
-  repoId: string,
+  repositoryId: string,
   commitId: string,
 ): Promise<void> {
   const db = getDB();
@@ -190,7 +190,7 @@ async function refreshCapabilitySnapshot(
     .from(businessContexts)
     .where(eq(businessContexts.versionId, commitId));
 
-  await buildCapabilitySnapshot(repoId, commitId, {
+  await buildCapabilitySnapshot(repositoryId, commitId, {
     endpointCount: Number(epCount?.value ?? 0),
     generatedCount: rows.filter((row) => row.generatedBy === "ai").length,
     reusedCount: rows.filter((row) => row.generatedBy === "reused").length,

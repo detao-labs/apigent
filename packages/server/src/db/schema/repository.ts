@@ -8,15 +8,16 @@ import {
   primaryKey,
   index,
 } from "drizzle-orm/pg-core";
-import { users, organizations } from "./auth";
+import { users } from "./auth";
+import { organizations } from "./organization";
 
 // ═══════════════════════════════════════════════════════════════════
-// Repositories
+// Repositories — 仓库（OpenAPI 技术资产容器）
 // ═══════════════════════════════════════════════════════════════════
 
 export const repositories = pgTable("repositories", {
   id: text("id").primaryKey(),
-  orgId: text("organization_id")
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
@@ -32,7 +33,7 @@ export const repositories = pgTable("repositories", {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Repo Members — 仓库成员（仓库有自己的成员与角色）
+// Repository Members — 仓库成员（仓库有自己的成员与角色）
 // ═══════════════════════════════════════════════════════════════════
 //
 // 平台内所有仓库的**目录**对所有登录用户可见，但**内容**由这张表决定：
@@ -44,7 +45,7 @@ export const repositories = pgTable("repositories", {
 export const repositoryMembers = pgTable(
   "repository_members",
   {
-    repoId: text("repository_id")
+    repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     userId: text("user_id")
@@ -56,7 +57,7 @@ export const repositoryMembers = pgTable(
     grantedBy: text("granted_by").references(() => users.id),
   },
   (table) => [
-    primaryKey({ columns: [table.repoId, table.userId] }),
+    primaryKey({ columns: [table.repositoryId, table.userId] }),
     index("repository_members_user_idx").on(table.userId),
   ],
 );

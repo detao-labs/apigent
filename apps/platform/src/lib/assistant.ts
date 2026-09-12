@@ -19,7 +19,7 @@ export function buildAssistantUrl(pathname: string, search: string, open: boolea
 }
 
 /** 从路由推断仓库 id（/repos/[id]/... → [id]）。 */
-export function repoIdFromPath(pathname: string): string | undefined {
+export function repositoryIdFromPath(pathname: string): string | undefined {
   const match = pathname.match(/^\/repos\/([^/]+)/);
   return match?.[1];
 }

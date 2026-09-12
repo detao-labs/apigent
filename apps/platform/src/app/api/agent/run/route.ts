@@ -47,7 +47,7 @@ const registry = new AgentToolRegistry();
 
 registry.register(getEndpointSpecTool, async (ctx, input) => {
   if (!ctx.userId) throw new Error("unauthorized");
-  const endpoints = await getRepoEndpoints(input.repoId, ctx.userId);
+  const endpoints = await getRepoEndpoints(input.repositoryId, ctx.userId);
   const endpoint = endpoints.find((ep) => ep.id === input.endpointId);
   if (!endpoint) {
     throw new Error(`Endpoint not found: ${input.endpointId}`);
@@ -57,10 +57,10 @@ registry.register(getEndpointSpecTool, async (ctx, input) => {
 
 registry.register(saveBusinessContextTool, async (ctx, input) => {
   if (!ctx.userId) throw new Error("unauthorized");
-  // repoId 来自模型生成的工具入参，必须按调用逐个校验（getEndpointSpecTool
+  // repositoryId 来自模型生成的工具入参，必须按调用逐个校验（getEndpointSpecTool
   // 走 getRepoEndpoints，内部已有同一断言）。
-  await assertRepoAccess(ctx.userId, input.repoId, "repo_member");
-  await saveEndpointContext(input.repoId, input.endpointId, input.context, {
+  await assertRepoAccess(ctx.userId, input.repositoryId, "repo_member");
+  await saveEndpointContext(input.repositoryId, input.endpointId, input.context, {
     source: "ai",
   });
   return { ok: true };

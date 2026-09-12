@@ -40,8 +40,8 @@ export function ReposView({
   const orgs = React.useMemo(() => {
     const map = new Map<string, { name: string; id: string }>();
     for (const repo of repos) {
-      if (repo.orgName && repo.orgId) {
-        map.set(repo.orgId, { name: repo.orgName, id: repo.orgId });
+      if (repo.orgName && repo.organizationId) {
+        map.set(repo.organizationId, { name: repo.orgName, id: repo.organizationId });
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -53,7 +53,7 @@ export function ReposView({
       !q ||
       repo.name.toLowerCase().includes(q) ||
       (repo.description ?? "").toLowerCase().includes(q);
-    const matchesOrg = org === "all" || repo.orgId === org;
+    const matchesOrg = org === "all" || repo.organizationId === org;
     const matchesMcp =
       mcp === "all" || (mcp === "on" && repo.mcpEnabled) || (mcp === "off" && !repo.mcpEnabled);
     return matchesQuery && matchesOrg && matchesMcp;

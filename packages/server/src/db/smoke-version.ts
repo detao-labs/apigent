@@ -107,7 +107,7 @@ paths:
 `;
 
 async function queueImport(
-  repoId: string,
+  repositoryId: string,
   versionId: string,
   mode: "full" | "partial",
   content: string,
@@ -120,7 +120,7 @@ async function queueImport(
   const taskId = generateId("task");
   await db.insert(repositoryTasks).values({
     id: taskId,
-    repoId,
+    repositoryId,
     userId: (await db.select({ id: users.id }).from(users).limit(1))[0]?.id ?? "",
     taskType: "import",
     status: "queued",
@@ -146,44 +146,44 @@ async function main() {
   // 测试用户 / 组织
   const [user] = await db.select({ id: users.id }).from(users).limit(1);
   if (!user) throw new Error("no user; run db:seed first");
-  const orgId = generateId("org");
-  await db.insert(organizations).values({ id: orgId, name: "Smoke Org", ownerId: user.id });
+  const organizationId = generateId("org");
+  await db.insert(organizations).values({ id: organizationId, name: "Smoke Org", ownerId: user.id });
 
   // 仓库 + 默认 main
-  const repoId = generateId("repo");
-  await db.insert(repositories).values({ id: repoId, orgId, name: "Smoke Repo" });
+  const repositoryId = generateId("repo");
+  await db.insert(repositories).values({ id: repositoryId, organizationId, name: "Smoke Repo" });
   const versionId = generateId("version");
   await db
     .insert(versions)
-    .values({ id: versionId, repoId, name: "main", isDefault: true, headCommitId: null });
+    .values({ id: versionId, repositoryId, name: "main", isDefault: true, headCommitId: null });
 
   // 导入 1（全量）
-  await queueImport(repoId, versionId, "full", SPEC_V1);
+  await queueImport(repositoryId, versionId, "full", SPEC_V1);
   const commit1Id = await headOf();
   const links1 = await db
     .select()
     .from(versionEntityLinks)
     .where(eq(versionEntityLinks.commitId, commit1Id));
-  const blobs1 = await db.select().from(endpoints).where(eq(endpoints.repoId, repoId));
+  const blobs1 = await db.select().from(endpoints).where(eq(endpoints.repositoryId, repositoryId));
   ok("import1 creates 1 commit on main", (await commitCount()) === 1, `${await commitCount()}`);
   ok(
     "import1 has 3 endpoint links",
     links1.filter((l) => l.entityType === "endpoint").length === 3,
   );
   ok("import1 has 3 endpoint blobs", blobs1.length === 3, `${blobs1.length}`);
-  const head1 = (await getDefaultVersionId(repoId)) === versionId;
+  const head1 = (await getDefaultVersionId(repositoryId)) === versionId;
   ok("main is default", head1);
-  const dmBlobs = await db.select().from(dataModels).where(eq(dataModels.repoId, repoId));
+  const dmBlobs = await db.select().from(dataModels).where(eq(dataModels.repositoryId, repositoryId));
   ok("import1 created 1 data model blob (User)", dmBlobs.length === 1, `${dmBlobs.length}`);
 
   // 导入 2（增量）：2 未变复用 + 1 修改 → 新增 1 blob
-  await queueImport(repoId, versionId, "partial", SPEC_V2);
+  await queueImport(repositoryId, versionId, "partial", SPEC_V2);
   const commit2Id = await headOf();
   const links2 = await db
     .select()
     .from(versionEntityLinks)
     .where(eq(versionEntityLinks.commitId, commit2Id));
-  const blobs2 = await db.select().from(endpoints).where(eq(endpoints.repoId, repoId));
+  const blobs2 = await db.select().from(endpoints).where(eq(endpoints.repositoryId, repositoryId));
   ok("import2 creates a 2nd commit", (await commitCount()) === 2, `${await commitCount()}`);
   ok(
     "import2 has 3 endpoint links",
@@ -196,7 +196,7 @@ async function main() {
   ok("import2 reuses unchanged blobs (≥2)", reused >= 2, `reused=${reused}`);
 
   // 导入 3（全量，删掉 /users 与 /users/{id}）
-  await queueImport(repoId, versionId, "full", SPEC_V3);
+  await queueImport(repositoryId, versionId, "full", SPEC_V3);
   const commit3Id = await headOf();
   const links3 = await db
     .select()
@@ -214,11 +214,11 @@ async function main() {
   ok("import3 changeSummary.removed includes listUsers", removed);
 
   // diff commit1 → commit2
-  const diff = await compareVersions(repoId, commit1Id, commit2Id);
+  const diff = await compareVersions(repositoryId, commit1Id, commit2Id);
   ok("compareVersions commit1→2 reports modified", diff.modified >= 1, `modified=${diff.modified}`);
 
   // 回滚（移 head 1 步）
-  const newHead = await rollbackVersionSteps(repoId, versionId, 1);
+  const newHead = await rollbackVersionSteps(repositoryId, versionId, 1);
   const headRow = await db
     .select({ headCommitId: versions.headCommitId })
     .from(versions)
@@ -240,7 +240,7 @@ async function main() {
     )
     .limit(1);
   const beforeHead = await headOf();
-  const del = await deleteVersionEntity(repoId, versionId, epToDelete.id);
+  const del = await deleteVersionEntity(repositoryId, versionId, epToDelete.id);
   const afterHead = await headOf();
   ok(
     "manual delete creates a new commit",
@@ -257,7 +257,7 @@ async function main() {
       .length === 0,
   );
 
-  const versionsList = await listVersions(repoId);
+  const versionsList = await listVersions(repositoryId);
   ok("listVersions returns smoke repo", versionsList.length === 1, `${versionsList.length}`);
 
   console.log("done");

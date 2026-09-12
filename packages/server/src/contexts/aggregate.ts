@@ -27,7 +27,7 @@ export interface RepoProfileSummary {
 }
 
 export async function buildCapabilitySnapshot(
-  repoId: string,
+  repositoryId: string,
   versionId: string,
   stats: ContextStats,
   profile: RepoProfileSummary | null = null,
@@ -42,7 +42,7 @@ export async function buildCapabilitySnapshot(
     .from(businessContexts)
     .innerJoin(endpoints, eq(businessContexts.endpointId, endpoints.id))
     .where(
-      and(eq(endpoints.repoId, repoId), eq(businessContexts.versionId, versionId)),
+      and(eq(endpoints.repositoryId, repositoryId), eq(businessContexts.versionId, versionId)),
     );
 
   const capabilities = [
@@ -91,5 +91,5 @@ export async function buildCapabilitySnapshot(
   await db
     .update(repositories)
     .set({ capabilityContext: snapshot })
-    .where(eq(repositories.id, repoId));
+    .where(eq(repositories.id, repositoryId));
 }

@@ -48,13 +48,13 @@ interface PreviewData {
 export function ImportVersionDialog({
   open,
   onOpenChange,
-  repoId,
+  repositoryId,
   repoName,
   onImported,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  repoId: string;
+  repositoryId: string;
   repoName: string;
   onImported?: () => void;
 }) {
@@ -122,7 +122,7 @@ export function ImportVersionDialog({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/repos/${repoId}/imports/preview`, {
+      const res = await fetch(`/api/repos/${repositoryId}/imports/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
@@ -147,7 +147,7 @@ export function ImportVersionDialog({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/repos/${repoId}/versions`, {
+      const res = await fetch(`/api/repos/${repositoryId}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, mode: updateMode }),
@@ -182,7 +182,7 @@ export function ImportVersionDialog({
 
     async function poll() {
       try {
-        const res = await fetch(`/api/repos/${repoId}/import-tasks/${taskId}`, {
+        const res = await fetch(`/api/repos/${repositoryId}/import-tasks/${taskId}`, {
           cache: "no-store",
         });
         const data = (await res.json().catch(() => null)) as {
@@ -219,14 +219,14 @@ export function ImportVersionDialog({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [step, taskId, repoId, onImported, t]);
+  }, [step, taskId, repositoryId, onImported, t]);
 
   async function retry() {
     if (!taskId) return;
     setBusy(true);
     setTaskError(null);
     try {
-      const res = await fetch(`/api/repos/${repoId}/import-tasks/${taskId}/retry`, {
+      const res = await fetch(`/api/repos/${repositoryId}/import-tasks/${taskId}/retry`, {
         method: "POST",
       });
       const data = (await res.json().catch(() => null)) as {
@@ -414,7 +414,7 @@ export function ImportVersionDialog({
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Link
-                href={`/repos/${repoId}/definition`}
+                href={`/repos/${repositoryId}/definition`}
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <ListTree className="size-4" />

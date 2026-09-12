@@ -22,7 +22,7 @@ import {
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { repositories } from "./repo";
+import { repositories } from "./repository";
 
 // ───────────────────────────────────────────────────────────────────
 // versions — 活线（branch）
@@ -32,7 +32,7 @@ export const versions = pgTable(
   "versions",
   {
     id: text("id").primaryKey(),
-    repoId: text("repository_id")
+    repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     /** v1 / v2 / main —— 版本线名 */
@@ -46,9 +46,9 @@ export const versions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("versions_repository_name_idx").on(table.repoId, table.name),
+    uniqueIndex("versions_repository_name_idx").on(table.repositoryId, table.name),
     uniqueIndex("versions_repository_default_idx")
-      .on(table.repoId)
+      .on(table.repositoryId)
       .where(sql`${table.isDefault}`),
   ],
 );
@@ -73,7 +73,7 @@ export const versionCommits = pgTable(
   "version_commits",
   {
     id: text("id").primaryKey(),
-    repoId: text("repository_id")
+    repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
     versionId: text("version_id")
@@ -103,7 +103,7 @@ export const versionCommits = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    index("version_commits_repository_version_idx").on(table.repoId, table.versionId),
+    index("version_commits_repository_version_idx").on(table.repositoryId, table.versionId),
     index("version_commits_parent_idx").on(table.parentCommitId),
   ],
 );

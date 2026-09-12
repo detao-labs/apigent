@@ -803,7 +803,7 @@ The core permission-checking function is called on every authorized request. It 
 checkPermission → effective role
 
 Step 1: Resolve the user's explicit membership on this repository
-        └── repository_members (repoId, userId) → repo role (may be absent)
+        └── repository_members (repositoryId, userId) → repo role (may be absent)
         └── if present it WINS — the Organization role is not consulted
 
 Step 2: Otherwise resolve the user's role in the owning Organization
@@ -849,12 +849,12 @@ export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean
 
 ```ts
 // packages/server/src/authz/index.ts — DB-backed checks used by Route Handlers
-getUserOrgRole(userId, orgId); // organization_members.role, owner fallback
-getRepoMemberRole(userId, repoId); // repository_members.role
-getEffectiveRepoRole(userId, repoId); // membership row first, Organization role second
-assertRepoAccess(userId, repoId, min); // throws ForbiddenError → mapped to 403
-assertOrgRole(userId, orgId, min);
-listAccessibleRepoIds(userId); // explicit memberships ∪ all repos of orgs where the user is org_admin/owner
+getUserOrgRole(userId, organizationId); // organization_members.role, owner fallback
+getRepoMemberRole(userId, repositoryId); // repository_members.role
+getEffectiveRepoRole(userId, repositoryId); // membership row first, Organization role second
+assertRepoAccess(userId, repositoryId, min); // throws ForbiddenError → mapped to 403
+assertOrgRole(userId, organizationId, min);
+listAccessibleRepositoryIds(userId); // explicit memberships ∪ all repos of orgs where the user is org_admin/owner
 ```
 
 **An explicit membership row wins, which means it can demote.** Setting an `org_admin` to `repo_viewer` on a single repository really does leave them read-only there. That is deliberate — it is how you lock a sensitive repo down.
@@ -889,7 +889,7 @@ export const POST = withRoute(
 
 ```ts
 await assertRepoAccess(user.id, id, "repo_member");
-await assertOrgRole(user.id, orgId, "org_admin");
+await assertOrgRole(user.id, organizationId, "org_admin");
 ```
 
 **System actor** — a queued import was authorized when the task was created, and the worker has no request to check against, so it must not re-run a user check. Retry endpoints are HTTP-triggered and therefore **do** re-check at the entry layer.
@@ -929,7 +929,7 @@ External Agent (Cursor/Claude)
 │     │   → allow get_api_detail  │
 │     └── includes "mcp:context"? │
 │         → allow get_project_context│
-│  4. Pass userId + repoId to     │
+│  4. Pass userId + repositoryId to     │
 │     RBAC check for repo access   │
 └─────────────────────────────────┘
 ```
@@ -946,7 +946,7 @@ packages/server/src/auth/           # credentials + session primitives (runtime-
 
 packages/server/src/authz/          # RBAC
 ├── roles.ts                        # pure role model + rank comparison (no DB)
-└── index.ts                        # assertRepoAccess(), assertOrgRole(), listAccessibleRepoIds()
+└── index.ts                        # assertRepoAccess(), assertOrgRole(), listAccessibleRepositoryIds()
 
 apps/platform/src/services/auth.ts  # Next.js glue: cookies() + users table → SessionUser
 apps/platform/src/lib/route.ts      # withRoute({ auth: true }) — 401 before the handler
@@ -978,13 +978,13 @@ Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 | `org.transfer`                                             | `org_owner`                | Ownership transfer             |
 | `admin.login`                                              | `admin_super`              | Optional                       |
 
-`operation_logs.orgId` is NULL for platform-level operations, and the existing index is `(orgId, operationType, createdAt)` — NULL rows do not participate in that index, so querying platform-level events needs an additional index or a different predicate.
+`operation_logs.organizationId` is NULL for platform-level operations, and the existing index is `(organizationId, operationType, createdAt)` — NULL rows do not participate in that index, so querying platform-level events needs an additional index or a different predicate.
 
 ### 5.4.8 Known Gaps & Rollout Order
 
 The model above is the target. **Already landed:**
 
-- ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repoId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_member`, moving the default-version pointer and member management `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repoId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
+- ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repositoryId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_member`, moving the default-version pointer and member management `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repositoryId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
 - ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4). **Audit is not wired yet** — the `repo.member_*` events land with item 1 below.
 

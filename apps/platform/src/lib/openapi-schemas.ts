@@ -74,7 +74,7 @@ export type LoginInput = z.infer<typeof loginBodySchema>;
 // Organizations
 // ─────────────────────────────────────────────────────────────────────
 
-const orgIdField = shortId("org_").meta({ description: "Organization short ID" });
+const organizationIdField = shortId("org_").meta({ description: "Organization short ID" });
 const orgNameField = z
   .string()
   .min(1)
@@ -89,7 +89,7 @@ const updatedAtField = z
 
 export const orgSummarySchema = z
   .object({
-    id: orgIdField,
+    id: organizationIdField,
     name: orgNameField,
     createdAt: createdAtField,
   })
@@ -99,7 +99,7 @@ export type OrgSummary = z.infer<typeof orgSummarySchema>;
 
 export const orgSchema = z
   .object({
-    id: orgIdField,
+    id: organizationIdField,
     name: orgNameField,
     ownerId: shortId("usr_").meta({ description: "Owner user short ID" }),
     createdAt: createdAtField,
@@ -140,7 +140,7 @@ export const orgUpdateBodySchema = z
 // Repositories
 // ─────────────────────────────────────────────────────────────────────
 
-const repoIdField = shortId("repo_").meta({ description: "Repository short ID" });
+const repositoryIdField = shortId("repo_").meta({ description: "Repository short ID" });
 const repoNameField = z
   .string()
   .trim()
@@ -150,7 +150,7 @@ const repoNameField = z
 
 export const repoCreateBodySchema = z
   .object({
-    orgId: orgIdField.meta({
+    organizationId: organizationIdField.meta({
       description: "Organization the repository belongs to",
     }),
     name: repoNameField,
@@ -180,13 +180,13 @@ export const repoUpdateBodySchema = z
 
 export const repoSchema = z
   .object({
-    id: repoIdField,
+    id: repositoryIdField,
     name: repoNameField,
     description: z
       .string()
       .nullable()
       .meta({ description: "Repository description" }),
-    orgId: orgIdField.meta({ description: "Owning organization UUID" }),
+    organizationId: organizationIdField.meta({ description: "Owning organization UUID" }),
     orgName: z
       .string()
       .min(1)

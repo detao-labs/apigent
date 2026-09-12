@@ -54,7 +54,7 @@ export default async function RepoDefinitionLayout({
       </div>
 
       <DefinitionView
-        repoId={id}
+        repositoryId={id}
         endpoints={endpoints}
         models={models}
         components={components}

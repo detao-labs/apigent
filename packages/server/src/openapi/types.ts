@@ -26,7 +26,7 @@ export type ParseSourceKind = "file" | "text";
 export interface ParseInput {
   source: ParseSourceKind;
   content: string;
-  repoId: string;
+  repositoryId: string;
 }
 
 /** Severity of a parsing issue */
@@ -142,7 +142,7 @@ export interface ParseMeta {
 
 /** Full parser output */
 export interface ParsedAPIModel {
-  repoId: string;
+  repositoryId: string;
   apis: APIEntry[];
   schemas: SchemaEntry[];
   componentDefs: ComponentDef[];

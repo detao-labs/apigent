@@ -16,17 +16,17 @@ import {
 import type { RepoDetail } from "@/services/repos";
 
 export function RepoRail({
-  repoId,
+  repositoryId,
   repo,
 }: {
-  repoId: string;
+  repositoryId: string;
   repo: RepoDetail | null;
 }) {
   const t = useTranslations("repos.detail");
   const nav = useTranslations("repos.detail.nav");
   const reposT = useTranslations("repos");
   const pathname = usePathname();
-  const base = `/repos/${repoId}`;
+  const base = `/repos/${repositoryId}`;
 
   const items = [
     { key: "overview", label: nav("overview"), url: base, icon: LayoutDashboard },
@@ -51,7 +51,7 @@ export function RepoRail({
 
       <div className="mt-3 rounded-md bg-background p-3 ring-1 ring-border">
         <p className="truncate text-sm font-semibold">
-          {repo?.name ?? repoId}
+          {repo?.name ?? repositoryId}
         </p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {repo?.orgName && (

@@ -80,12 +80,12 @@ function impactBadgeClass(change: DiffChange) {
 }
 
 export function VersionsView({
-  repoId,
+  repositoryId,
   versions,
   currentVersionId,
   canActivate,
 }: {
-  repoId: string;
+  repositoryId: string;
   versions: RepoVersionRow[];
   currentVersionId: string | null;
   canActivate: boolean;
@@ -136,7 +136,7 @@ export function VersionsView({
     }
     let cancelled = false;
     setDiffLoading(true);
-    fetch(`/api/repos/${repoId}/versions/diff?from=${from}&to=${to}`)
+    fetch(`/api/repos/${repositoryId}/versions/diff?from=${from}&to=${to}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`diff failed: ${res.status}`);
         const data = (await res.json()) as { diff: DiffResult };
@@ -154,13 +154,13 @@ export function VersionsView({
     return () => {
       cancelled = true;
     };
-  }, [from, to, repoId, t]);
+  }, [from, to, repositoryId, t]);
 
   const doActivate = async () => {
     if (!activateTarget) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/repos/${repoId}/versions/${activateTarget.id}/activate`, {
+      const res = await fetch(`/api/repos/${repositoryId}/versions/${activateTarget.id}/activate`, {
         method: "POST",
       });
       if (!res.ok) throw new Error(`activate failed: ${res.status}`);
@@ -178,7 +178,7 @@ export function VersionsView({
     if (!newName.trim()) return;
     setCreateBusy(true);
     try {
-      const res = await fetch(`/api/repos/${repoId}/versions/branches`, {
+      const res = await fetch(`/api/repos/${repositoryId}/versions/branches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,7 +205,7 @@ export function VersionsView({
     if (!rollbackTarget) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/repos/${repoId}/versions/${rollbackTarget.id}/rollback`, {
+      const res = await fetch(`/api/repos/${repositoryId}/versions/${rollbackTarget.id}/rollback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ steps: 1 }),

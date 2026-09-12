@@ -47,7 +47,7 @@ export default async function RepoVersionsPage({ params }: { params: Promise<{ i
 
       <Suspense fallback={<div className="py-10 text-center text-sm text-muted-foreground" />}>
         <VersionsView
-          repoId={id}
+          repositoryId={id}
           versions={versions}
           currentVersionId={currentVersionId}
           canActivate={canActivate}

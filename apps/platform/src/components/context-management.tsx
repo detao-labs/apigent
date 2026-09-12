@@ -36,7 +36,7 @@ function methodStyle(method: string) {
   return METHOD_STYLES[method] ?? METHOD_STYLES.default;
 }
 
-export function ContextManagement({ repoId }: { repoId: string }) {
+export function ContextManagement({ repositoryId }: { repositoryId: string }) {
   const t = useTranslations("contexts");
   const searchParams = useSearchParams();
   const openBusinessContext = useOpenBusinessContext();
@@ -46,16 +46,16 @@ export function ContextManagement({ repoId }: { repoId: string }) {
   const [task, setTask] = React.useState<ContextTaskSummary | null>(null);
 
   const refresh = React.useCallback(async () => {
-    const res = await fetch(`/api/repos/${repoId}/contexts`, {
+    const res = await fetch(`/api/repos/${repositoryId}/contexts`, {
       cache: "no-store",
     });
     const data = (await res.json()) as { contexts: EndpointContextSummary[] };
     setItems(data.contexts);
-  }, [repoId]);
+  }, [repositoryId]);
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch(`/api/repos/${repoId}/contexts`, { cache: "no-store" })
+    fetch(`/api/repos/${repositoryId}/contexts`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { contexts: EndpointContextSummary[] }) => {
         if (!cancelled) setItems(data.contexts);
@@ -66,7 +66,7 @@ export function ContextManagement({ repoId }: { repoId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [repoId]);
+  }, [repositoryId]);
 
   // 对话框关闭（URL 参数清除）后刷新列表，更新保存/生成后的状态
   const dialogOpen = searchParams.get("dialog") === "business-context";
@@ -81,7 +81,7 @@ export function ContextManagement({ repoId }: { repoId: string }) {
   async function generateAll() {
     setGenerating(true);
     try {
-      const res = await fetch(`/api/repos/${repoId}/contexts/generate`, {
+      const res = await fetch(`/api/repos/${repositoryId}/contexts/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -93,7 +93,7 @@ export function ContextManagement({ repoId }: { repoId: string }) {
       while (taskId && Date.now() - started < 10 * 60 * 1000) {
         await new Promise((resolve) => setTimeout(resolve, 3000));
         const taskRes = await fetch(
-          `/api/repos/${repoId}/context-tasks/latest`,
+          `/api/repos/${repositoryId}/context-tasks/latest`,
           { cache: "no-store" },
         );
         const taskData = (await taskRes.json()) as {
@@ -168,7 +168,7 @@ export function ContextManagement({ repoId }: { repoId: string }) {
                     type="button"
                     onClick={() =>
                       openBusinessContext({
-                        repoId,
+                        repositoryId,
                         endpointId: item.endpointId,
                       })
                     }

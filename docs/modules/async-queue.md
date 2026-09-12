@@ -129,8 +129,8 @@ queue:
 | `priority`     | varchar          | `high` / `medium` / `low`（排序 + 视觉强调）                                |
 | `title_key`    | varchar          | i18n key（如 `notifications.import.succeeded`），**不存渲染后文案**         |
 | `title_params` | jsonb            | i18n 插值参数（`{ repoName, version }`）                                    |
-| `payload`      | jsonb            | 跳转与上下文：`{ href, repoId, versionId, taskId }`                         |
-| `metadata`     | jsonb            | 扩展元数据（`orgId`、`sourceTaskId` 等）                                    |
+| `payload`      | jsonb            | 跳转与上下文：`{ href, repositoryId, versionId, taskId }`                   |
+| `metadata`     | jsonb            | 扩展元数据（`organizationId`、`sourceTaskId` 等）                           |
 | `read_at`      | timestamptz null | 已读时间                                                                    |
 | `expires_at`   | timestamptz null | 过期时间（可选，防止通知无限堆积）                                          |
 | `created_at`   | timestamptz      | 创建时间                                                                    |
@@ -230,7 +230,7 @@ flowchart LR
 
 **Worker 要点：**
 
-- 提交阶段把 Spec 原文写入本地磁盘（`data/specs/{repoId}/{taskId}.json`），Worker 只拿路径干活，天然支持失败重试；
+- 提交阶段把 Spec 原文写入本地磁盘（`data/specs/{repositoryId}/{taskId}.json`），Worker 只拿路径干活，天然支持失败重试；
 - 快照创建沿用现有事务逻辑（`repo_versions` + endpoints/data_models/modules/endpoint_modules/endpoint_responses，最后切换 `current_version_id` 指针），旧快照保留可回滚；
 - 解析失败（文档级错误）置 `failed` 并携带 issues，单接口问题仍宽容处理；
 - 启动时把遗留 `running` 标记为 `failed(interrupted)`，不自动重跑，避免重复快照。

@@ -37,12 +37,12 @@ function cap(s: string) {
 }
 
 export function DefinitionView({
-  repoId,
+  repositoryId,
   endpoints,
   models,
   components,
 }: {
-  repoId: string;
+  repositoryId: string;
   endpoints: RepoEndpoint[];
   models: RepoDataModel[];
   components: RepoComponentDef[];
@@ -131,7 +131,7 @@ export function DefinitionView({
         : type === "model"
           ? `schemas/${id}`
           : `components/${id}`;
-    router.replace(`/repos/${repoId}/definition/${segment}`);
+    router.replace(`/repos/${repositoryId}/definition/${segment}`);
   }
 
   function openGroupFor(key: string) {
@@ -159,7 +159,7 @@ export function DefinitionView({
     const m = models.find((x) => x.name === name);
     if (m) {
       setSelected(`model:${m.id}`);
-      router.replace(`/repos/${repoId}/definition/schemas/${m.id}`);
+      router.replace(`/repos/${repositoryId}/definition/schemas/${m.id}`);
     }
   }
 

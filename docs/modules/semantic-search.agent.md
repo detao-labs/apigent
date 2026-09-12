@@ -383,7 +383,7 @@ async function retrieveWithPermission(
   topK: number,
 ): Promise<ChunkResult[]> {
   // 1. 查用户有权访问的仓库列表
-  const accessibleRepos = await getAccessibleRepoIds(userId);
+  const accessibleRepos = await getAccessibleRepositoryIds(userId);
   // → SELECT repository_id FROM repository_members WHERE user_id = $1     （显式成员）
   // → SELECT id FROM repositories WHERE organization_id IN (我作为 org_admin/owner 的组织)
   // → 合并两者；org_member 不隐含任何仓库访问权
@@ -607,7 +607,7 @@ Output: { relevant: true/false, reason: "..." }
 
 - **上游**：Vector Store（pgvector/Milvus/Qdrant）、PostgreSQL `tsvector`（BM25）
 - **查询时查询**：Business Context Agent 的能力上下文（`capability.intent`）与使用上下文（V1+）；Knowledge Graph Service 的关联数据（V1+ 可选，启用后）
-- **权限层**：RBAC `getAccessibleRepoIds(userId)`
+- **权限层**：RBAC `getAccessibleRepositoryIds(userId)`
 - **下游**：Knowledge Retrieval Service（用户选择结果后获取完整详情）
 
 ---

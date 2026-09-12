@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-export function RepoMobileNav({ repoId }: { repoId: string }) {
+export function RepoMobileNav({ repositoryId }: { repositoryId: string }) {
   const t = useTranslations("repos.detail.nav");
   const pathname = usePathname();
-  const base = `/repos/${repoId}`;
+  const base = `/repos/${repositoryId}`;
 
   const items = [
     { key: "overview", label: t("overview"), url: base },

@@ -37,9 +37,9 @@ export const notifications = pgTable(
     titleKey: varchar("title_key", { length: 200 }).notNull(),
     /** i18n 插值参数 */
     titleParams: jsonb("title_params").$type<Record<string, unknown>>().notNull().default({}),
-    /** 跳转与上下文：{ href, repoId, versionId, taskId } */
+    /** 跳转与上下文：{ href, repositoryId, versionId, taskId } */
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
-    /** 扩展元数据：orgId、sourceTaskId 等 */
+    /** 扩展元数据：organizationId、sourceTaskId 等 */
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     readAt: timestamp("read_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -75,7 +75,5 @@ export const notificationPreferences = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.userId, table.category] }),
-  ],
+  (table) => [primaryKey({ columns: [table.userId, table.category] })],
 );

@@ -74,23 +74,23 @@ async function updateTask(
 }
 
 /** 解析目标版本：payload.versionId 优先，否则取默认主版本。 */
-async function resolveVersionId(repoId: string, requested?: string): Promise<string> {
+async function resolveVersionId(repositoryId: string, requested?: string): Promise<string> {
   const db = getDB();
   if (requested) {
     const [v] = await db
       .select({ id: versions.id })
       .from(versions)
-      .where(and(eq(versions.id, requested), eq(versions.repoId, repoId)))
+      .where(and(eq(versions.id, requested), eq(versions.repositoryId, repositoryId)))
       .limit(1);
     if (v) return v.id;
   }
   const [def] = await db
     .select({ id: versions.id })
     .from(versions)
-    .where(and(eq(versions.repoId, repoId), eq(versions.isDefault, true)))
+    .where(and(eq(versions.repositoryId, repositoryId), eq(versions.isDefault, true)))
     .limit(1);
   if (def) return def.id;
-  throw new Error(`Repository ${repoId} has no version to import into`);
+  throw new Error(`Repository ${repositoryId} has no version to import into`);
 }
 
 /** 计算某 commit 的 identity 集合（key 规范化）。 */
@@ -131,7 +131,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
     .limit(1);
   if (!task) throw new Error(`Import task not found: ${taskId}`);
   if (task.status !== "queued") {
-    logInfo("openapi.import.skipped", { taskId, repoId: task.repoId, status: task.status });
+    logInfo("openapi.import.skipped", { taskId, repositoryId: task.repositoryId, status: task.status });
     return;
   }
 
@@ -144,7 +144,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
     const content = await readFile(specPath, "utf8");
     timer.mark("specRead");
 
-    const model = parseOpenAPI({ source: "text", content, repoId: task.repoId });
+    const model = parseOpenAPI({ source: "text", content, repositoryId: task.repositoryId });
     timer.mark("parse");
     await updateTask(taskId, { progress: 30 });
     if (hasFatalIssue(model.parseIssues)) throw new ImportError(model.parseIssues);
@@ -152,16 +152,16 @@ export async function executeImportTask(taskId: string): Promise<void> {
     const [repoRow] = await db
       .select({ id: repositories.id, name: repositories.name })
       .from(repositories)
-      .where(eq(repositories.id, task.repoId))
+      .where(eq(repositories.id, task.repositoryId))
       .limit(1);
     timer.mark("repoCheck");
     if (!repoRow) {
-      const err = new Error(`Repository not found: ${task.repoId}`);
+      const err = new Error(`Repository not found: ${task.repositoryId}`);
       err.name = "RepoNotFoundError";
       throw err;
     }
 
-    const versionId = await resolveVersionId(task.repoId, payload.versionId);
+    const versionId = await resolveVersionId(task.repositoryId, payload.versionId);
     const txData = await db.transaction(async (tx) => {
       const [versionRow] = await tx
         .select({ headCommitId: versions.headCommitId })
@@ -180,7 +180,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
       );
       await tx.insert(versionCommits).values({
         id: commitId,
-        repoId: task.repoId,
+        repositoryId: task.repositoryId,
         versionId,
         parentCommitId,
         specTitle: model.meta.specTitle ?? null,
@@ -227,7 +227,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
         const [existingBlob] = await tx
           .select({ id: endpoints.id })
           .from(endpoints)
-          .where(and(eq(endpoints.repoId, task.repoId), eq(endpoints.contentHash, contentHash)))
+          .where(and(eq(endpoints.repositoryId, task.repositoryId), eq(endpoints.contentHash, contentHash)))
           .limit(1);
 
         let endpointId = existingBlob?.id;
@@ -247,7 +247,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
             }));
           await tx.insert(endpoints).values({
             id: endpointId,
-            repoId: task.repoId,
+            repositoryId: task.repositoryId,
             contentHash,
             identityKey,
             operationId: api.operationId ?? null,
@@ -265,7 +265,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
           });
           const responseRows = api.responses.map((r) => ({
             id: generateId("response"),
-            repoId: task.repoId,
+            repositoryId: task.repositoryId,
             endpointId: endpointId!,
             respHash: hashResponse(r),
             statusCode: r.statusCode,
@@ -291,14 +291,14 @@ export async function executeImportTask(taskId: string): Promise<void> {
         const [existingBlob] = await tx
           .select({ id: dataModels.id })
           .from(dataModels)
-          .where(and(eq(dataModels.repoId, task.repoId), eq(dataModels.contentHash, contentHash)))
+          .where(and(eq(dataModels.repositoryId, task.repositoryId), eq(dataModels.contentHash, contentHash)))
           .limit(1);
         let blobId = existingBlob?.id;
         if (!blobId) {
           blobId = generateId("dataModel");
           await tx.insert(dataModels).values({
             id: blobId,
-            repoId: task.repoId,
+            repositoryId: task.repositoryId,
             contentHash,
             name: schema.name,
             schemaType: schema.type ?? null,
@@ -325,14 +325,14 @@ export async function executeImportTask(taskId: string): Promise<void> {
         const [existingBlob] = await tx
           .select({ id: components.id })
           .from(components)
-          .where(and(eq(components.repoId, task.repoId), eq(components.contentHash, contentHash)))
+          .where(and(eq(components.repositoryId, task.repositoryId), eq(components.contentHash, contentHash)))
           .limit(1);
         let blobId = existingBlob?.id;
         if (!blobId) {
           blobId = generateId("component");
           await tx.insert(components).values({
             id: blobId,
-            repoId: task.repoId,
+            repositoryId: task.repositoryId,
             contentHash,
             kind: c.kind,
             name: c.name,
@@ -405,21 +405,21 @@ export async function executeImportTask(taskId: string): Promise<void> {
       titleKey: "notifications.import.succeeded",
       titleParams: { repoName: repoRow.name },
       payload: {
-        href: `/repos/${task.repoId}/endpoints?version=${txData.versionId}`,
-        repoId: task.repoId,
+        href: `/repos/${task.repositoryId}/endpoints?version=${txData.versionId}`,
+        repositoryId: task.repositoryId,
         versionId: txData.versionId,
         taskId,
       },
-      metadata: { orgId: null },
+      metadata: { organizationId: null },
     });
 
     if (loadConfig().businessContext.autoGenerate) {
-      await createContextTask(task.repoId, task.userId, {
+      await createContextTask(task.repositoryId, task.userId, {
         trigger: "auto",
         dependsOn: taskId,
       }).catch((err) => {
         logError("business.context.auto_trigger_failed", err, {
-          repoId: task.repoId,
+          repositoryId: task.repositoryId,
           importTaskId: taskId,
         });
       });
@@ -427,7 +427,7 @@ export async function executeImportTask(taskId: string): Promise<void> {
 
     logInfo("openapi.import.completed", {
       taskId,
-      repoId: task.repoId,
+      repositoryId: task.repositoryId,
       userId: task.userId,
       versionId: txData.versionId,
       commitId: txData.commitId,
@@ -456,18 +456,18 @@ export async function executeImportTask(taskId: string): Promise<void> {
       type: "import.failed",
       priority: "high",
       titleKey: "notifications.import.failed",
-      titleParams: { repoName: task.repoId, error: message },
+      titleParams: { repoName: task.repositoryId, error: message },
       payload: {
-        href: `/repos/${task.repoId}/versions`,
-        repoId: task.repoId,
+        href: `/repos/${task.repositoryId}/versions`,
+        repositoryId: task.repositoryId,
         taskId,
         versionId: null,
       },
-      metadata: { orgId: null },
+      metadata: { organizationId: null },
     });
     logError("openapi.import.failed", err, {
       taskId,
-      repoId: task.repoId,
+      repositoryId: task.repositoryId,
       userId: task.userId,
       durationMs: Date.now() - startedAt,
       timings: timer.timings,

@@ -54,7 +54,7 @@ function toSummary(row: {
  * 同一仓库存在进行中的任务时抛 DuplicateImportError。
  */
 export async function createImportTask(
-  repoId: string,
+  repositoryId: string,
   userId: string,
   content: string,
   mode: "full" | "partial" = "full",
@@ -73,16 +73,16 @@ export async function createImportTask(
   const [repoRow] = await db
     .select({ id: repositories.id })
     .from(repositories)
-    .where(eq(repositories.id, repoId))
+    .where(eq(repositories.id, repositoryId))
     .limit(1);
-  if (!repoRow) throw new RepoNotFoundError(repoId);
+  if (!repoRow) throw new RepoNotFoundError(repositoryId);
 
   const [active] = await db
     .select({ id: repositoryTasks.id })
     .from(repositoryTasks)
     .where(
       and(
-        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.repositoryId, repositoryId),
         eq(repositoryTasks.taskType, "import"),
         inArray(repositoryTasks.status, ["queued", "running"]),
       ),
@@ -92,13 +92,13 @@ export async function createImportTask(
 
   const taskId = generateId("task");
   const ext = content.trimStart().startsWith("{") ? ".json" : ".yaml";
-  const specPath = path.join(process.cwd(), ".data", "specs", repoId, `${taskId}${ext}`);
+  const specPath = path.join(process.cwd(), ".data", "specs", repositoryId, `${taskId}${ext}`);
   await mkdir(path.dirname(specPath), { recursive: true });
   await writeFile(specPath, content, "utf8");
 
   await db.insert(repositoryTasks).values({
     id: taskId,
-    repoId,
+    repositoryId,
     userId,
     taskType: "import",
     status: "queued",
@@ -112,7 +112,7 @@ export async function createImportTask(
   });
   await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
-  logInfo("openapi.import.queued", { taskId, repoId, userId, jobId });
+  logInfo("openapi.import.queued", { taskId, repositoryId, userId, jobId });
   return toSummary({
     id: taskId,
     status: "queued",
@@ -126,7 +126,7 @@ export async function createImportTask(
 
 /** 读取任务详情。按仓库 + 提交人过滤——任务 id 全局唯一。 */
 export async function getImportTask(
-  repoId: string,
+  repositoryId: string,
   taskId: string,
   userId: string,
 ): Promise<ImportTaskSummary | null> {
@@ -143,7 +143,7 @@ export async function getImportTask(
     .from(repositoryTasks)
     .where(
       and(
-        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.repositoryId, repositoryId),
         eq(repositoryTasks.id, taskId),
         eq(repositoryTasks.taskType, "import"),
         eq(repositoryTasks.userId, userId),
@@ -154,7 +154,7 @@ export async function getImportTask(
 }
 
 /** 仓库最近一次导入任务（供状态徽章 / 通知跳转）。 */
-export async function getLatestImportTask(repoId: string): Promise<ImportTaskSummary | null> {
+export async function getLatestImportTask(repositoryId: string): Promise<ImportTaskSummary | null> {
   const [row] = await getDB()
     .select({
       id: repositoryTasks.id,
@@ -166,7 +166,7 @@ export async function getLatestImportTask(repoId: string): Promise<ImportTaskSum
       createdAt: repositoryTasks.createdAt,
     })
     .from(repositoryTasks)
-    .where(and(eq(repositoryTasks.repoId, repoId), eq(repositoryTasks.taskType, "import")))
+    .where(and(eq(repositoryTasks.repositoryId, repositoryId), eq(repositoryTasks.taskType, "import")))
     .orderBy(desc(repositoryTasks.createdAt))
     .limit(1);
   return row ? toSummary(row) : null;
@@ -174,7 +174,7 @@ export async function getLatestImportTask(repoId: string): Promise<ImportTaskSum
 
 /** 失败重试：复用已落盘的 spec 原文重新入队。 */
 export async function retryImportTask(
-  repoId: string,
+  repositoryId: string,
   taskId: string,
   userId: string,
 ): Promise<ImportTaskSummary | null> {
@@ -184,7 +184,7 @@ export async function retryImportTask(
     .from(repositoryTasks)
     .where(
       and(
-        eq(repositoryTasks.repoId, repoId),
+        eq(repositoryTasks.repositoryId, repositoryId),
         eq(repositoryTasks.id, taskId),
         eq(repositoryTasks.taskType, "import"),
         eq(repositoryTasks.userId, userId),
@@ -216,7 +216,7 @@ export async function retryImportTask(
   });
   await db.update(repositoryTasks).set({ jobId }).where(eq(repositoryTasks.id, taskId));
 
-  logInfo("openapi.import.retried", { taskId, repoId: row.repoId, userId, jobId });
+  logInfo("openapi.import.retried", { taskId, repositoryId: row.repositoryId, userId, jobId });
   return toSummary(row);
 }
 

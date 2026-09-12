@@ -20,9 +20,9 @@ export default async function RepoDetailLayout({
 
   return (
     <div className="flex min-h-full">
-      <RepoRail repoId={id} repo={repo} />
+      <RepoRail repositoryId={id} repo={repo} />
       <div className="min-w-0 flex-1">
-        <RepoMobileNav repoId={id} />
+        <RepoMobileNav repositoryId={id} />
         <div className="p-6">{children}</div>
       </div>
     </div>

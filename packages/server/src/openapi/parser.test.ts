@@ -121,7 +121,7 @@ paths:
 `;
 
 function input(json: string): ParseInput {
-  return { source: "text", content: json, repoId: "test-repo-1" };
+  return { source: "text", content: json, repositoryId: "test-repo-1" };
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -133,7 +133,7 @@ describe("parseOpenAPI", () => {
     it("parses a valid OpenAPI 3.0.3 JSON spec", () => {
       const result = parseOpenAPI(input(SAMPLE_SPEC));
 
-      expect(result.repoId).toBe("test-repo-1");
+      expect(result.repositoryId).toBe("test-repo-1");
       expect(result.apis).toHaveLength(3);
       expect(result.schemas).toHaveLength(2);
       expect(result.meta.openapiVersion).toBe("3.0.3");
@@ -517,7 +517,7 @@ describe("component extraction (components.responses / securitySchemes)", () => 
     const result = parseOpenAPI({
       source: "text",
       content: spec,
-      repoId: "repo_0000000000",
+      repositoryId: "repo_0000000000",
     });
     const responses = result.componentDefs.filter((c) => c.kind === "response");
     const security = result.componentDefs.filter(

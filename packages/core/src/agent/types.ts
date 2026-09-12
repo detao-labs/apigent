@@ -31,5 +31,5 @@ export interface AgentToolDefinition<Input = unknown> {
 /** 工具执行上下文（server 端注入 session / 当前操作对象） */
 export interface AgentToolContext {
   userId?: string;
-  repoId?: string;
+  repositoryId?: string;
 }

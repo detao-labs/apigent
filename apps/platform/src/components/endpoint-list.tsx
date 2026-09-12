@@ -61,10 +61,10 @@ function matches(ep: RepoEndpoint, q: string): boolean {
 
 export function EndpointList({
   endpoints,
-  repoId,
+  repositoryId,
 }: {
   endpoints: RepoEndpoint[];
-  repoId: string;
+  repositoryId: string;
 }) {
   const t = useTranslations("repos.detail");
   const te = useTranslations("repos.detail.endpoints");
@@ -223,7 +223,7 @@ export function EndpointList({
       {/* ── 右侧：接口详情面板 ───────────────────────── */}
       <section className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background p-4 lg:p-6">
         {selected ? (
-          <EndpointDetail endpoint={selected} repoId={repoId} />
+          <EndpointDetail endpoint={selected} repositoryId={repositoryId} />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             {te("endpointsSelectHint")}
@@ -236,10 +236,10 @@ export function EndpointList({
 
 function EndpointDetail({
   endpoint,
-  repoId,
+  repositoryId,
 }: {
   endpoint: RepoEndpoint;
-  repoId: string;
+  repositoryId: string;
 }) {
   const t = useTranslations("repos.detail");
   const te = useTranslations("repos.detail.endpoints");
@@ -254,7 +254,7 @@ function EndpointDetail({
   const doDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const res = await fetch(`/api/repos/${repoId}/entities/${deleteTarget.id}`, {
+      const res = await fetch(`/api/repos/${repositoryId}/entities/${deleteTarget.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error(`delete failed: ${res.status}`);
@@ -300,7 +300,7 @@ function EndpointDetail({
             variant="outline"
             size="sm"
             onClick={() =>
-              openBusinessContext({ repoId, endpointId: endpoint.id })
+              openBusinessContext({ repositoryId, endpointId: endpoint.id })
             }
           >
             <Sparkles className="mr-1.5 size-3.5" />

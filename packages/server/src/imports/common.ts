@@ -15,8 +15,8 @@ export class ImportError extends Error {
 }
 
 export class RepoNotFoundError extends Error {
-  constructor(repoId: string) {
-    super(`Repository not found: ${repoId}`);
+  constructor(repositoryId: string) {
+    super(`Repository not found: ${repositoryId}`);
     this.name = "RepoNotFoundError";
   }
 }

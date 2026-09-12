@@ -34,7 +34,7 @@ export interface ImportPreview {
 }
 
 export async function previewImport(
-  repoId: string,
+  repositoryId: string,
   content: string,
 ): Promise<ImportPreview> {
   const startedAt = Date.now();
@@ -44,12 +44,12 @@ export async function previewImport(
     const [repoRow] = await db
       .select({ id: repositories.id })
       .from(repositories)
-      .where(eq(repositories.id, repoId))
+      .where(eq(repositories.id, repositoryId))
       .limit(1);
     timer.mark("repoCheck");
-    if (!repoRow) throw new RepoNotFoundError(repoId);
+    if (!repoRow) throw new RepoNotFoundError(repositoryId);
 
-    const model = parseOpenAPI({ source: "text", content, repoId });
+    const model = parseOpenAPI({ source: "text", content, repositoryId });
     timer.mark("parse");
 
     const preview: ImportPreview = {
@@ -66,7 +66,7 @@ export async function previewImport(
     };
 
     logInfo("openapi.import.preview", {
-      repoId,
+      repositoryId,
       durationMs: Date.now() - startedAt,
       timings: timer.timings,
       openapiVersion: preview.openapiVersion,
@@ -78,7 +78,7 @@ export async function previewImport(
     return preview;
   } catch (err) {
     logError("openapi.import.preview_failed", err, {
-      repoId,
+      repositoryId,
       durationMs: Date.now() - startedAt,
       timings: timer.timings,
     });

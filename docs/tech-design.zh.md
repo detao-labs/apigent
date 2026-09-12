@@ -802,7 +802,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
 checkPermission → 有效角色
 
 步骤 1：解析用户在该仓库的显式成员身份
-        └── repository_members（repoId, userId）→ 仓库角色（可能不存在）
+        └── repository_members（repositoryId, userId）→ 仓库角色（可能不存在）
         └── 命中则**直接采用**，不再看组织角色
 
 步骤 2：否则解析用户对所属 Organization 的角色
@@ -848,12 +848,12 @@ export function isRepoRoleAtLeast(role: RepoRole | null, min: RepoRole): boolean
 
 ```ts
 // packages/server/src/authz/index.ts —— 路由处理器使用的 DB 检查
-getUserOrgRole(userId, orgId); // organization_members.role，owner 兜底
-getRepoMemberRole(userId, repoId); // repository_members.role
-getEffectiveRepoRole(userId, repoId); // 先成员行、后组织角色
-assertRepoAccess(userId, repoId, min); // 抛 ForbiddenError → 403
-assertOrgRole(userId, orgId, min);
-listAccessibleRepoIds(userId); // 显式成员 ∪ 我是 org_admin/owner 的组织下全部仓库
+getUserOrgRole(userId, organizationId); // organization_members.role，owner 兜底
+getRepoMemberRole(userId, repositoryId); // repository_members.role
+getEffectiveRepoRole(userId, repositoryId); // 先成员行、后组织角色
+assertRepoAccess(userId, repositoryId, min); // 抛 ForbiddenError → 403
+assertOrgRole(userId, organizationId, min);
+listAccessibleRepositoryIds(userId); // 显式成员 ∪ 我是 org_admin/owner 的组织下全部仓库
 ```
 
 **显式成员行优先，所以它可以向下覆盖**：把某位 `org_admin` 在单个仓库上设为 `repo_viewer`，他在这一个仓库上就真的只有只读。这是刻意的——用于对敏感仓库收口。
@@ -888,7 +888,7 @@ export const POST = withRoute(
 
 ```ts
 await assertRepoAccess(user.id, id, "repo_member");
-await assertOrgRole(user.id, orgId, "org_admin");
+await assertOrgRole(user.id, organizationId, "org_admin");
 ```
 
 **系统主体**——入队的导入任务在创建时已通过授权，Worker 没有可校验的请求上下文，因此**不应**重复做用户校验。重试类端点由 HTTP 触发，**仍要**在入口层重新校验。
@@ -928,7 +928,7 @@ MCP 工具使用独立的认证路径——API Key 而非 Session Cookie：
 │     │   → 允许 get_api_detail    │
 │     └── 包含 "mcp:context"？     │
 │         → 允许 get_project_context│
-│  4. 传入 userId + repoId 到       │
+│  4. 传入 userId + repositoryId 到       │
 │     RBAC 检查仓库访问权限         │
 └─────────────────────────────────┘
 ```
@@ -945,7 +945,7 @@ packages/server/src/auth/           # credentials + session 原语（与运行�
 
 packages/server/src/authz/          # RBAC
 ├── roles.ts                        # 纯角色模型 + 等级比较（无 DB）
-└── index.ts                        # assertRepoAccess()、assertOrgRole()、listAccessibleRepoIds()
+└── index.ts                        # assertRepoAccess()、assertOrgRole()、listAccessibleRepositoryIds()
 
 apps/platform/src/services/auth.ts  # Next.js 胶水：cookies() + users 表 → SessionUser
 apps/platform/src/lib/route.ts      # withRoute({ auth: true }) —— 业务逻辑前返回 401
@@ -977,13 +977,13 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 | `org.transfer`                                             | `org_owner`          | 组织所有权转移         |
 | `admin.login`                                              | `admin_super`        | 可选                   |
 
-`operation_logs.orgId` 在平台级操作时为 NULL，而现有索引是 `(orgId, operationType, createdAt)`——NULL 行不参与该索引，因此查询平台级事件需要额外索引或不同的查询条件。
+`operation_logs.organizationId` 在平台级操作时为 NULL，而现有索引是 `(organizationId, operationType, createdAt)`——NULL 行不参与该索引，因此查询平台级事件需要额外索引或不同的查询条件。
 
 ### 5.4.8 已知缺口与落地顺序
 
 上面的模型是目标态。**已落地：**
 
-- ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repoId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_member`、改默认版本指向与成员管理 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repoId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
+- ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repositoryId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_member`、改默认版本指向与成员管理 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repositoryId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
 - ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。**尚未接线审计**——`repo.member_*` 事件要等下面第 1 项完成后补上。
 
