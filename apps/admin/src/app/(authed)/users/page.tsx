@@ -1,18 +1,113 @@
-import { getTranslations } from "next-intl/server";
+import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
+import { listUsers } from "@apigent/server/admin";
+import { roleHasAdminCapability } from "@apigent/server/authz";
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@apigent/ui";
+import { requireAdmin } from "@/services/auth";
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const admin = await requireAdmin();
   const t = await getTranslations("users");
 
+  if (!roleHasAdminCapability(admin.role, "admin:users:view")) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          {t("noPermission")}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { q } = await searchParams;
+  const page = await listUsers({ search: q, limit: 50 });
+  const locale = await getLocale();
+  const fmt = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "zh-CN", {
+    dateStyle: "medium",
+  });
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-muted-foreground">
+            {t("description")} · {t("total", { count: page.total })}
+          </p>
+        </div>
+        {/* 用 GET 表单做搜索：无需客户端 JS，刷新即结果 */}
+        <form className="flex items-center gap-2">
+          <Input
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder={t("searchPlaceholder")}
+            className="w-64"
+          />
+          <Button type="submit" variant="outline">
+            {t("searchPlaceholder")}
+          </Button>
+        </form>
       </div>
 
-      <div className="rounded-xl border p-12 text-center">
-        <h3 className="text-lg font-medium mb-1">{t("emptyTitle")}</h3>
-        <p className="text-muted-foreground">{t("emptyDescription")}</p>
-      </div>
+      {page.items.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <h3 className="mb-1 text-lg font-semibold">{q ? t("noResults") : t("emptyTitle")}</h3>
+            <p className="text-sm text-muted-foreground">{t("emptyDescription")}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead>{t("colUser")}</TableHead>
+                  <TableHead>{t("colCreated")}</TableHead>
+                  <TableHead className="text-right">{t("colOrgs")}</TableHead>
+                  <TableHead className="text-right">{t("colRepos")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {page.items.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <Link href={`/users/${user.id}`} className="block hover:underline">
+                        <div className="text-sm font-medium">{user.name}</div>
+                        <div className="text-xs text-muted-foreground">{user.email}</div>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {fmt.format(new Date(user.createdAt))}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {user.organizationCount}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {user.repositoryCount}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

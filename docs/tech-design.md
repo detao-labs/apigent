@@ -587,6 +587,8 @@ Admin eligibility is re-read from `admin_members` on every request instead of be
 | **MCP Usage**          | Total MCP calls, by repo, by key, time series            |
 | **Active Users**       | DAU/WAU/MAU tracking                                     |
 
+**V0 status:** implemented — counts come from `getPlatformStats()` in `@apigent/server/admin` (users + 7-day delta, organizations, repositories + MCP-enabled, endpoints). The Platform app's `getDashboardStats(userId)` is a different, tenant-scoped thing. The MCP-usage card is not built, because the Gateway does not exist yet.
+
 ## 4.3 User Management
 
 These are **instance-level account operations** — a different axis from Organization / Repository membership, which stays in the Platform Webapp.
@@ -601,6 +603,8 @@ These are **instance-level account operations** — a different axis from Organi
 
 The account-lifecycle capabilities (`admin:users:disable` / `admin:users:delete`) are **reserved but not implemented in V0** — they are the natural first addition when a second admin tier (`admin_operator` / `admin_support`) is introduced.
 
+**V0 status:** the read-only list and detail page ship — `listUsers()` (searchable, with organization / repository counts) and `getUserDetail()`, gated by `admin:users:view`.
+
 ## 4.4 Security Audit
 
 | Feature               | Description                                                   |
@@ -609,6 +613,8 @@ The account-lifecycle capabilities (`admin:users:disable` / `admin:users:delete`
 | **Login History**     | Per-user login records with IP and user agent                 |
 | **Anomaly Detection** | Flag unusual patterns (new IP, rapid API calls, bulk export)  |
 | **Key Leak Check**    | Detect Secret Keys in public repositories or exposed contexts |
+
+**V0 status:** platform-level operation logs are implemented and rendered at `/audit` (capability `admin:audit:view`, `listOperationLogs({ platformOnly: true })`). What lands there today is `admin.grant` / `admin.revoke` and `org.delete`; login history, anomaly detection and key-leak checks are not implemented.
 
 ---
 
@@ -971,15 +977,16 @@ Every privileged mutation writes an `operation_logs` row **in the same transacti
 
 Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
-| Event                                                                | Actor                      | Status      | Notes                                                        |
-| -------------------------------------------------------------------- | -------------------------- | ----------- | ------------------------------------------------------------ |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                      |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                        |
-| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                           |
-| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx   |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ✅ wired    | CLI bootstrap and the Admin `/admins` page share one service |
-| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                       |
-| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                              |
+| Event                                                                | Actor                      | Status      | Notes                                                                                                                                                   |
+| -------------------------------------------------------------------- | -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                                                                                                                 |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                                                                                                                   |
+| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                                                                                                                      |
+| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx                                                                                              |
+| `org.delete` / `repo.delete`                                         | `org_owner` / `repo_owner` | ✅ wired    | Repo deletion keeps its audit rows (only `repositoryId` is cleared); org deletion records one platform-level event and drops the org's own tenant trail |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ✅ wired    | CLI bootstrap and the Admin `/admins` page share one service                                                                                            |
+| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                                                                                                                  |
+| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                                                                                                                         |
 
 **Landed.** `packages/server/src/audit/` exposes `recordOperation(tx, input)` — a transaction handle is required, so an audit row cannot be written outside the transaction that performs the business write — plus `withAuditTransaction(run)` and `listOperationLogs(filter)`. Two read endpoints ship with it: `GET /api/repos/:id/operations` (`repo_viewer`) and `GET /api/orgs/:id/operations` (`org_member`), rendered on `/repos/:id/settings/audit` and in the Organization detail "Activity log" tab.
 
@@ -992,15 +999,15 @@ The model above is the target. **Already landed:**
 - ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repositoryId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_member`, moving the default-version pointer and member management `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repositoryId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
 - ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4).
-- ✅ **Membership changes are audited** — every membership mutation (`member.*`, `repo.member_*`, `org.transfer`) and the `org.create` / `repo.create` bootstrap write their `operation_logs` row inside the same transaction as the business write, via `recordOperation(tx, …)`; read paths are `GET /api/repos/:id/operations` and `GET /api/orgs/:id/operations` (§5.4.7). **Still open:** import detail rows (`operation_log_details`), repository edit/delete, version activate/rollback, MCP toggle, secret keys, and the `admin.*` events.
+- ✅ **Membership, create and delete events are audited** — every membership mutation (`member.*`, `repo.member_*`, `org.transfer`), the `org.create` / `repo.create` bootstrap and `org.delete` / `repo.delete` write their `operation_logs` row inside the same transaction as the business write, via `recordOperation(tx, …)`; read paths are `GET /api/repos/:id/operations` and `GET /api/orgs/:id/operations` (§5.4.7). **Still open:** import detail rows (`operation_log_details`), repository edit, version activate/rollback, MCP toggle, secret keys, and `admin.login`.
 - ✅ **The Admin Webapp is gated** — `admin_members` exists (`0002_admin_members.sql`), sign-in is separate from Platform (`/login` → `apigent-admin.session-token` signed with `auth.adminSecret`), the guard sits in `apps/admin/src/app/(authed)/layout.tsx`, and capabilities are checked through `roleHasAdminCapability()` / `requireAdminApi()`. The first admin is created by the `admin.grant` CLI; every grant/revoke writes its `admin.grant` / `admin.revoke` row in the same transaction.
-- ✅ **Admin audit log and admin management ship** — `/audit` renders platform-level operations (`listOperationLogs({ platformOnly: true })`, capability `admin:audit:view`), and `/admins` lists admins, grants by email and revokes (`admin:admins:manage`, API routes `POST /api/admins` + `DELETE /api/admins/:userId`). Revoking the last admin is refused (`canRevokeAdmin()`), so the deployment cannot be left without someone able to grant admins. **Still open:** the dashboard is still hardcoded zeros and the users page is an empty state.
+- ✅ **The whole admin read surface ships** — `/audit` (platform-level operations, `admin:audit:view`), `/admins` (list / grant by email / revoke, `admin:admins:manage`), the dashboard (`getPlatformStats()`, `admin:stats:view`) and `/users` + `/users/:id` (read-only, `admin:users:view`). Revoking the last admin is refused (`canRevokeAdmin()`), so the deployment cannot be left without someone able to grant admins. **Still open:** account disable / delete (`admin:users:disable` / `admin:users:delete`) and `admin.login` events.
 
 **Remaining gaps**, in the order they should be closed:
 
-1. **Two admin surfaces are still placeholders** — the dashboard (hardcoded `0`s) and the users page (empty state) render nothing real; the audit log and admin management are done.
+1. **Tenant delete is wired, MCP is not** — `org:delete` / `repo:delete` ship (§4.2 note above and `docs/modules/audit-log.md`), while `repo:manage_mcp` is still a front-end-only toggle and the Gateway does not exist.
 2. **Audit coverage is partial** — membership and create events are wired (§5.4.7); import, version activation, MCP, secret keys and the in-app `admin.*` events are not. Import detail rows (`operation_log_details`) are still empty.
-3. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `org:delete` / `repo:delete` / `repo:manage_mcp` get implemented (documented but not implemented in code).
+3. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `repo:manage_mcp` gets implemented (`org:delete` / `repo:delete` now ship).
 
 Suggested order: 1 → 2 → 3.
 

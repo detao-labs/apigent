@@ -59,6 +59,9 @@
       "saveFailed": "Save failed, please try again later",
       "copyLink": "Copy link",
       "deleteRepo": "Delete repository",
+      "deleteConfirm": "This removes the repository's endpoints, models, versions and members. It cannot be undone. Delete it?",
+      "deleted": "Repository deleted",
+      "deleteFailed": "Delete failed, please try again",
       "mcp": "MCP",
       "history": {
         "title": "History",

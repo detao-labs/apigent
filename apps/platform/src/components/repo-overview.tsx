@@ -79,6 +79,8 @@ export function RepoOverview({
   const [editOpen, setEditOpen] = React.useState(false);
   const [savingEdit, setSavingEdit] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const [task, setTask] = React.useState<LatestImportTask | null>(latestTask ?? null);
   const [contextTask, setContextTask] = React.useState<ContextTaskSummary | null>(
     latestContextTask ?? null,
@@ -86,8 +88,24 @@ export function RepoOverview({
   const [regenerating, setRegenerating] = React.useState(false);
 
   const hasContext =
-    repo.capabilityContext !== null &&
-    Object.keys(repo.capabilityContext).length > 0;
+    repo.capabilityContext !== null && Object.keys(repo.capabilityContext).length > 0;
+
+  async function deleteRepo() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/repos/${repo.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error(t("deleteFailed"));
+        return;
+      }
+      toast.success(t("deleted"));
+      router.push("/repos");
+      router.refresh();
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }
 
   // 导入任务进行中时轮询最新状态（5s），失败/成功即停止
   const taskActive = task?.status === "queued" || task?.status === "running";
@@ -127,18 +145,14 @@ export function RepoOverview({
         const started = Date.now();
         while (Date.now() - started < 10 * 60 * 1000) {
           await new Promise((resolve) => setTimeout(resolve, 3000));
-          const taskRes = await fetch(
-            `/api/repos/${repo.id}/context-tasks/latest`,
-            { cache: "no-store" },
-          );
+          const taskRes = await fetch(`/api/repos/${repo.id}/context-tasks/latest`, {
+            cache: "no-store",
+          });
           const data = (await taskRes.json()) as {
             task?: ContextTaskSummary;
           };
           setContextTask(data.task ?? null);
-          if (
-            data.task &&
-            (data.task.status === "succeeded" || data.task.status === "failed")
-          ) {
+          if (data.task && (data.task.status === "succeeded" || data.task.status === "failed")) {
             break;
           }
         }
@@ -250,28 +264,18 @@ export function RepoOverview({
               </button>
             </span>
           </h1>
-          {repo.description && (
-            <p className="mt-1 text-muted-foreground">{repo.description}</p>
-          )}
+          {repo.description && <p className="mt-1 text-muted-foreground">{repo.description}</p>}
         </div>
 
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-label={t("more")}
-                />
-              }
+              render={<Button type="button" variant="outline" aria-label={t("more")} />}
             >
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem
-                onClick={() => setEditOpen(true)}
-              >
+              <DropdownMenuItem onClick={() => setEditOpen(true)}>
                 <Pencil className="size-4" />
                 {t("editInfo")}
               </DropdownMenuItem>
@@ -280,11 +284,7 @@ export function RepoOverview({
                 {t("copyLink")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                disabled
-                title={common("backendPending")}
-              >
+              <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
                 <Trash2 className="size-4" />
                 {t("deleteRepo")}
               </DropdownMenuItem>
@@ -317,8 +317,7 @@ export function RepoOverview({
                 </Badge>
               )}
               {contextTask &&
-                (contextTask.status === "queued" ||
-                  contextTask.status === "running") && (
+                (contextTask.status === "queued" || contextTask.status === "running") && (
                   <Badge variant="secondary" className="gap-1.5">
                     <Loader2 className="size-3 animate-spin" />
                     {t("capability.generating")} {contextTask.progress}%
@@ -341,12 +340,8 @@ export function RepoOverview({
               onClick={regenerate}
               disabled={regenerating}
             >
-              <RefreshCw
-                className={`size-3.5 ${regenerating ? "animate-spin" : ""}`}
-              />
-              {regenerating
-                ? t("capability.generating")
-                : t("capability.regen")}
+              <RefreshCw className={`size-3.5 ${regenerating ? "animate-spin" : ""}`} />
+              {regenerating ? t("capability.generating") : t("capability.regen")}
             </Button>
           </div>
         </CardHeader>
@@ -362,20 +357,14 @@ export function RepoOverview({
                 ([key, label]) =>
                   repo.capabilityContext![key] !== undefined && (
                     <div key={key} className="flex flex-col gap-1 sm:flex-row">
-                      <dt className="w-24 shrink-0 text-sm text-muted-foreground">
-                        {label}
-                      </dt>
-                      <dd className="text-sm">
-                        {contextText(repo.capabilityContext![key])}
-                      </dd>
+                      <dt className="w-24 shrink-0 text-sm text-muted-foreground">{label}</dt>
+                      <dd className="text-sm">{contextText(repo.capabilityContext![key])}</dd>
                     </div>
                   ),
               )}
             </dl>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              {t("capability.empty")}
-            </p>
+            <p className="text-sm text-muted-foreground">{t("capability.empty")}</p>
           )}
         </CardContent>
       </Card>
@@ -409,15 +398,25 @@ export function RepoOverview({
         }}
       />
 
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("deleteRepo")}
+        description={t("deleteConfirm")}
+        confirmText={t("deleteRepo")}
+        cancelText={common("cancel")}
+        destructive
+        loading={deleting}
+        onConfirm={deleteRepo}
+      />
+
       {/* 统计 + MCP 接入 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href} className="group">
             <Card className="transition-colors group-hover:border-primary/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.label}
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
                 <stat.icon className="size-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex items-center justify-between">
@@ -429,9 +428,7 @@ export function RepoOverview({
         ))}
         <Card className="bg-muted/30">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t("mcpPanel.title")}
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">{t("mcpPanel.title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <code className="block truncate rounded-md bg-background px-2 py-1 text-xs ring-1 ring-border">
@@ -455,9 +452,7 @@ export function RepoOverview({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-base">
-              {t("recentVersions.title")}
-            </CardTitle>
+            <CardTitle className="text-base">{t("recentVersions.title")}</CardTitle>
             <CardDescription>{t("recentVersions.description")}</CardDescription>
           </div>
           <Link
@@ -480,12 +475,8 @@ export function RepoOverview({
                   <TableHead>{t("recentVersions.version")}</TableHead>
                   <TableHead>{t("recentVersions.importedAt")}</TableHead>
                   <TableHead>{t("recentVersions.source")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("recentVersions.endpointCount")}
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {t("recentVersions.actions")}
-                  </TableHead>
+                  <TableHead className="text-right">{t("recentVersions.endpointCount")}</TableHead>
+                  <TableHead className="text-right">{t("recentVersions.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -504,15 +495,11 @@ export function RepoOverview({
                           </span>
                         )}
                       </span>
-                      {version.id === repo.versions[0]?.id &&
-                        repo.versionCount > 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="ml-2 text-xs"
-                          >
-                            {t("recentVersions.current")}
-                          </Badge>
-                        )}
+                      {version.id === repo.versions[0]?.id && repo.versionCount > 0 && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          {t("recentVersions.current")}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatRelativeTime(version.importedAt, locale)}

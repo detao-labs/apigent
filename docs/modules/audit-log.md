@@ -25,15 +25,16 @@
 
 ## 事件清单
 
-| 事件                                                                 | 操作者               | 状态      | 说明                                                        |
-| -------------------------------------------------------------------- | -------------------- | --------- | ----------------------------------------------------------- |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                                                |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                                                |
-| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                                              |
-| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 建组织 / 建仓库（创建者自动成为 owner 一并留痕）            |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`        | ✅ 已接线 | 平台侧唯一的写操作：CLI 引导与 Admin `/admins` 共用同一服务 |
-| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                                              |
-| 导入 / 设为当前 / MCP / 密钥等                                       | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                                            |
+| 事件                                                                 | 操作者                     | 状态      | 说明                                                              |
+| -------------------------------------------------------------------- | -------------------------- | --------- | ----------------------------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ 已接线 | 组织成员变更                                                      |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+       | ✅ 已接线 | 仓库成员变更                                                      |
+| `org.transfer`                                                       | `org_owner`                | ✅ 已接线 | 组织所有权转移                                                    |
+| `org.create` / `repo.create`                                         | 创建者                     | ✅ 已接线 | 建组织 / 建仓库（创建者自动成为 owner 一并留痕）                  |
+| `org.delete` / `repo.delete`                                         | `org_owner` / `repo_owner` | ✅ 已接线 | 删仓库保留其审计行（只清 `repositoryId`）；删组织记一条平台级事件 |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ✅ 已接线 | 平台侧唯一的写操作：CLI 引导与 Admin `/admins` 共用同一服务       |
+| `admin.login`                                                        | `admin_super`              | ⏳ 可选   | 平台方登录留痕                                                    |
+| 导入 / 设为当前 / MCP / 密钥等                                       | 对应 `repo_*` 角色         | ⏳ 待实现 | Phase A 剩余部分                                                  |
 
 ### 写入约束（关键）
 
@@ -51,7 +52,7 @@
 
 ### 阶段 A 剩余：把其余 mutation 接线
 
-仓库（编辑 / 删除）、导入版本、设为当前 / 回滚、MCP 开关、密钥（增删）。平台管理员的授予 / 移除**已接线**：CLI 引导与 Admin Webapp 的 `/admins` 都走 `packages/server/src/admin/service.ts`，与 `admin.grant` / `admin.revoke` 同事务落库。
+仓库编辑、导入版本、设为当前 / 回滚、MCP 开关、密钥（增删）。已接线的还有：平台管理员的授予 / 移除（CLI 引导与 Admin Webapp 的 `/admins` 都走 `packages/server/src/admin/service.ts`）、组织的删除与仓库的删除。
 
 ### 阶段 B：变更明细（与版本对比复用）
 

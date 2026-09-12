@@ -16,6 +16,8 @@
     "operations": {
       "org_create": "创建组织",
       "repo_create": "创建仓库",
+      "org_delete": "删除组织",
+      "repo_delete": "删除仓库",
       "member_invite": "邀请组织成员",
       "member_role_change": "变更组织成员角色",
       "member_remove": "移除组织成员",

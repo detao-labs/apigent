@@ -587,7 +587,7 @@ Key 格式：`apigent_sk_<random_hex>`
 | **MCP 用量** | MCP 调用总量、按仓库、按 Key、时间序列 |
 | **活跃用户** | DAU/WAU/MAU 统计                       |
 
-**V0 状态：** 未实现——仪表盘渲染的是硬编码的 0。平台级统计服务尚不存在（现在 Platform 里的 `getDashboardStats(userId)` 是租户级的）。
+**V0 状态：** 已实现——计数来自 `@apigent/server/admin` 的 `getPlatformStats()`（用户数 + 近 7 天增量、组织数、仓库数 + 已开启 MCP 数、接口数）。Platform 里的 `getDashboardStats(userId)` 是**租户级**的另一回事。MCP 用量卡片未做，因为 Gateway 尚不存在。
 
 ## 4.3 用户管理
 
@@ -603,7 +603,7 @@ Key 格式：`apigent_sk_<random_hex>`
 
 账号生命周期能力（`admin:users:disable` / `admin:users:delete`）**已预留但 V0 不实现**——它们是把平台侧引入第二档管理员（`admin_operator` / `admin_support`）时最自然的第一批能力。
 
-**V0 状态：** 用户页是空态。连只读列表（`admin:users:view`）都还没做；能力名已经写进映射，因此将来加页面不需要动 RBAC 层。
+**V0 状态：** 只读列表与详情页已落地——`listUsers()`（支持搜索，带组织 / 仓库计数）与 `getUserDetail()`，能力 `admin:users:view`。
 
 ## 4.4 安全审计
 
@@ -614,7 +614,7 @@ Key 格式：`apigent_sk_<random_hex>`
 | **异常检测**     | 标记异常模式（新 IP、大量 API 调用、批量导出） |
 | **Key 泄露检查** | 检测 Secret Key 是否出现在公开仓库或暴露环境中 |
 
-**V0 状态：** 平台级操作日志已实现，渲染在 `/audit`（能力 `admin:audit:view`，`listOperationLogs({ platformOnly: true })`）。目前进入该页的是 `admin.grant` / `admin.revoke`；登录历史、异常检测、密钥泄露检查均未实现。
+**V0 状态：** 平台级操作日志已实现，渲染在 `/audit`（能力 `admin:audit:view`，`listOperationLogs({ platformOnly: true })`）。目前进入该页的是 `admin.grant` / `admin.revoke` 与 `org.delete`；登录历史、异常检测、密钥泄露检查均未实现。
 
 ---
 
@@ -976,15 +976,16 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 
 需要记录的事件（完整方案见 [modules/audit-log.md](./modules/audit-log.md)）：
 
-| 事件                                                                 | 操作者               | 状态      | 说明                                      |
-| -------------------------------------------------------------------- | -------------------- | --------- | ----------------------------------------- |
-| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                              |
-| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                              |
-| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                            |
-| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入     |
-| `admin.grant` / `admin.revoke`                                       | `admin_super`        | ✅ 已接线 | CLI 引导与 Admin `/admins` 共用同一个服务 |
-| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                            |
-| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                          |
+| 事件                                                                 | 操作者                     | 状态      | 说明                                                                                          |
+| -------------------------------------------------------------------- | -------------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ 已接线 | 组织成员变更                                                                                  |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+       | ✅ 已接线 | 仓库成员变更                                                                                  |
+| `org.transfer`                                                       | `org_owner`                | ✅ 已接线 | 组织所有权转移                                                                                |
+| `org.create` / `repo.create`                                         | 创建者                     | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入                                                         |
+| `org.delete` / `repo.delete`                                         | `org_owner` / `repo_owner` | ✅ 已接线 | 删仓库保留其审计行（只清 `repositoryId`）；删组织记一条平台级事件，并丢弃该组织自己的租户日志 |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ✅ 已接线 | CLI 引导与 Admin `/admins` 共用同一个服务                                                     |
+| `admin.login`                                                        | `admin_super`              | ⏳ 可选   | 平台方登录留痕                                                                                |
+| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色         | ⏳ 待实现 | Phase A 剩余部分                                                                              |
 
 **已落地。** `packages/server/src/audit/` 提供 `recordOperation(tx, input)`——**必须传入事务句柄**，因此不可能在业务事务之外单独写审计行——以及 `withAuditTransaction(run)` 与 `listOperationLogs(filter)`。配套两个只读接口：`GET /api/repos/:id/operations`（`repo_viewer`）、`GET /api/orgs/:id/operations`（`org_member`），分别渲染在 `/repos/:id/settings/audit` 与组织详情的「操作日志」Tab。
 
@@ -997,15 +998,15 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 - ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repositoryId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_member`、改默认版本指向与成员管理 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repositoryId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
 - ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。
-- ✅ **成员变更已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）以及 `org.create` / `repo.create` 的引导写入，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.*` 事件。
+- ✅ **成员、创建与删除事件均已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）、`org.create` / `repo.create` 的引导写入，以及 `org.delete` / `repo.delete`，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.login`。
 - ✅ **Admin Webapp 已加门禁**——`admin_members` 表已建（`0002_admin_members.sql`），登录独立于 Platform（`/login` → `apigent-admin.session-token`，用 `auth.adminSecret` 签名），守卫在 `apps/admin/src/app/(authed)/layout.tsx`，能力检查走 `roleHasAdminCapability()` / `requireAdminApi()`。第一个管理员由 `admin.grant` CLI 创建；之后每次授予 / 撤销都与 `admin.grant` / `admin.revoke` 审计行同事务落库。
-- ✅ **Admin 的审计页与管理员管理已落地**——`/audit` 渲染平台级操作（`listOperationLogs({ platformOnly: true })`，能力 `admin:audit:view`）；`/admins` 列出管理员、按邮箱授予、撤销（`admin:admins:manage`，接口 `POST /api/admins` 与 `DELETE /api/admins/:userId`）。撤销最后一个管理员会被拒绝（`canRevokeAdmin()`），部署不可能陷入"没人能再授予管理员"的状态。**仍未落地：** 仪表盘仍是硬编码的 0，用户页仍是空态。
+- ✅ **Admin 的只读面已全部落地**——`/audit`（平台级操作，`admin:audit:view`）、`/admins`（列表 / 按邮箱授予 / 撤销，`admin:admins:manage`）、仪表盘（`getPlatformStats()`，`admin:stats:view`）以及 `/users` 与 `/users/:id`（只读，`admin:users:view`）。撤销最后一个管理员会被拒绝（`canRevokeAdmin()`）。**仍未落地：** 账号禁用 / 删除（`admin:users:disable` / `admin:users:delete`）与 `admin.login` 事件。
 
 **剩余缺口**，按应修复的顺序排列：
 
-1. **还有两个 Admin 页面是占位**——仪表盘（硬编码的 `0`）与用户页（空态）；审计日志与管理员管理已完成。
+1. **租户删除已接线，MCP 还没有**——`org:delete` / `repo:delete` 已落地，而 `repo:manage_mcp` 仍是纯前端开关，Gateway 也不存在。
 2. **审计覆盖仍不完整**——成员与创建类事件已接线（§5.4.7）；导入、版本设为当前、MCP、密钥，以及应用内的 `admin.*` 事件未接线，导入明细（`operation_log_details`）仍为空。
-3. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`org:delete` / `repo:delete` / `repo:manage_mcp` 是否先实现（文档已描述，代码未实现）。
+3. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`repo:manage_mcp` 是否实现（`org:delete` / `repo:delete` 已落地）。
 
 建议顺序：1 → 2 → 3。
 

@@ -83,6 +83,8 @@ describe("OPERATION_TYPES", () => {
     expect(OPERATION_TYPES).toEqual([
       "org.create",
       "repo.create",
+      "org.delete",
+      "repo.delete",
       "member.invite",
       "member.role_change",
       "member.remove",

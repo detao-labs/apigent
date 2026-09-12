@@ -59,6 +59,9 @@
       "saveFailed": "保存失败，请稍后重试",
       "copyLink": "复制链接",
       "deleteRepo": "删除仓库",
+      "deleteConfirm": "删除后该仓库的接口、模型、版本与成员都会一并移除，且无法恢复。确定删除吗？",
+      "deleted": "仓库已删除",
+      "deleteFailed": "删除失败，请稍后重试",
       "mcp": "MCP",
       "history": {
         "title": "历史日志",

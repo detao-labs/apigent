@@ -84,6 +84,8 @@ export function OrgDetailView({
 
   // transfer
   const [transferOpen, setTransferOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const [targetUserId, setTargetUserId] = React.useState("");
 
   async function changeRole(userId: string, nextRole: OrgMemberRole) {
@@ -169,6 +171,23 @@ export function OrgDetailView({
     toast.success(t("transferBtn"));
     setTransferOpen(false);
     router.refresh();
+  }
+
+  async function doDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/orgs/${org.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error(t("deleteFailed"));
+        return;
+      }
+      toast.success(t("deleted"));
+      router.push("/orgs");
+      router.refresh();
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
   }
 
   const tabs = [
@@ -456,6 +475,32 @@ export function OrgDetailView({
               )}
             </CardContent>
           </Card>
+
+          {isOwner ? (
+            <Card className="border-destructive/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base text-destructive">
+                  <Trash2 className="size-4" />
+                  {t("deleteTitle")}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {org.repos.length > 0
+                    ? t("deleteBlocked", { count: org.repos.length })
+                    : t("deleteDesc")}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={org.repos.length > 0}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  {t("deleteBtn")}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       )}
 
@@ -521,6 +566,18 @@ export function OrgDetailView({
         destructive
         loading={busy}
         onConfirm={doTransfer}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("deleteTitle")}
+        description={t("deleteConfirm")}
+        confirmText={t("deleteBtn")}
+        cancelText={orgsT("cancel")}
+        destructive
+        loading={deleting}
+        onConfirm={doDelete}
       />
     </div>
   );

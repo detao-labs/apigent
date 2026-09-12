@@ -171,7 +171,7 @@ The Drizzle schema and migrations live in `packages/server` (`drizzle.config.ts`
 Working apps and server modules exist (V0 is further along than the earliest config/DI scaffolding):
 
 - `apps/platform` — Platform Webapp (Next.js SSR, port 3000): repos, endpoints, schemas, versions, settings, context pages, **plus the Platform REST API** under `src/app/api/**`.
-- `apps/admin` — Admin Webapp (Next.js SSR, port 3001): platform-admin sign-in (`/login`), a capability-gated `(authed)` shell, a platform-level audit log (`/audit`) and admin management (`/admins`). The dashboard and users pages are still placeholders.
+- `apps/admin` — Admin Webapp (Next.js SSR, port 3001): platform-admin sign-in (`/login`), a capability-gated `(authed)` shell, platform stats (dashboard), a platform-level audit log (`/audit`), a read-only user list + detail (`/users`) and admin management (`/admins`).
 - `apps/open` — Open Gateway (Hono, port 3002); currently serves `/` and `/health` only. No MCP endpoint yet.
 - `packages/core` — config (`loadConfig()`: YAML + `.env` + zod), fail-fast DI container, types, i18n, agent registry.
 - `packages/server` — framework-agnostic services: Drizzle schema + migrations, Postgres queue, OpenAPI parser, contexts, versions, imports, auth/authz, audit, notifications, logging, and the AI SDK model adapter (`src/ai`).
@@ -187,4 +187,4 @@ Not yet implemented (designed only): MCP Gateway, the Embedding / pgvector / Bul
 
 **Platform (admin) access:** the Admin Webapp is gated by `admin_members` — one row means "this user may sign in". Login is separate from Platform (own cookie namespace, own secret — see the Auth row above), the guard lives in `apps/admin/src/app/(authed)/layout.tsx`, and capability checks go through `roleHasAdminCapability()` (`@apigent/server/authz`) for pages / `requireAdminApi()` for routes. `/admins` grants and revokes admins (`POST /api/admins`, `DELETE /api/admins/:userId`) and refuses to revoke the last one; `/audit` shows platform-level operations. Grant logic lives once in `@apigent/server/admin` — the CLI command above is a thin wrapper over it.
 
-**Known authorization gaps** (full list and rollout order in `docs/tech-design.md` §5.4.8): the Admin dashboard and users pages are still placeholders, and SecretKey generation/verification is unimplemented — the settings page buttons are disabled and nothing validates a key today.
+**Known authorization gaps** (full list and rollout order in `docs/tech-design.md` §5.4.8): SecretKey generation/verification is unimplemented — the settings page buttons are disabled and nothing validates a key today. Tenant deletion (`org:delete` / `repo:delete`) ships: deleting a repository keeps its audit rows (only `repositoryId` is cleared), deleting an organization requires it to be empty first and records one platform-level event.

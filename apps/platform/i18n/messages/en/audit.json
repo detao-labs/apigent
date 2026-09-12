@@ -16,6 +16,8 @@
     "operations": {
       "org_create": "Organization created",
       "repo_create": "Repository created",
+      "org_delete": "Organization deleted",
+      "repo_delete": "Repository deleted",
       "member_invite": "Organization member invited",
       "member_role_change": "Organization member role changed",
       "member_remove": "Organization member removed",

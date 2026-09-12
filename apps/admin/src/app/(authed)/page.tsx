@@ -1,9 +1,57 @@
 import { getTranslations } from "next-intl/server";
+import { Braces, Building2, Database, Users } from "lucide-react";
+import { getPlatformStats } from "@apigent/server/admin";
+import { listOperationLogs } from "@apigent/server/audit";
+import { roleHasAdminCapability } from "@apigent/server/authz";
 import { Card, CardContent, CardHeader, CardTitle } from "@apigent/ui";
-import { Users, Building2, Database, Activity } from "lucide-react";
+import { OperationLogTable } from "@/components/operation-log-table";
+import { requireAdmin } from "@/services/auth";
 
 export default async function AdminDashboard() {
+  const admin = await requireAdmin();
   const t = await getTranslations("dashboard");
+
+  if (!roleHasAdminCapability(admin.role, "admin:stats:view")) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          {t("stats.noPermission")}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const [stats, activity] = await Promise.all([
+    getPlatformStats(),
+    listOperationLogs({ platformOnly: true, limit: 5 }),
+  ]);
+
+  const cards = [
+    {
+      icon: <Users className="size-4 text-muted-foreground" />,
+      label: t("stats.users"),
+      value: stats.users,
+      desc: t("stats.usersDesc", { count: stats.newUsers }),
+    },
+    {
+      icon: <Building2 className="size-4 text-muted-foreground" />,
+      label: t("stats.orgs"),
+      value: stats.organizations,
+      desc: t("stats.orgsDesc"),
+    },
+    {
+      icon: <Database className="size-4 text-muted-foreground" />,
+      label: t("stats.repos"),
+      value: stats.repositories,
+      desc: t("stats.reposDesc", { count: stats.mcpEnabledRepositories }),
+    },
+    {
+      icon: <Braces className="size-4 text-muted-foreground" />,
+      label: t("stats.endpoints"),
+      value: stats.endpoints,
+      desc: t("stats.endpointsDesc"),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -12,55 +60,25 @@ export default async function AdminDashboard() {
         <p className="text-muted-foreground">{t("description")}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.users")}</CardTitle>
-            <Users className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.orgs")}</CardTitle>
-            <Building2 className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.repos")}</CardTitle>
-            <Database className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">{t("stats.mcpCalls")}</CardTitle>
-            <Activity className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        {cards.map((card) => (
+          <Card key={card.label}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">{card.label}</CardTitle>
+              {card.icon}
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold tabular-nums">{card.value}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{card.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("recentActivity")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            {t("recentActivityEmpty")}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">{t("recentActivity")}</h2>
+        <OperationLogTable entries={activity.items} />
+      </div>
     </div>
   );
 }

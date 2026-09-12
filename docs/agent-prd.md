@@ -136,7 +136,7 @@
 
 - **鉴权的声明式收敛**：仓库级断言已落在每个路由入口（`apps/platform/src/lib/repo-guard.ts`），尚未收敛为 `withRoute({ repo: … })` 的声明式写法（见 tech-design §5.4.4）
 - **端点 × 角色测试**：鉴权已有实现，但缺少表驱动的自动化覆盖（`apps/platform` 尚无测试基建）
-- **Admin 功能面**：登录与门禁、审计页（`/audit`）、管理员管理（`/admins`）已实现；仪表盘与用户页仍是占位
+- **Admin 功能面**：登录与门禁、仪表盘（平台级统计）、审计页（`/audit`）、用户列表与详情（`/users`）、管理员管理（`/admins`）均已实现；账号禁用 / 删除仍为预留
 - **操作审计（部分落地）**：成员类事件（`member.*` / `repo.member_*` / `org.transfer`）与创建类事件（`org.create` / `repo.create`）已与业务写同事务落库，仓库设置页与组织详情 Tab 可查看；导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP、密钥、`admin.*` 仍未接线
 - **SecretKey**：生成 / 校验 / 吊销均未实现；设置页按钮为禁用状态；无任何请求校验过 SecretKey
 - **认证**：GitHub / Google 第三方登录（Auth.js v5，仅负责认证；详见 tech-design §5.4.9）。已定策略：已验证邮箱自动绑定（拿不到已验证邮箱则提示先用密码登录再绑定）、Admin 仅账密、`auth.registration` + `auth.oauth.allowedEmailDomains` 进社区版
@@ -178,5 +178,5 @@
 4. 语义检索是否作为 V0 发布阻塞项：若 V0 必须交付检索，则 embedding provider 与 pgvector 检索应排最高优先级。
 5. 版本化交互默认值：多版本管理默认隐藏、开启后才允许新建 / 切换分支（原 V1 技术方案设计，现已落地）是否保持？
 6. 仓库成员是否允许**非组织成员**（访客）？本轮按建议限制为组织成员，`repository_members` 表结构已容得下，如需放开请告知。
-7. `org:delete` / `repo:delete` / `repo:manage_mcp` 是否要在 V0 实现？文档已描述，但代码里分别是"没有端点""按钮 disabled""纯前端 state"。
+7. `repo:manage_mcp` 是否要在 V0 实现？`org:delete` / `repo:delete` 已落地（仓库删除保留审计、组织删除要求先清空仓库）；MCP 开关目前仍是纯前端 state，Gateway 未实现。
 8. `admin_super` 是否允许读取任意仓库的接口内容（`admin:content:read`）？建议默认不给。

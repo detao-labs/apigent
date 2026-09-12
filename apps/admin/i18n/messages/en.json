@@ -38,20 +38,37 @@
     "recentActivityEmpty": "No recent activity to display. Activity will appear here once the platform is in use.",
     "stats": {
       "users": "Users",
-      "usersDesc": "Total registered",
+      "usersDesc": "Total registered · {count} new in 7 days",
       "orgs": "Organizations",
       "orgsDesc": "Active orgs",
       "repos": "Repositories",
-      "reposDesc": "Total repos",
-      "mcpCalls": "MCP Calls",
-      "mcpCallsDesc": "Last 30 days"
+      "reposDesc": "Total repos · {count} with MCP enabled",
+      "endpoints": "Endpoints",
+      "endpointsDesc": "Across every repository",
+      "noPermission": "This account cannot view platform statistics."
     }
   },
   "users": {
     "title": "Users",
     "description": "Manage platform users and permissions",
     "emptyTitle": "No users registered yet",
-    "emptyDescription": "User accounts will appear here once registration is enabled."
+    "emptyDescription": "User accounts will appear here once registration is enabled.",
+    "searchPlaceholder": "Search by email or name",
+    "total": "{count} accounts",
+    "colUser": "Account",
+    "colCreated": "Registered",
+    "colOrgs": "Organizations",
+    "colRepos": "Accessible repos",
+    "noResults": "No matching accounts",
+    "noPermission": "This account cannot view users.",
+    "detail": {
+      "back": "Back to users",
+      "profile": "Account",
+      "memberships": "Organization memberships",
+      "ownedOrganizations": "Owned",
+      "none": "None",
+      "notFound": "User not found"
+    }
   },
   "audit": {
     "title": "Audit Log",
@@ -72,6 +89,8 @@
       "admin_login": "Platform sign-in",
       "org_create": "Organization created",
       "repo_create": "Repository created",
+      "org_delete": "Organization deleted",
+      "repo_delete": "Repository deleted",
       "member_invite": "Organization member invited",
       "member_role_change": "Organization member role changed",
       "member_remove": "Organization member removed",

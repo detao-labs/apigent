@@ -13,6 +13,9 @@ export const OPERATION_TYPES = [
   /** 组织 / 仓库创建 */
   "org.create",
   "repo.create",
+  /** 组织 / 仓库删除 */
+  "org.delete",
+  "repo.delete",
   /** 组织成员：邀请 / 改角色 / 移除 */
   "member.invite",
   "member.role_change",
@@ -111,6 +114,8 @@ export interface OperationLogPage {
 //
 //   org.create             name / ownerId
 //   repo.create            name / organizationId / creatorRole
+//   org.delete             name / repositoryCount（组织日志随组织删除，此事件记为平台级）
+//   repo.delete            name / organizationId（仓库日志保留，仅解除 repositoryId 关联）
 //   member.invite          role                    写入的组织角色
 //   member.role_change     from / to               变更前后的组织角色
 //   member.remove          role                    被移除时的组织角色
