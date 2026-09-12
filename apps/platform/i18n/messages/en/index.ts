@@ -9,8 +9,24 @@ import dashboard from "./dashboard.json";
 import orgs from "./orgs.json";
 import repos from "./repos.json";
 import keys from "./keys.json";
+import audit from "./audit.json";
 import settings from "./settings.json";
 import common from "./common.json";
 import auth from "./auth.json";
 
-export default { nav, topbar, assistant, errors, notifications, contexts, dashboard, orgs, repos, keys, settings, common, auth } as const;
+export default {
+  nav,
+  topbar,
+  assistant,
+  errors,
+  notifications,
+  contexts,
+  dashboard,
+  orgs,
+  repos,
+  keys,
+  audit,
+  settings,
+  common,
+  auth,
+} as const;

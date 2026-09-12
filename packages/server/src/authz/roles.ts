@@ -1,6 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════
 // RBAC — 纯角色模型与层级（无 DB 依赖）
 // ═══════════════════════════════════════════════════════════════════
+//
+// 本文件是 authz 里**唯一可以直接被客户端组件导入**的模块，导出路径：
+//   `@apigent/server/authz/roles`
+// 它必须保持零依赖（不 import 任何东西），否则 `@apigent/server/db` 会顺着
+// 引用链把 `pg` 和 node 内置模块拖进浏览器包，`next build` 会直接失败
+// （历史事故：repo-members-view.tsx 从 `@apigent/server/authz` 桶文件导入
+// REPO_ROLES，见 git log）。其余 authz 模块会查库，只能在服务端使用。
+// ═══════════════════════════════════════════════════════════════════
 
 export type OrgRole = "org_owner" | "org_admin" | "org_member";
 export type RepoRole = "repo_owner" | "repo_admin" | "repo_member" | "repo_viewer";

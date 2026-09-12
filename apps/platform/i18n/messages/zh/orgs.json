@@ -63,6 +63,7 @@
         "overview": "概览",
         "members": "成员",
         "repos": "仓库",
+        "audit": "操作日志",
         "settings": "设置"
       },
       "membersTitle": "成员",

@@ -228,4 +228,4 @@ docs/modules/
 
 > **可观测性：** 已实现**日志规范 + reqId/taskId 贯穿**（阶段 A/B）；**Metrics 与 Tracing 未实现**（阶段 C/D，后端选型 SigNoz + OpenTelemetry）。详见 [observability.md](./observability.md)。
 >
-> **操作日志：** `operation_logs` / `operation_log_details` 表已定义但**未接线**（无写入 / 无 API / 无前端展示）；仓库、接口、数据模型、组织等变更暂不可审计。详见 [audit-log.md](./audit-log.md)。
+> **操作日志：** 成员类事件（`member.*` / `repo.member_*` / `org.transfer`）与创建类事件（`org.create` / `repo.create`）**已与业务写同事务落库**，并有只读查询 API 与前端展示（仓库设置 → 操作日志、组织详情 Tab）；导入明细、版本 / MCP / 密钥 / `admin.*` 仍未接线。详见 [audit-log.md](./audit-log.md)。

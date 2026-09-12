@@ -98,6 +98,7 @@ All packages follow this pattern from `packages/core/package.json`:
 - `main`/`types`/`exports` point to TypeScript source (no build step yet — runtimes consume `.ts` directly via ts-node/tsx/bun).
 - Subpath exports (e.g., `@apigent/core/config`) map to barrel files under `src/config/index.ts`.
 - Barrel exports re-export types separately from values — types are `export type { ... }` to avoid runtime import errors.
+- **Client components must never value-import from a barrel that (transitively) touches `@apigent/server/db`.** `next build` resolves the whole client graph, so importing e.g. `REPO_ROLES` from `@apigent/server/authz` pulls `pg` and node builtins into the browser bundle and fails with `Module not found: Can't resolve 'fs'`. Type-only imports (`import type { ... }`) are erased and safe. When a client component needs a value, add a dependency-free leaf subpath — `@apigent/server/authz/roles` is the example — and keep that module's imports at zero.
 
 ## Config Module Architecture
 
@@ -165,7 +166,7 @@ Working apps and server modules exist (V0 is further along than the earliest con
 - `apps/admin` — Admin Webapp (Next.js SSR, port 3001): audit, users, settings, stats (shell in V0).
 - `apps/open` — Open Gateway (Hono, port 3002); currently serves `/` and `/health` only. No MCP endpoint yet.
 - `packages/core` — config (`loadConfig()`: YAML + `.env` + zod), fail-fast DI container, types, i18n, agent registry.
-- `packages/server` — framework-agnostic services: Drizzle schema + migrations, Postgres queue, OpenAPI parser, contexts, versions, imports, auth/authz, notifications, logging, and the AI SDK model adapter (`src/ai`).
+- `packages/server` — framework-agnostic services: Drizzle schema + migrations, Postgres queue, OpenAPI parser, contexts, versions, imports, auth/authz, audit, notifications, logging, and the AI SDK model adapter (`src/ai`).
 - `packages/ui` — shadcn/ui components (Base UI + Tailwind v4).
 - Tests (Vitest) for `packages/core` config/DI and `packages/server` modules.
 - `tsconfig.base.json` at root, with per-package tsconfigs extending it.
@@ -174,4 +175,6 @@ Not yet implemented (designed only): MCP Gateway, the Embedding / pgvector / Bul
 
 **Repo access model:** the repository **directory** is visible to every signed-in user, but repository **contents** are gated by `repository_members` (explicit members) plus the implied roles of the owning Organization's `org_admin` / `org_owner`; anyone else gets 403. Resolution order is: explicit `repository_members` row → organization role → 403. Member management lives in repo settings → members (Platform), never in Admin.
 
-**Known authorization gaps** (full list and rollout order in `docs/tech-design.md` §5.4.8): `apps/admin` has no authentication at all, and `operation_logs` is unwired. SecretKey generation/verification is also unimplemented — the settings page buttons are disabled and nothing validates a key today.
+**Audit logging:** membership and create events (`member.*`, `repo.member_*`, `org.transfer`, `org.create`, `repo.create`) write an `operation_logs` row inside the same transaction as the business write, through `recordOperation(tx, …)` / `withAuditTransaction()` in `@apigent/server/audit`. Read paths: `GET /api/repos/:id/operations` (`repo_viewer`), `GET /api/orgs/:id/operations` (`org_member`), surfaced at `/repos/:id/settings/audit` and the Organization detail "Activity log" tab. Import detail rows, repository edit/delete, version activate/rollback, MCP, secret keys and `admin.*` are still unwired.
+
+**Known authorization gaps** (full list and rollout order in `docs/tech-design.md` §5.4.8): `apps/admin` has no authentication at all. SecretKey generation/verification is also unimplemented — the settings page buttons are disabled and nothing validates a key today.

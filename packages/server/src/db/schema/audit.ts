@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgTable, varchar, text, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 import { organizations } from "./organization";
@@ -29,6 +30,13 @@ export const operationLogs = pgTable(
       table.operationType,
       table.createdAt.desc(),
     ),
+    // 仓库审计页：WHERE repository_id = ? ORDER BY created_at DESC
+    index("operation_logs_repository_time_idx").on(table.repositoryId, table.createdAt.desc()),
+    // 平台级事件（organization_id IS NULL）不参与上面的复合索引，单独建部分索引，
+    // 否则 Admin 审计页的查询会退化成全表扫描。
+    index("operation_logs_platform_time_idx")
+      .on(table.createdAt.desc())
+      .where(sql`${table.organizationId} is null`),
   ],
 );
 

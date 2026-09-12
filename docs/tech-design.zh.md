@@ -969,15 +969,19 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 
 需要记录的事件（完整方案见 [modules/audit-log.md](./modules/audit-log.md)）：
 
-| 事件                                                       | 操作者               | 说明                   |
-| ---------------------------------------------------------- | -------------------- | ---------------------- |
-| `admin.grant` / `admin.revoke`                             | `admin_super`        | 平台侧**唯一**的写操作 |
-| `member.invite` / `member.role_change` / `member.remove`   | `org_admin`+         | 组织成员变更           |
-| `repo.member_add` / `member_role_change` / `member_remove` | 该仓库 `repo_admin`+ | 仓库成员变更           |
-| `org.transfer`                                             | `org_owner`          | 组织所有权转移         |
-| `admin.login`                                              | `admin_super`        | 可选                   |
+| 事件                                                                 | 操作者               | 状态      | 说明                                            |
+| -------------------------------------------------------------------- | -------------------- | --------- | ----------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                                    |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                                    |
+| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                                  |
+| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 创建者的隐式 owner 行在同一事务内写入           |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`        | ⏳ 待实现 | 平台侧**唯一**的写操作，随 `admin_members` 落地 |
+| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                                  |
+| 导入 / 设为当前 / MCP / 密钥                                         | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                                |
 
-`operation_logs.organizationId` 在平台级操作时为 NULL，而现有索引是 `(organizationId, operationType, createdAt)`——NULL 行不参与该索引，因此查询平台级事件需要额外索引或不同的查询条件。
+**已落地。** `packages/server/src/audit/` 提供 `recordOperation(tx, input)`——**必须传入事务句柄**，因此不可能在业务事务之外单独写审计行——以及 `withAuditTransaction(run)` 与 `listOperationLogs(filter)`。配套两个只读接口：`GET /api/repos/:id/operations`（`repo_viewer`）、`GET /api/orgs/:id/operations`（`org_member`），分别渲染在 `/repos/:id/settings/audit` 与组织详情的「操作日志」Tab。
+
+`operation_logs.organizationId` 在平台级操作时为 NULL，`(organizationId, operationType, createdAt)` 索引不覆盖这些行；迁移 `0001_audit_log_indexes.sql` 补了部分索引（`WHERE organization_id IS NULL`），并为按仓库读取补 `(repositoryId, createdAt)` 索引。
 
 ### 5.4.8 已知缺口与落地顺序
 
@@ -985,16 +989,17 @@ apps/platform/src/services/repo-members.ts # 仓库成员读写（显式成员 +
 
 - ✅ **仓库级鉴权覆盖全部 HTTP 入口**——每个接收 `repositoryId` 的路由都在入口层断言最低仓库角色（守卫见 `apps/platform/src/lib/repo-guard.ts`：读 `repo_viewer`、写与导入 `repo_member`、改默认版本指向与成员管理 `repo_admin`）。`getContextTask` / `retryContextTask` / `getImportTask` / `retryImportTask` 额外按 `repositoryId` 过滤——任务 id 全局唯一，只校验 URL 里的仓库不够，否则换个仓库前缀就能读到别的仓库的任务。把这些断言收敛为 `withRoute({ repo: … })` 的声明式写法仍待做（§5.4.4）。
 - ✅ **版本权限一致**——`activate` 与 `rollback` 现在都要求 `repo_admin`。
-- ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。**尚未接线审计**——`repo.member_*` 事件要等下面第 1 项完成后补上。
+- ✅ **仓库成员可管理**——`repository_members` 表取代了旧的 `repo_permissions` 覆盖层，仓库成员页（`/repos/:id/settings/members`）列出显式成员与组织隐含成员，支持添加 / 改角色 / 移除（`GET/POST /api/repos/:id/members`、`PATCH/DELETE /api/repos/:id/members/:userId`）。写入侧强制"目标必须是组织成员"，并允许显式行向下覆盖（§2.8.4）。
+- ✅ **成员变更已接线审计**——成员类 mutation（`member.*`、`repo.member_*`、`org.transfer`）以及 `org.create` / `repo.create` 的引导写入，都与业务写**在同一事务内**通过 `recordOperation(tx, …)` 落 `operation_logs`；读路径为 `GET /api/repos/:id/operations` 与 `GET /api/orgs/:id/operations`（§5.4.7）。**仍未落地：** 导入明细（`operation_log_details`）、仓库编辑 / 删除、版本设为当前 / 回滚、MCP 开关、密钥，以及 `admin.*` 事件。
 
 **剩余缺口**，按应修复的顺序排列：
 
-1. **审计未接线**——表已建，无人写入。成员变更（`member.*`、`repo.member_*`、`org.transfer`）都要与业务写在同一事务内落库。
-2. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
-3. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
+1. **`admin_members` 尚未创建**——Admin Webapp 目前完全无认证，能访问端口的人都能打开。
+2. **`users.is_platform_admin` 未使用**——`admin_members` 落地时一并删除，保持单一事实来源。
+3. **审计覆盖仍不完整**——成员与创建类事件已接线（§5.4.7）；导入、版本设为当前、MCP、密钥与 `admin.*` 未接线，导入明细（`operation_log_details`）仍为空。
 4. **待定项**——`admin_super` 能否读仓库内容（`admin:content:read`）；SecretKey 的签发/校验是否先于外部接口落地；`org:delete` / `repo:delete` / `repo:manage_mcp` 是否先实现（文档已描述，代码未实现）。
 
-建议顺序：1 → 2 → 3 / 4。
+建议顺序：1 → 2 / 3 → 4。
 
 ### 5.4.9 计划：引入第三方认证（NextAuth）
 

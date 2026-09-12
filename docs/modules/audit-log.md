@@ -1,65 +1,68 @@
-# Audit Log（操作日志）— 技术债记录
+# Audit Log（操作日志）— 设计与实现进度
 
-> **状态：** 仅 schema——`packages/server/src/db/schema/audit.ts`；尚无读写服务。
+> **状态：** 阶段 A（成员类事件写入）+ 阶段 C（查询 API 与展示）已落地；阶段 B（导入变更明细）与 `admin.*` 事件未实现。
 
-> **状态：V0 未接线（表已建，写/查/展示均未实现），记录以便后续实现**
+> 代码：`packages/server/src/audit/`（`recordOperation` / `withAuditTransaction` / `listOperationLogs`）、schema `packages/server/src/db/schema/audit.ts`。
 
-> **优先级已提升（2026-09-12）：** 审计日志是"平台管理员不能触碰租户数据"这条边界的**唯一可验证手段**，因此列为必须实现项，而不是可选增强。事件范围与写入约束见下方「事件清单」。
+> **定位（2026-09-12）：** 审计日志是"平台管理员不能触碰租户数据"这条边界的**唯一可验证手段**，因此是必须实现项，而不是可选增强。
 
 ## 目标
 
-让仓库 / 接口 / 数据模型 / 组织等实体上的关键操作可追踪、可审计：谁、在何时、对哪个资源、做了什么动作（导入版本、设为当前、邀请/移除成员、改角色、转移所有权、增删密钥、删除仓库、启停 MCP 等）。用于排障与合规审计，也是「面向 Agent 平台」可信度的基础。
+让仓库 / 接口 / 数据模型 / 组织等实体上的关键操作可追踪、可审计：谁、在何时、对哪个资源、做了什么动作（成员变更、所有权转移、导入版本、设为当前、增删密钥、删除仓库、启停 MCP 等）。用于排障与合规审计，也是「面向 Agent 平台」可信度的基础。
 
-## 现状（V0）
+## 现状
 
-| 项                         | 状态                                                                                                                                                                       |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `operation_logs` 表        | ✅ 已定义（`organization_id` / `repository_id` / `actor_id` / `operation_type` / `resource_type` / `resource_id` / `summary` JSONB / `created_at`；含 org+type+time 索引） |
-| `operation_log_details` 表 | ✅ 已定义（`change_type` / `operation_id_ref` / `method` / `path` / `from_endpoint_id` / `to_endpoint_id` / `fields_changed`；operation+method+path 唯一索引）             |
-| 服务层写入                 | ❌ 无（导入 / 权限 / 密钥 / MCP 等 mutation 均未写日志）                                                                                                                   |
-| 查询 API                   | ❌ 无（无按资源拉取操作记录的接口）                                                                                                                                        |
-| 前端展示                   | ❌ 无（仓库 / 组织 / 版本页均无操作历史区）                                                                                                                                |
-| 变更明细落库               | ❌ 无（导入 diff 结果未沉淀到 `operation_log_details`）                                                                                                                    |
+| 项                         | 状态                                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `operation_logs` 表        | ✅ 已定义（`organization_id` / `repository_id` / `actor_id` / `operation_type` / `resource_type` / `resource_id` / `summary` JSONB / `created_at`）              |
+| 索引                       | ✅ 组织+类型+时间复合索引、仓库+时间索引、**平台级部分索引**（`WHERE organization_id IS NULL`，见 `0001_audit_log_indexes.sql`）                                 |
+| `operation_log_details` 表 | ✅ 已定义（`change_type` / `operation_id_ref` / `method` / `path` / `from_endpoint_id` / `to_endpoint_id` / `fields_changed`；operation+method+path 唯一索引）   |
+| 服务层写入                 | 🟡 部分——成员 / 所有权 / 创建类事件已接线；导入、密钥、MCP、版本切换等未接线                                                                                     |
+| 查询服务                   | ✅ `listOperationLogs({ repositoryId \| organizationId \| platformOnly, limit, offset })`                                                                        |
+| 查询 API                   | ✅ `GET /api/repos/:id/operations`（`repo_viewer`）、`GET /api/orgs/:id/operations`（`org_member`），分页默认 50 / 上限 100                                      |
+| 前端展示                   | ✅ 仓库设置 →「操作日志」（`/repos/:id/settings/audit`）；组织详情 →「操作日志」Tab；共用一个只读表格组件 `apps/platform/src/components/operation-log-table.tsx` |
+| 变更明细落库               | ❌ 无（导入 diff 结果未沉淀到 `operation_log_details`）                                                                                                          |
 
-> 说明：`operation_log_details` 专为“导入版本变更明细”设计（跨版本的 `from/to_endpoint_id` + `fields_changed`），与版本对比（Phase 4）天然衔接，可复用同一份 diff 输出。
+## 事件清单
 
-## 缺口与落地步骤（分阶段，待讨论）
-
-### 事件清单（已确认要记录）
-
-| 事件                                                       | 操作者               | 说明                                            | 优先级   |
-| ---------------------------------------------------------- | -------------------- | ----------------------------------------------- | -------- |
-| `admin.grant` / `admin.revoke`                             | `admin_super`        | 授予/移除平台管理员角色——平台侧**唯一**的写操作 | **必做** |
-| `repo.member_add` / `member_role_change` / `member_remove` | 该仓库 `repo_admin`+ | 仓库成员变更（新功能）                          | **必做** |
-| `member.invite` / `member.role_change` / `member.remove`   | `org_admin`+         | 组织成员变更                                    | **必做** |
-| `org.transfer`                                             | `org_owner`          | 组织所有权转移                                  | **必做** |
-| `admin.login`                                              | `admin_super`        | 平台方登录留痕                                  | 可选     |
+| 事件                                                                 | 操作者               | 状态      | 说明                                             |
+| -------------------------------------------------------------------- | -------------------- | --------- | ------------------------------------------------ |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+         | ✅ 已接线 | 组织成员变更                                     |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | 该仓库 `repo_admin`+ | ✅ 已接线 | 仓库成员变更                                     |
+| `org.transfer`                                                       | `org_owner`          | ✅ 已接线 | 组织所有权转移                                   |
+| `org.create` / `repo.create`                                         | 创建者               | ✅ 已接线 | 建组织 / 建仓库（创建者自动成为 owner 一并留痕） |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`        | ⏳ 待实现 | 平台侧唯一的写操作，等 `admin_members` 落地      |
+| `admin.login`                                                        | `admin_super`        | ⏳ 可选   | 平台方登录留痕                                   |
+| 导入 / 设为当前 / MCP / 密钥等                                       | 对应 `repo_*` 角色   | ⏳ 待实现 | Phase A 剩余部分                                 |
 
 ### 写入约束（关键）
 
 1. **与业务写操作同一事务**：审计行必须和它所记录的那次变更在同一个事务里提交。否则会出现"操作成功了、日志没落库"，而这条日志是平台侧唯一的追溯依据，缺失即等于不可信。
-2. **`organization_id` 为 NULL 表示平台级操作**：现有索引是 `(organization_id, operation_type, created_at)`，NULL 行不参与该索引。Admin 审计页若要按"平台级操作"查询，需要额外索引或改写查询条件，避免全表扫描。
-3. **`summary` 用结构化 JSONB**，前端直接渲染，不依赖 i18n。
-4. **`operation_log_details` 只服务导入变更明细**，成员/权限类变更用 `summary` 即可，不需要写明细表。
+2. **`recordOperation` 只接受事务句柄**：签名是 `recordOperation(tx, input)`，不接受普通连接。拿不到 `tx` 就写不了日志，编译期即暴露；业务写统一用 `withAuditTransaction(async (tx) => …)` 包裹。
+3. **`organization_id` 为 NULL 表示平台级操作**：这些行不参与 `(organization_id, operation_type, created_at)` 复合索引，因此单独建了部分索引 `operation_logs_platform_time_idx`，避免 Admin 审计页全表扫描。
+4. **`summary` 用结构化 JSONB**，前端直接渲染，不依赖 i18n。字段约定见 `packages/server/src/audit/types.ts` 顶部注释（统一带 `targetUserId` / `targetEmail` / `targetName`，角色变更带 `from` / `to`，仓库成员事件另带 `impliedRole`）。
+5. **`operation_log_details` 只服务导入变更明细**，成员/权限类变更用 `summary` 即可，不写明细表。
 
-### 阶段 A · 服务层写入（最小闭环）
+### 读权限
 
-- 在关键 mutation **同一事务内**写 `operation_logs`：仓库（创建/编辑/删除）、导入版本、设为当前、MCP 开关、密钥（增删）、成员（邀请/移除/改角色/转移所有权）、平台管理员（授予/移除）、仓库成员（添加/改角色/移除）。
-- 统一入口：新增 `packages/server/src/audit/service.ts`，提供 `logOperation(input)`，内部判断 actor 是否为空（系统自动操作可空）。
-- `summary` 用结构化 JSONB（如 `{ repoName, version }`），前端可直接渲染，不依赖 i18n。
+操作日志是**只读**资源，读权限跟随所在资源：仓库侧 `repo_viewer`+，组织侧 `org_member`+。写入侧没有独立权限，由各 mutation 自身的授权兜底——能改成员的人才会产生成员类日志。
 
-### 阶段 B · 变更明细（与版本对比复用）
+## 未落地
 
-- 导入成功后，将纯规则 diff 的变更明细写入 `operation_log_details`（`change_type` = added/removed/modified、破坏性标记放入 `fields_changed` 或 `summary`）。
-- 版本对比页可直读该明细，避免重复计算。
+### 阶段 A 剩余：把其余 mutation 接线
 
-### 阶段 C · API + 前端展示
+仓库（编辑 / 删除）、导入版本、设为当前 / 回滚、MCP 开关、密钥（增删）、平台管理员（授予 / 移除）。做法同上：`withAuditTransaction` + `recordOperation(tx, …)`。
 
-- `GET /api/repos/:id/operations`、`GET /api/orgs/:id/operations`（分页，默认倒序）。
-- 仓库详情 / 组织详情新增「操作日志」分区或抽屉；版本页可联动展示“谁导入了此版本”。
-- 只读，`repo_viewer` / `org_member` 即可访问；写入侧由各 mutation 自身权限兜底。
+### 阶段 B：变更明细（与版本对比复用）
+
+导入成功后，将纯规则 diff 的变更明细写入 `operation_log_details`（`change_type` = added/removed/modified、破坏性标记放入 `fields_changed` 或 `summary`）。版本对比页可直读该明细，避免重复计算。
+
+### 阶段 C 剩余：分页与筛选 UI
+
+API 已支持 `limit` / `offset`，页面目前只取最近 50 条；待补「加载更多」与按操作类型筛选。Admin 审计页（平台级事件）等 `admin_members` 落地后接 `platformOnly`。
 
 ## 与其它模块的关联
 
 - **Phase 4 版本管理**：`设为当前 / 导出 / 对比` 均应写审计；diff 明细沉淀到 `operation_log_details`。
+- **Admin 门禁**：`admin.grant` / `admin.revoke` 是平台侧唯一写操作，与 `admin_members` 一起落地。
 - **Observability**：操作日志偏业务审计，日志/追踪偏系统诊断，二者不冲突，详见 [observability.md](./observability.md)。

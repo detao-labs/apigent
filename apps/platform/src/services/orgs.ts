@@ -21,6 +21,7 @@ import {
   getUserOrgRole,
   listAccessibleOrganizationIds,
 } from "@apigent/server/authz";
+import { recordOperation, withAuditTransaction } from "@apigent/server/audit";
 import { generateId } from "@apigent/server/id";
 
 export interface OrgSummary {
@@ -46,10 +47,7 @@ export async function listOrgs(userId: string): Promise<OrgSummary[]> {
       repoCount: sql<number>`${count(repositories.id)}::int`,
     })
     .from(organizations)
-    .leftJoin(
-      organizationMembers,
-      eq(organizationMembers.organizationId, organizations.id),
-    )
+    .leftJoin(organizationMembers, eq(organizationMembers.organizationId, organizations.id))
     .leftJoin(repositories, eq(repositories.organizationId, organizations.id))
     .where(inArray(organizations.id, accessible))
     .groupBy(organizations.id)
@@ -63,11 +61,7 @@ export async function listOrgs(userId: string): Promise<OrgSummary[]> {
 }
 
 export async function getOrgById(id: string) {
-  const [org] = await getDB()
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, id))
-    .limit(1);
+  const [org] = await getDB().select().from(organizations).where(eq(organizations.id, id)).limit(1);
   return org ?? null;
 }
 
@@ -83,8 +77,7 @@ export async function updateOrg(
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.description !== undefined
         ? {
-            description:
-              input.description.trim() !== "" ? input.description.trim() : null,
+            description: input.description.trim() !== "" ? input.description.trim() : null,
           }
         : {}),
       updatedAt: new Date(),
@@ -94,32 +87,39 @@ export async function updateOrg(
   return org ?? null;
 }
 
-export async function createOrg(input: {
-  name: string;
-  ownerId: string;
-  description?: string;
-}) {
-  const db = getDB();
+export async function createOrg(input: { name: string; ownerId: string; description?: string }) {
   const organizationId = generateId("org");
-  const [org] = await db
-    .insert(organizations)
-    .values({
-      id: organizationId,
-      name: input.name,
-      ownerId: input.ownerId,
-      description:
-        input.description && input.description.trim() !== ""
-          ? input.description.trim()
-          : null,
-    })
-    .returning();
-  // 创建者即 org_owner，写入成员表，供 RBAC 生效
-  await db.insert(organizationMembers).values({
-    organizationId,
-    userId: input.ownerId,
-    role: "org_owner",
+  return withAuditTransaction(async (tx) => {
+    const [org] = await tx
+      .insert(organizations)
+      .values({
+        id: organizationId,
+        name: input.name,
+        ownerId: input.ownerId,
+        description:
+          input.description && input.description.trim() !== "" ? input.description.trim() : null,
+      })
+      .returning();
+    if (!org) throw new Error("Failed to create organization");
+
+    // 创建者即 org_owner，写入成员表，供 RBAC 生效
+    await tx.insert(organizationMembers).values({
+      organizationId,
+      userId: input.ownerId,
+      role: "org_owner",
+    });
+
+    await recordOperation(tx, {
+      actorId: input.ownerId,
+      organizationId,
+      operationType: "org.create",
+      resourceType: "organization",
+      resourceId: organizationId,
+      summary: { name: org.name, ownerId: input.ownerId },
+    });
+
+    return org;
   });
-  return org;
 }
 
 export type OrgMemberRole = "org_owner" | "org_admin" | "org_member";
@@ -182,17 +182,10 @@ export interface OrgDetail {
 }
 
 /** 组织详情（org + 成员 + 仓库 + 我的角色）。无权限抛 ForbiddenError；不存在返回 null。 */
-export async function getOrgDetail(
-  id: string,
-  userId: string,
-): Promise<OrgDetail | null> {
+export async function getOrgDetail(id: string, userId: string): Promise<OrgDetail | null> {
   await assertOrgRole(userId, id, "org_member");
   const db = getDB();
-  const [org] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, id))
-    .limit(1);
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1);
   if (!org) return null;
 
   const [memberRows, repoRows, myRole] = await Promise.all([
@@ -236,10 +229,7 @@ export type OrgLoadResult =
   | { status: "not-found"; org: null };
 
 /** 页面侧：区分 无权限 / 不存在 / 正常，避免冒泡成 500。 */
-export async function loadOrgForPage(
-  id: string,
-  userId: string,
-): Promise<OrgLoadResult> {
+export async function loadOrgForPage(id: string, userId: string): Promise<OrgLoadResult> {
   try {
     const org = await getOrgDetail(id, userId);
     return org ? { status: "ok", org } : { status: "not-found", org: null };
@@ -256,30 +246,48 @@ export async function inviteOrgMember(
   input: { email: string; role: "org_admin" | "org_member" },
 ) {
   await assertOrgRole(actorId, organizationId, "org_admin");
-  const db = getDB();
-  const [user] = await db
-    .select({ id: users.id, name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.email, input.email.trim().toLowerCase()))
-    .limit(1);
-  if (!user) throw new UserNotFoundError();
-  const [existing] = await db
-    .select({ userId: organizationMembers.userId })
-    .from(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, user.id),
-      ),
-    )
-    .limit(1);
-  if (existing) throw new AlreadyMemberError();
-  await db.insert(organizationMembers).values({
-    organizationId,
-    userId: user.id,
-    role: input.role,
+
+  return withAuditTransaction(async (tx) => {
+    const [user] = await tx
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.email, input.email.trim().toLowerCase()))
+      .limit(1);
+    if (!user) throw new UserNotFoundError();
+
+    const [existing] = await tx
+      .select({ userId: organizationMembers.userId })
+      .from(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (existing) throw new AlreadyMemberError();
+
+    await tx.insert(organizationMembers).values({
+      organizationId,
+      userId: user.id,
+      role: input.role,
+    });
+    await recordOperation(tx, {
+      actorId,
+      organizationId,
+      operationType: "member.invite",
+      resourceType: "organization_member",
+      resourceId: user.id,
+      summary: {
+        targetUserId: user.id,
+        targetEmail: user.email,
+        targetName: user.name,
+        role: input.role,
+      },
+    });
+
+    return { userId: user.id, name: user.name, email: user.email, role: input.role };
   });
-  return { userId: user.id, name: user.name, email: user.email, role: input.role };
 }
 
 /** 变更成员角色。仅 org_admin+；owner 只能通过转移所有权变更。 */
@@ -290,28 +298,47 @@ export async function updateOrgMemberRole(
   role: OrgMemberRole,
 ) {
   await assertOrgRole(actorId, organizationId, "org_admin");
-  const db = getDB();
-  const [member] = await db
-    .select({ role: organizationMembers.role })
-    .from(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, targetUserId),
-      ),
-    )
-    .limit(1);
-  if (!member) throw new MemberNotFoundError();
-  if (member.role === "org_owner") throw new CannotModifyOwnerError();
-  await db
-    .update(organizationMembers)
-    .set({ role })
-    .where(
-      and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, targetUserId),
-      ),
-    );
+
+  await withAuditTransaction(async (tx) => {
+    const [member] = await tx
+      .select({ role: organizationMembers.role, name: users.name, email: users.email })
+      .from(organizationMembers)
+      .innerJoin(users, eq(users.id, organizationMembers.userId))
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, targetUserId),
+        ),
+      )
+      .limit(1);
+    if (!member) throw new MemberNotFoundError();
+    if (member.role === "org_owner") throw new CannotModifyOwnerError();
+
+    await tx
+      .update(organizationMembers)
+      .set({ role })
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, targetUserId),
+        ),
+      );
+
+    await recordOperation(tx, {
+      actorId,
+      organizationId,
+      operationType: "member.role_change",
+      resourceType: "organization_member",
+      resourceId: targetUserId,
+      summary: {
+        targetUserId,
+        targetEmail: member.email,
+        targetName: member.name,
+        from: member.role,
+        to: role,
+      },
+    });
+  });
 }
 
 /** 移除成员。仅 org_admin+；owner 不能直接移除。 */
@@ -321,27 +348,45 @@ export async function removeOrgMember(
   targetUserId: string,
 ) {
   await assertOrgRole(actorId, organizationId, "org_admin");
-  const db = getDB();
-  const [member] = await db
-    .select({ role: organizationMembers.role })
-    .from(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, targetUserId),
-      ),
-    )
-    .limit(1);
-  if (!member) throw new MemberNotFoundError();
-  if (member.role === "org_owner") throw new CannotModifyOwnerError();
-  await db
-    .delete(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, targetUserId),
-      ),
-    );
+
+  await withAuditTransaction(async (tx) => {
+    const [member] = await tx
+      .select({ role: organizationMembers.role, name: users.name, email: users.email })
+      .from(organizationMembers)
+      .innerJoin(users, eq(users.id, organizationMembers.userId))
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, targetUserId),
+        ),
+      )
+      .limit(1);
+    if (!member) throw new MemberNotFoundError();
+    if (member.role === "org_owner") throw new CannotModifyOwnerError();
+
+    await tx
+      .delete(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, targetUserId),
+        ),
+      );
+
+    await recordOperation(tx, {
+      actorId,
+      organizationId,
+      operationType: "member.remove",
+      resourceType: "organization_member",
+      resourceId: targetUserId,
+      summary: {
+        targetUserId,
+        targetEmail: member.email,
+        targetName: member.name,
+        role: member.role,
+      },
+    });
+  });
 }
 
 /** 转移所有权：新 owner 升为 org_owner，原 owner 降为 org_admin。仅当前 owner。 */
@@ -351,20 +396,21 @@ export async function transferOrgOwnership(
   targetUserId: string,
 ) {
   await assertOrgRole(actorId, organizationId, "org_owner");
-  const db = getDB();
-  const [target] = await db
-    .select({ userId: organizationMembers.userId })
-    .from(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.organizationId, organizationId),
-        eq(organizationMembers.userId, targetUserId),
-      ),
-    )
-    .limit(1);
-  if (!target) throw new MemberNotFoundError();
 
-  await db.transaction(async (tx) => {
+  await withAuditTransaction(async (tx) => {
+    const [target] = await tx
+      .select({ userId: organizationMembers.userId, name: users.name, email: users.email })
+      .from(organizationMembers)
+      .innerJoin(users, eq(users.id, organizationMembers.userId))
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, targetUserId),
+        ),
+      )
+      .limit(1);
+    if (!target) throw new MemberNotFoundError();
+
     await tx
       .update(organizations)
       .set({ ownerId: targetUserId, updatedAt: new Date() })
@@ -387,5 +433,20 @@ export async function transferOrgOwnership(
           eq(organizationMembers.userId, targetUserId),
         ),
       );
+
+    await recordOperation(tx, {
+      actorId,
+      organizationId,
+      operationType: "org.transfer",
+      resourceType: "organization",
+      resourceId: organizationId,
+      summary: {
+        fromUserId: actorId,
+        toUserId: targetUserId,
+        targetUserId,
+        targetEmail: target.email,
+        targetName: target.name,
+      },
+    });
   });
 }

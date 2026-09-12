@@ -9,7 +9,7 @@ AGENTS.md records only the conventions not already described there.
 - Prettier (`.prettierrc`): 2-space indent, double quotes, semicolons, trailing commas, 100-char width.
 - ESLint (`eslint.config.mjs`, typescript-eslint): unused variables/args are errors unless prefixed with `_`.
 - `strict` TypeScript with `moduleResolution: "bundler"` (`tsconfig.base.json`).
-- Source files are kebab-case `src/**/*.ts`; subpath exports point at barrel files, e.g. `@apigent/core/config` → `src/config/index.ts`. See CLAUDE.md for the `export type { ... }` rule.
+- Source files are kebab-case `src/**/*.ts`; subpath exports point at barrel files, e.g. `@apigent/core/config` → `src/config/index.ts`. Exception: a dependency-free leaf module may get its own subpath so client components can import its values without dragging server code into the browser bundle (`@apigent/server/authz/roles` → `src/authz/roles.ts`). See CLAUDE.md for the `export type { ... }` rule and the client-boundary rule.
 - `openapi:export` writes the public spec to `apps/platform/openapi/`.
 
 ## Testing Guidelines

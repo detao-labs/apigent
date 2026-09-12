@@ -1,0 +1,2 @@
+CREATE INDEX "operation_logs_repository_time_idx" ON "operation_logs" USING btree ("repository_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "operation_logs_platform_time_idx" ON "operation_logs" USING btree ("created_at" DESC NULLS LAST) WHERE "operation_logs"."organization_id" is null;

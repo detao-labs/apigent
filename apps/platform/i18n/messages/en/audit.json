@@ -1,0 +1,40 @@
+{
+  "audit": {
+    "title": "Activity log",
+    "subtitle": "Who did what, to which resource, and when (read-only)",
+    "empty": "No activity yet",
+    "emptyDesc": "Membership changes and ownership transfers are recorded here.",
+    "total": "{count} entries",
+    "colTime": "Time",
+    "colActor": "Actor",
+    "colOperation": "Operation",
+    "colTarget": "Target",
+    "colDetail": "Detail",
+    "systemActor": "System",
+    "unknownActor": "Deleted user",
+    "settingsEntryDesc": "Audit trail of membership changes and ownership transfers",
+    "operations": {
+      "org_create": "Organization created",
+      "repo_create": "Repository created",
+      "member_invite": "Organization member invited",
+      "member_role_change": "Organization member role changed",
+      "member_remove": "Organization member removed",
+      "repo_member_add": "Repository member added",
+      "repo_member_role_change": "Repository member role changed",
+      "repo_member_remove": "Repository member removed",
+      "org_transfer": "Organization ownership transferred",
+      "admin_grant": "Platform admin granted",
+      "admin_revoke": "Platform admin revoked",
+      "admin_login": "Platform sign-in"
+    },
+    "roles": {
+      "org_owner": "Owner",
+      "org_admin": "Admin",
+      "org_member": "Member",
+      "repo_owner": "Repository owner",
+      "repo_admin": "Repository admin",
+      "repo_member": "Repository member",
+      "repo_viewer": "Repository viewer"
+    }
+  }
+}

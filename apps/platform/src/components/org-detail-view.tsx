@@ -35,6 +35,7 @@ import {
   FolderGit2,
   Lock,
   Plus,
+  ScrollText,
   Settings,
   Trash2,
   Users,
@@ -50,14 +51,17 @@ const ROLE_BADGE: Record<OrgMemberRole, string> = {
 export function OrgDetailView({
   org,
   currentUserId,
+  auditSlot,
 }: {
   org: OrgDetail;
   currentUserId: string;
+  /** 操作日志表格（服务端组件），由页面传进来，避免把 server-only 依赖带进客户端包 */
+  auditSlot?: React.ReactNode;
 }) {
   const router = useRouter();
   const t = useTranslations("orgs.detail");
   const orgsT = useTranslations("orgs");
-  const [tab, setTab] = React.useState<"overview" | "members" | "repos" | "settings">(
+  const [tab, setTab] = React.useState<"overview" | "members" | "repos" | "audit" | "settings">(
     "overview",
   );
   const canManage = org.myRole === "org_owner" || org.myRole === "org_admin";
@@ -171,6 +175,7 @@ export function OrgDetailView({
     { key: "overview" as const, label: t("tabs.overview"), icon: Building2 },
     { key: "members" as const, label: t("tabs.members"), icon: Users },
     { key: "repos" as const, label: t("tabs.repos"), icon: FolderGit2 },
+    { key: "audit" as const, label: t("tabs.audit"), icon: ScrollText },
     { key: "settings" as const, label: t("tabs.settings"), icon: Settings },
   ];
 
@@ -188,18 +193,12 @@ export function OrgDetailView({
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{org.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {org.description || " "}
-            </p>
+            <p className="text-sm text-muted-foreground">{org.description || " "}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {canManage && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setInviteOpen(true)}
-            >
+            <Button type="button" variant="outline" onClick={() => setInviteOpen(true)}>
               <Plus className="size-4" />
               {t("invite")}
             </Button>
@@ -238,8 +237,16 @@ export function OrgDetailView({
             </Card>
           )}
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard icon={<Building2 className="size-4" />} label={t("statsRepos")} value={org.repos.length} />
-            <StatCard icon={<Users className="size-4" />} label={t("statsMembers")} value={org.members.length} />
+            <StatCard
+              icon={<Building2 className="size-4" />}
+              label={t("statsRepos")}
+              value={org.repos.length}
+            />
+            <StatCard
+              icon={<Users className="size-4" />}
+              label={t("statsMembers")}
+              value={org.members.length}
+            />
             <StatCard
               icon={<FolderGit2 className="size-4" />}
               label={t("statsEndpoints")}
@@ -282,9 +289,7 @@ export function OrgDetailView({
                     const isOwnerRow = m.role === "org_owner";
                     return (
                       <TableRow key={m.userId}>
-                        <TableCell className="font-medium">
-                          {rawName(m.userId)}
-                        </TableCell>
+                        <TableCell className="font-medium">{rawName(m.userId)}</TableCell>
                         <TableCell className="text-muted-foreground">{m.email}</TableCell>
                         <TableCell>
                           {isOwnerRow ? (
@@ -292,14 +297,18 @@ export function OrgDetailView({
                           ) : canManage ? (
                             <select
                               value={m.role}
-                              onChange={(e) => changeRole(m.userId, e.target.value as OrgMemberRole)}
+                              onChange={(e) =>
+                                changeRole(m.userId, e.target.value as OrgMemberRole)
+                              }
                               className="rounded-md border bg-transparent px-2 py-1 text-sm"
                             >
                               <option value="org_admin">{t("admin")}</option>
                               <option value="org_member">{t("member")}</option>
                             </select>
                           ) : (
-                            <Badge className={ROLE_BADGE[m.role]}>{t(m.role === "org_admin" ? "admin" : "member")}</Badge>
+                            <Badge className={ROLE_BADGE[m.role]}>
+                              {t(m.role === "org_admin" ? "admin" : "member")}
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
@@ -354,11 +363,13 @@ export function OrgDetailView({
                 </TableHeader>
                 <TableBody>
                   {org.repos.map((r) => (
-                    <TableRow key={r.id} className="cursor-pointer" onClick={() => router.push(`/repos/${r.id}`)}>
+                    <TableRow
+                      key={r.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/repos/${r.id}`)}
+                    >
                       <TableCell className="font-medium">{r.name}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {r.endpointCount}
-                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{r.endpointCount}</TableCell>
                       <TableCell className="text-right">
                         <Link
                           href={`/repos/${r.id}`}
@@ -377,6 +388,8 @@ export function OrgDetailView({
           </CardContent>
         </Card>
       )}
+
+      {tab === "audit" && <div>{auditSlot}</div>}
 
       {tab === "settings" && (
         <div className="max-w-xl space-y-4">
@@ -513,15 +526,7 @@ export function OrgDetailView({
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-}) {
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
     <Card>
       <CardContent className="flex items-center gap-3 p-4">

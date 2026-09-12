@@ -970,15 +970,19 @@ Every privileged mutation writes an `operation_logs` row **in the same transacti
 
 Events to record (full plan in [modules/audit-log.md](./modules/audit-log.md)):
 
-| Event                                                      | Actor                      | Notes                          |
-| ---------------------------------------------------------- | -------------------------- | ------------------------------ |
-| `admin.grant` / `admin.revoke`                             | `admin_super`              | The only admin write operation |
-| `member.invite` / `member.role_change` / `member.remove`   | `org_admin`+               | Organization membership        |
-| `repo.member_add` / `member_role_change` / `member_remove` | `repo_admin`+ on that repo | Repository membership changes  |
-| `org.transfer`                                             | `org_owner`                | Ownership transfer             |
-| `admin.login`                                              | `admin_super`              | Optional                       |
+| Event                                                                | Actor                      | Status      | Notes                                                      |
+| -------------------------------------------------------------------- | -------------------------- | ----------- | ---------------------------------------------------------- |
+| `member.invite` / `member.role_change` / `member.remove`             | `org_admin`+               | ✅ wired    | Organization membership                                    |
+| `repo.member_add` / `repo.member_role_change` / `repo.member_remove` | `repo_admin`+ on that repo | ✅ wired    | Repository membership                                      |
+| `org.transfer`                                                       | `org_owner`                | ✅ wired    | Ownership transfer                                         |
+| `org.create` / `repo.create`                                         | creator                    | ✅ wired    | The creator's implicit owner row is written in the same tx |
+| `admin.grant` / `admin.revoke`                                       | `admin_super`              | ⏳ pending  | The only admin write operation; lands with `admin_members` |
+| `admin.login`                                                        | `admin_super`              | ⏳ optional | Platform sign-in trail                                     |
+| import / activate / MCP / secret keys                                | matching `repo_*` role     | ⏳ pending  | Rest of phase A                                            |
 
-`operation_logs.organizationId` is NULL for platform-level operations, and the existing index is `(organizationId, operationType, createdAt)` — NULL rows do not participate in that index, so querying platform-level events needs an additional index or a different predicate.
+**Landed.** `packages/server/src/audit/` exposes `recordOperation(tx, input)` — a transaction handle is required, so an audit row cannot be written outside the transaction that performs the business write — plus `withAuditTransaction(run)` and `listOperationLogs(filter)`. Two read endpoints ship with it: `GET /api/repos/:id/operations` (`repo_viewer`) and `GET /api/orgs/:id/operations` (`org_member`), rendered on `/repos/:id/settings/audit` and in the Organization detail "Activity log" tab.
+
+`operation_logs.organizationId` is NULL for platform-level operations, and the `(organizationId, operationType, createdAt)` index does not cover those rows; migration `0001_audit_log_indexes.sql` adds a partial index (`WHERE organization_id IS NULL`) plus a `(repositoryId, createdAt)` index for the per-repository read path.
 
 ### 5.4.8 Known Gaps & Rollout Order
 
@@ -986,16 +990,17 @@ The model above is the target. **Already landed:**
 
 - ✅ **Repository authorization covers every HTTP entry point** — every route that receives a `repositoryId` asserts the caller's minimum repo role at the entry layer (`apps/platform/src/lib/repo-guard.ts`: reads need `repo_viewer`, writes and imports `repo_member`, moving the default-version pointer and member management `repo_admin`). `getContextTask`, `retryContextTask`, `getImportTask` and `retryImportTask` additionally filter by `repositoryId`, because task ids are globally unique and a repo-prefix swap would otherwise expose another repository's task. Collapsing these assertions into `withRoute({ repo: … })` declarations (§5.4.4) is still open.
 - ✅ **Consistent version permissions** — `activate` and `rollback` both require `repo_admin` now.
-- ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4). **Audit is not wired yet** — the `repo.member_*` events land with item 1 below.
+- ✅ **Repository members can be managed** — `repository_members` replaced the old `repo_permissions` override layer; the members page (`/repos/:id/settings/members`) lists explicit and Organization-implied members and supports add / change role / remove (`GET/POST /api/repos/:id/members`, `PATCH/DELETE /api/repos/:id/members/:userId`). Writes require the target to be an Organization member, and an explicit row may override downward (§2.8.4).
+- ✅ **Membership changes are audited** — every membership mutation (`member.*`, `repo.member_*`, `org.transfer`) and the `org.create` / `repo.create` bootstrap write their `operation_logs` row inside the same transaction as the business write, via `recordOperation(tx, …)`; read paths are `GET /api/repos/:id/operations` and `GET /api/orgs/:id/operations` (§5.4.7). **Still open:** import detail rows (`operation_log_details`), repository edit/delete, version activate/rollback, MCP toggle, secret keys, and the `admin.*` events.
 
 **Remaining gaps**, in the order they should be closed:
 
-1. **Audit logging is unwired** — the tables exist, nothing writes to them. Membership changes (`member.*`, `repo.member_*`, `org.transfer`) must be written in the same transaction as the business write.
-2. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
-3. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
+1. **`admin_members` does not exist** — the Admin Webapp has no authentication at all today: it is reachable by anyone who can reach the port.
+2. **`users.is_platform_admin` is unused** — remove it when `admin_members` lands, so there is a single source of truth.
+3. **Audit coverage is partial** — membership and create events are wired (§5.4.7); import, version activation, MCP, secret keys and `admin.*` are not. Import detail rows (`operation_log_details`) are still empty.
 4. **Open items** — whether `admin_super` may read repository content (`admin:content:read`); whether the SecretKey issue/verify path ships before the external surfaces; whether `org:delete` / `repo:delete` / `repo:manage_mcp` get implemented (documented but not implemented in code).
 
-Suggested order: 1 → 2 → 3 / 4.
+Suggested order: 1 → 2 / 3 → 4.
 
 ### 5.4.9 Planned: third-party authentication (NextAuth)
 

@@ -32,6 +32,7 @@ import {
   repositories,
   users,
 } from "@apigent/server/db";
+import { recordOperation, withAuditTransaction } from "@apigent/server/audit";
 
 export type RepoMemberErrorCode =
   "user-not-found" | "not-org-member" | "already-member" | "member-not-found";
@@ -133,7 +134,10 @@ const RANK: Record<RepoRole, number> = {
 // 仓库成员列表 = 显式成员（repository_members）+ 隐式成员（该组织的 admin / owner）。
 // 隐式成员也列出来，否则"组织管理员本来就能打开这个仓库"这件事在界面上是看
 // 不见的，只能靠读代码推断。
-export async function listRepoMembers(repositoryId: string, actorId: string): Promise<RepoMembersView> {
+export async function listRepoMembers(
+  repositoryId: string,
+  actorId: string,
+): Promise<RepoMembersView> {
   await assertRepoAccess(actorId, repositoryId, "repo_viewer");
   const repo = await loadRepoOrg(repositoryId);
   if (!repo) throw new ForbiddenError();
@@ -235,19 +239,25 @@ export async function listRepoMembers(repositoryId: string, actorId: string): Pr
   };
 }
 
+interface RepoMemberTarget {
+  repo: RepoOrg;
+  target: { id: string; name: string; email: string };
+  orgRole: OrgRole;
+}
+
 // 写入前置校验：操作者需 repo_admin+，目标需是组织成员。显式行可以高于或低于
 // 目标的组织隐含角色——低于时就是对这个仓库单独收口。
 async function assertCanManageMember(
   repositoryId: string,
   actorId: string,
   targetUserId: string,
-): Promise<RepoOrg> {
+): Promise<RepoMemberTarget> {
   await assertRepoAccess(actorId, repositoryId, "repo_admin");
   const repo = await loadRepoOrg(repositoryId);
   if (!repo) throw new ForbiddenError();
 
   const [target] = await getDB()
-    .select({ id: users.id })
+    .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
     .where(eq(users.id, targetUserId))
     .limit(1);
@@ -255,14 +265,16 @@ async function assertCanManageMember(
 
   const orgRole = await getUserOrgRole(target.id, repo.organizationId);
   if (!orgRole) throw new RepoMemberError("not-org-member");
-  return repo;
+  return { repo, target, orgRole };
 }
 
 async function findMemberRole(repositoryId: string, userId: string): Promise<RepoRole | null> {
   const [row] = await getDB()
     .select({ role: repositoryMembers.role })
     .from(repositoryMembers)
-    .where(and(eq(repositoryMembers.repositoryId, repositoryId), eq(repositoryMembers.userId, userId)))
+    .where(
+      and(eq(repositoryMembers.repositoryId, repositoryId), eq(repositoryMembers.userId, userId)),
+    )
     .limit(1);
   return (row?.role as RepoRole) ?? null;
 }
@@ -293,14 +305,36 @@ export async function addRepoMember(
   actorId: string,
   input: { userId: string; role: RepoRole },
 ): Promise<RepoMemberRow> {
-  await assertCanManageMember(repositoryId, actorId, input.userId);
+  const { repo, target, orgRole } = await assertCanManageMember(
+    repositoryId,
+    actorId,
+    input.userId,
+  );
   if (await findMemberRole(repositoryId, input.userId)) {
     throw new RepoMemberError("already-member");
   }
 
-  await getDB()
-    .insert(repositoryMembers)
-    .values({ repositoryId, userId: input.userId, role: input.role, grantedBy: actorId });
+  await withAuditTransaction(async (tx) => {
+    await tx
+      .insert(repositoryMembers)
+      .values({ repositoryId, userId: input.userId, role: input.role, grantedBy: actorId });
+    await recordOperation(tx, {
+      actorId,
+      organizationId: repo.organizationId,
+      repositoryId,
+      operationType: "repo.member_add",
+      resourceType: "repository_member",
+      resourceId: input.userId,
+      summary: {
+        targetUserId: input.userId,
+        targetEmail: target.email,
+        targetName: target.name,
+        role: input.role,
+        impliedRole: orgRoleToRepoRole(orgRole),
+      },
+    });
+  });
+
   return loadMemberRow(repositoryId, input.userId);
 }
 
@@ -311,15 +345,44 @@ export async function updateRepoMember(
   targetUserId: string,
   role: RepoRole,
 ): Promise<RepoMemberRow> {
-  await assertCanManageMember(repositoryId, actorId, targetUserId);
-  if (!(await findMemberRole(repositoryId, targetUserId))) {
+  const { repo, target, orgRole } = await assertCanManageMember(
+    repositoryId,
+    actorId,
+    targetUserId,
+  );
+  const currentRole = await findMemberRole(repositoryId, targetUserId);
+  if (!currentRole) {
     throw new RepoMemberError("member-not-found");
   }
 
-  await getDB()
-    .update(repositoryMembers)
-    .set({ role })
-    .where(and(eq(repositoryMembers.repositoryId, repositoryId), eq(repositoryMembers.userId, targetUserId)));
+  await withAuditTransaction(async (tx) => {
+    await tx
+      .update(repositoryMembers)
+      .set({ role })
+      .where(
+        and(
+          eq(repositoryMembers.repositoryId, repositoryId),
+          eq(repositoryMembers.userId, targetUserId),
+        ),
+      );
+    await recordOperation(tx, {
+      actorId,
+      organizationId: repo.organizationId,
+      repositoryId,
+      operationType: "repo.member_role_change",
+      resourceType: "repository_member",
+      resourceId: targetUserId,
+      summary: {
+        targetUserId,
+        targetEmail: target.email,
+        targetName: target.name,
+        from: currentRole,
+        to: role,
+        impliedRole: orgRoleToRepoRole(orgRole),
+      },
+    });
+  });
+
   return loadMemberRow(repositoryId, targetUserId);
 }
 
@@ -331,11 +394,44 @@ export async function removeRepoMember(
   targetUserId: string,
 ): Promise<void> {
   await assertRepoAccess(actorId, repositoryId, "repo_admin");
-  const deleted = await getDB()
-    .delete(repositoryMembers)
-    .where(and(eq(repositoryMembers.repositoryId, repositoryId), eq(repositoryMembers.userId, targetUserId)))
-    .returning({ userId: repositoryMembers.userId });
-  if (deleted.length === 0) throw new RepoMemberError("member-not-found");
+  const repo = await loadRepoOrg(repositoryId);
+  if (!repo) throw new ForbiddenError();
+  const impliedRole = orgRoleToRepoRole(await getUserOrgRole(targetUserId, repo.organizationId));
+
+  await withAuditTransaction(async (tx) => {
+    const [removed] = await tx
+      .delete(repositoryMembers)
+      .where(
+        and(
+          eq(repositoryMembers.repositoryId, repositoryId),
+          eq(repositoryMembers.userId, targetUserId),
+        ),
+      )
+      .returning({ userId: repositoryMembers.userId, role: repositoryMembers.role });
+    if (!removed) throw new RepoMemberError("member-not-found");
+
+    const [target] = await tx
+      .select({ name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, targetUserId))
+      .limit(1);
+
+    await recordOperation(tx, {
+      actorId,
+      organizationId: repo.organizationId,
+      repositoryId,
+      operationType: "repo.member_remove",
+      resourceType: "repository_member",
+      resourceId: targetUserId,
+      summary: {
+        targetUserId,
+        targetEmail: target?.email ?? null,
+        targetName: target?.name ?? null,
+        role: removed.role,
+        impliedRole,
+      },
+    });
+  });
 }
 
 // 批量查询某用户在给定仓库集合上的显式成员角色（列表页标记"能不能打开"）。
@@ -347,6 +443,11 @@ export async function listRepoMemberRoles(
   const rows = await getDB()
     .select({ repositoryId: repositoryMembers.repositoryId, role: repositoryMembers.role })
     .from(repositoryMembers)
-    .where(and(eq(repositoryMembers.userId, userId), inArray(repositoryMembers.repositoryId, repositoryIds)));
+    .where(
+      and(
+        eq(repositoryMembers.userId, userId),
+        inArray(repositoryMembers.repositoryId, repositoryIds),
+      ),
+    );
   return new Map(rows.map((row) => [row.repositoryId, row.role as RepoRole]));
 }

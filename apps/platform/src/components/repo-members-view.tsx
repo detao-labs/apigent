@@ -26,7 +26,9 @@ import {
   TableRow,
 } from "@apigent/ui";
 import { Plus, ShieldAlert, Trash2 } from "lucide-react";
-import { REPO_ROLES, type RepoRole } from "@apigent/server/authz";
+// 走 `authz/roles` 这个零依赖子路径：从 `@apigent/server/authz` 桶文件导入会把
+// `pg` 拖进客户端包，`next build` 会因 `Can't resolve 'fs'` 失败。
+import { REPO_ROLES, type RepoRole } from "@apigent/server/authz/roles";
 import type { RepoMembersView as RepoMembersViewData } from "@/services/repo-members";
 
 const ROLE_BADGE: Record<RepoRole, string> = {

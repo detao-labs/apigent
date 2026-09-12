@@ -28,6 +28,7 @@ import {
   assertRepoAccess,
   listAccessibleRepositoryIds,
 } from "@apigent/server/authz";
+import { recordOperation, withAuditTransaction } from "@apigent/server/audit";
 import { generateId } from "@apigent/server/id";
 import { getOrgById } from "@/services/orgs";
 
@@ -74,49 +75,60 @@ export async function createRepo(
   const org = await getOrgById(input.organizationId);
   if (!org) throw new OrgNotFoundError(input.organizationId);
 
-  const db = getDB();
-  const [repo] = await db
-    .insert(repositories)
-    .values({
-      id: generateId("repo"),
-      organizationId: org.id,
-      name: input.name,
-      description:
-        input.description && input.description.trim() !== "" ? input.description.trim() : null,
-    })
-    .returning({
-      id: repositories.id,
-      name: repositories.name,
-      description: repositories.description,
-      organizationId: repositories.organizationId,
-      mcpEnabled: repositories.mcpEnabled,
-      createdAt: repositories.createdAt,
+  return withAuditTransaction(async (tx) => {
+    const [repo] = await tx
+      .insert(repositories)
+      .values({
+        id: generateId("repo"),
+        organizationId: org.id,
+        name: input.name,
+        description:
+          input.description && input.description.trim() !== "" ? input.description.trim() : null,
+      })
+      .returning({
+        id: repositories.id,
+        name: repositories.name,
+        description: repositories.description,
+        organizationId: repositories.organizationId,
+        mcpEnabled: repositories.mcpEnabled,
+        createdAt: repositories.createdAt,
+      });
+
+    if (!repo) throw new Error("Failed to create repository");
+
+    // 新建仓库即创建默认 main 版本（活线），首个导入前 head 为 NULL。
+    await tx.insert(versions).values({
+      id: generateId("version"),
+      repositoryId: repo.id,
+      name: "main",
+      isDefault: true,
+      headCommitId: null,
     });
 
-  if (!repo) throw new Error("Failed to create repository");
+    // 创建者自动成为该仓库 owner——仓库内容是显式成员制，否则新仓库没有第一位
+    // 成员，org_member 建完之后自己都打不开。
+    await tx.insert(repositoryMembers).values({
+      repositoryId: repo.id,
+      userId,
+      role: "repo_owner",
+    });
 
-  // 新建仓库即创建默认 main 版本（活线），首个导入前 head 为 NULL。
-  await db.insert(versions).values({
-    id: generateId("version"),
-    repositoryId: repo.id,
-    name: "main",
-    isDefault: true,
-    headCommitId: null,
+    await recordOperation(tx, {
+      actorId: userId,
+      organizationId: org.id,
+      repositoryId: repo.id,
+      operationType: "repo.create",
+      resourceType: "repository",
+      resourceId: repo.id,
+      summary: { name: repo.name, organizationId: org.id, creatorRole: "repo_owner" },
+    });
+
+    return {
+      ...repo,
+      mcpEnabled: Boolean(repo.mcpEnabled ?? false),
+      orgName: org.name,
+    };
   });
-
-  // 创建者自动成为该仓库 owner——仓库内容是显式成员制，否则新仓库没有第一位
-  // 成员，org_member 建完之后自己都打不开。
-  await db.insert(repositoryMembers).values({
-    repositoryId: repo.id,
-    userId,
-    role: "repo_owner",
-  });
-
-  return {
-    ...repo,
-    mcpEnabled: Boolean(repo.mcpEnabled ?? false),
-    orgName: org.name,
-  };
 }
 
 export async function updateRepo(
@@ -174,7 +186,10 @@ export async function listRepos(userId: string): Promise<RepoSummary[]> {
     })
     .from(repositories)
     .leftJoin(organizations, eq(repositories.organizationId, organizations.id))
-    .leftJoin(versions, and(eq(versions.repositoryId, repositories.id), eq(versions.isDefault, true)))
+    .leftJoin(
+      versions,
+      and(eq(versions.repositoryId, repositories.id), eq(versions.isDefault, true)),
+    )
     .orderBy(desc(repositories.updatedAt));
 
   return rows.map((row) => {
@@ -406,7 +421,10 @@ async function defaultHeadCommitId(repositoryId: string): Promise<string | null>
 }
 
 /** 默认主版本下的接口列表（模块由 tags 派生）。 */
-export async function getRepoEndpoints(repositoryId: string, userId: string): Promise<RepoEndpoint[]> {
+export async function getRepoEndpoints(
+  repositoryId: string,
+  userId: string,
+): Promise<RepoEndpoint[]> {
   await assertRepoAccess(userId, repositoryId, "repo_viewer");
   const db = getDB();
   const commitId = await defaultHeadCommitId(repositoryId);
@@ -493,7 +511,10 @@ export interface RepoDataModel {
   } | null;
 }
 
-export async function getRepoDataModels(repositoryId: string, userId: string): Promise<RepoDataModel[]> {
+export async function getRepoDataModels(
+  repositoryId: string,
+  userId: string,
+): Promise<RepoDataModel[]> {
   await assertRepoAccess(userId, repositoryId, "repo_viewer");
   const db = getDB();
   const commitId = await defaultHeadCommitId(repositoryId);

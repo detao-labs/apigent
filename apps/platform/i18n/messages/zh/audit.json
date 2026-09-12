@@ -1,0 +1,40 @@
+{
+  "audit": {
+    "title": "操作日志",
+    "subtitle": "谁在何时对哪个资源做了什么（只读）",
+    "empty": "暂无操作记录",
+    "emptyDesc": "成员变更、所有权转移等操作会记录在这里。",
+    "total": "共 {count} 条",
+    "colTime": "时间",
+    "colActor": "操作者",
+    "colOperation": "操作",
+    "colTarget": "对象",
+    "colDetail": "详情",
+    "systemActor": "系统",
+    "unknownActor": "已注销用户",
+    "settingsEntryDesc": "成员变更与所有权转移的留痕记录",
+    "operations": {
+      "org_create": "创建组织",
+      "repo_create": "创建仓库",
+      "member_invite": "邀请组织成员",
+      "member_role_change": "变更组织成员角色",
+      "member_remove": "移除组织成员",
+      "repo_member_add": "添加仓库成员",
+      "repo_member_role_change": "变更仓库成员角色",
+      "repo_member_remove": "移除仓库成员",
+      "org_transfer": "转移组织所有权",
+      "admin_grant": "授予平台管理员",
+      "admin_revoke": "移除平台管理员",
+      "admin_login": "平台登录"
+    },
+    "roles": {
+      "org_owner": "所有者",
+      "org_admin": "管理员",
+      "org_member": "成员",
+      "repo_owner": "仓库所有者",
+      "repo_admin": "仓库管理员",
+      "repo_member": "仓库成员",
+      "repo_viewer": "仓库只读"
+    }
+  }
+}
