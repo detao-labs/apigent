@@ -25,9 +25,7 @@ export function AppSidebar() {
   // Repo detail and settings pages render their own rails, so the global
   // sidebar is hidden there (see repo-detail layout & settings page).
   const isRepoDetail =
-    pathname.startsWith("/repos/") &&
-    pathname !== "/repos" &&
-    !pathname.startsWith("/repos/new");
+    pathname.startsWith("/repos/") && pathname !== "/repos" && !pathname.startsWith("/repos/new");
   const isSettings = pathname.startsWith("/settings");
   if (isRepoDetail || isSettings) return null;
 
@@ -45,9 +43,7 @@ export function AppSidebar() {
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-semibold">Apigent</span>
-                <span className="text-xs text-muted-foreground">
-                  {t("brandSubtitle")}
-                </span>
+                <span className="text-xs text-muted-foreground">{t("brandSubtitle")}</span>
               </div>
             </Link>
           </SidebarMenuItem>
@@ -60,10 +56,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={isActive("/")}
-                  tooltip={t("dashboard")}
-                >
+                <SidebarMenuButton isActive={isActive("/")} tooltip={t("dashboard")}>
                   <Link href="/" className="flex w-full items-center gap-2">
                     <LayoutDashboard />
                     <span>{t("dashboard")}</span>
@@ -80,10 +73,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={isActive("/orgs")}
-                  tooltip={t("organizations")}
-                >
+                <SidebarMenuButton isActive={isActive("/orgs")} tooltip={t("organizations")}>
                   <Link href="/orgs" className="flex w-full items-center gap-2">
                     <Building2 />
                     <span>{t("organizations")}</span>
@@ -91,10 +81,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={isActive("/repos")}
-                  tooltip={t("repositories")}
-                >
+                <SidebarMenuButton isActive={isActive("/repos")} tooltip={t("repositories")}>
                   <Link href="/repos" className="flex w-full items-center gap-2">
                     <Database />
                     <span>{t("repositories")}</span>
@@ -109,10 +96,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              isActive={isActive("/settings")}
-              tooltip={t("settings")}
-            >
+            <SidebarMenuButton isActive={isActive("/settings")} tooltip={t("settings")}>
               <Link href="/settings" className="flex w-full items-center gap-2">
                 <Settings />
                 <span>{t("settings")}</span>

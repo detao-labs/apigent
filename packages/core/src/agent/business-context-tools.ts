@@ -25,21 +25,20 @@ export const CONSTRAINT_TYPES = [
 ] as const;
 
 /** 业务上下文草稿（与 business_contexts 表字段对应，UI 用 camelCase） */
-export const BusinessContextSchema = z
-  .object({
-    capabilityName: z.string(),
-    intent: z.string(),
-    constraints: z.array(
-      z.object({
-        type: z.enum(CONSTRAINT_TYPES),
-        rule: z.string(),
-      }),
-    ),
-    sideEffects: z.array(z.string()),
-    usageScenarios: z.array(z.string()),
-    confidence: z.number().min(0).max(1),
-    needsReview: z.boolean(),
-  });
+export const BusinessContextSchema = z.object({
+  capabilityName: z.string(),
+  intent: z.string(),
+  constraints: z.array(
+    z.object({
+      type: z.enum(CONSTRAINT_TYPES),
+      rule: z.string(),
+    }),
+  ),
+  sideEffects: z.array(z.string()),
+  usageScenarios: z.array(z.string()),
+  confidence: z.number().min(0).max(1),
+  needsReview: z.boolean(),
+});
 // 注：不启用 strict —— LLM 输出可能携带额外字段（如 reasoning/description），
 // zod 默认 strip 掉未知键，保证批量生成与前端表单校验的一致性。
 
@@ -89,8 +88,7 @@ export const generateContextTool: AgentToolDefinition<{
 
 export const applyEditDraftTool: AgentToolDefinition<{ draft: BusinessContext }> = {
   name: "apply_edit_draft",
-  description:
-    "把生成的结构化业务上下文草稿填充到前端编辑表单中，用户可查看、修改和撤销。",
+  description: "把生成的结构化业务上下文草稿填充到前端编辑表单中，用户可查看、修改和撤销。",
   inputSchema: z
     .object({
       draft: BusinessContextSchema,

@@ -4,3 +4,9 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 .next/
+
+# shadcn/ui 生成的组件：保持与上游生成结果一致，重新生成时不会被格式化冲掉
+packages/ui/src/components/ui/
+
+# 静态设计稿（HTML mockup + 资源）：格式化只产生 diff 噪音，没有维护价值
+design/

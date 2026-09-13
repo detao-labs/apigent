@@ -12,12 +12,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-} from "@apigent/ui";
+import { Badge, Button, Card, CardContent } from "@apigent/ui";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import type { EndpointContextSummary } from "@/services/contexts";
 import type { ContextTaskSummary } from "@apigent/server/contexts";
@@ -92,19 +87,15 @@ export function ContextManagement({ repositoryId }: { repositoryId: string }) {
       const started = Date.now();
       while (taskId && Date.now() - started < 10 * 60 * 1000) {
         await new Promise((resolve) => setTimeout(resolve, 3000));
-        const taskRes = await fetch(
-          `/api/repos/${repositoryId}/context-tasks/latest`,
-          { cache: "no-store" },
-        );
+        const taskRes = await fetch(`/api/repos/${repositoryId}/context-tasks/latest`, {
+          cache: "no-store",
+        });
         const taskData = (await taskRes.json()) as {
           task?: ContextTaskSummary;
         };
         const latest = taskData.task;
         setTask(latest ?? null);
-        if (
-          latest &&
-          (latest.status === "succeeded" || latest.status === "failed")
-        ) {
+        if (latest && (latest.status === "succeeded" || latest.status === "failed")) {
           break;
         }
       }
@@ -117,8 +108,7 @@ export function ContextManagement({ repositoryId }: { repositoryId: string }) {
     }
   }
 
-  const generatingTask =
-    task && (task.status === "queued" || task.status === "running");
+  const generatingTask = task && (task.status === "queued" || task.status === "running");
 
   return (
     <div className="space-y-4">
@@ -132,9 +122,7 @@ export function ContextManagement({ repositoryId }: { repositoryId: string }) {
           )}
         </p>
         <Button type="button" onClick={generateAll} disabled={generating}>
-          <RefreshCw
-            className={`mr-1.5 size-4 ${generating ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`mr-1.5 size-4 ${generating ? "animate-spin" : ""}`} />
           {generating ? t("generating") : t("regenerate")}
         </Button>
       </div>
@@ -180,9 +168,7 @@ export function ContextManagement({ repositoryId }: { repositoryId: string }) {
                       {item.method}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-mono text-sm">
-                        {item.path}
-                      </span>
+                      <span className="block truncate font-mono text-sm">{item.path}</span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {item.capabilityName ?? item.summary ?? "—"}
                       </span>

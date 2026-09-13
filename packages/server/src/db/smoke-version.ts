@@ -147,7 +147,9 @@ async function main() {
   const [user] = await db.select({ id: users.id }).from(users).limit(1);
   if (!user) throw new Error("no user; run db:seed first");
   const organizationId = generateId("org");
-  await db.insert(organizations).values({ id: organizationId, name: "Smoke Org", ownerId: user.id });
+  await db
+    .insert(organizations)
+    .values({ id: organizationId, name: "Smoke Org", ownerId: user.id });
 
   // 仓库 + 默认 main
   const repositoryId = generateId("repo");
@@ -173,7 +175,10 @@ async function main() {
   ok("import1 has 3 endpoint blobs", blobs1.length === 3, `${blobs1.length}`);
   const head1 = (await getDefaultVersionId(repositoryId)) === versionId;
   ok("main is default", head1);
-  const dmBlobs = await db.select().from(dataModels).where(eq(dataModels.repositoryId, repositoryId));
+  const dmBlobs = await db
+    .select()
+    .from(dataModels)
+    .where(eq(dataModels.repositoryId, repositoryId));
   ok("import1 created 1 data model blob (User)", dmBlobs.length === 1, `${dmBlobs.length}`);
 
   // 导入 2（增量）：2 未变复用 + 1 修改 → 新增 1 blob

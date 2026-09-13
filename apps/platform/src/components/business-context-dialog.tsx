@@ -81,8 +81,7 @@ export function BusinessContextDialog() {
   const [sideEffectsText, setSideEffectsText] = React.useState("");
   const [usageScenariosText, setUsageScenariosText] = React.useState("");
 
-  const selected =
-    items.find((item) => item.endpointId === selectedId) ?? null;
+  const selected = items.find((item) => item.endpointId === selectedId) ?? null;
   const hasContext = Boolean(selected && selected.capabilityName);
 
   const close = React.useCallback(() => {
@@ -147,9 +146,7 @@ export function BusinessContextDialog() {
     if (selected.intent === undefined) return;
     setCapabilityName(selected.capabilityName ?? "");
     setIntent(selected.intent ?? "");
-    setConstraints(
-      (selected.constraints as ConstraintRow[] | null) ?? [],
-    );
+    setConstraints((selected.constraints as ConstraintRow[] | null) ?? []);
     setSideEffectsText((selected.sideEffects ?? []).join("\n"));
     setUsageScenariosText((selected.usageScenarios ?? []).join("\n"));
   }, [selected]);
@@ -158,22 +155,19 @@ export function BusinessContextDialog() {
     if (!repositoryId || !selectedId || !selected) return;
     setSaving(true);
     try {
-      const res = await fetch(
-        `/api/repos/${repositoryId}/contexts/${selectedId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            capabilityName,
-            intent,
-            constraints,
-            sideEffects: splitLines(sideEffectsText),
-            usageScenarios: splitLines(usageScenariosText),
-            confidence: selected.confidence ?? 0.8,
-            needsReview: false,
-          }),
-        },
-      );
+      const res = await fetch(`/api/repos/${repositoryId}/contexts/${selectedId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          capabilityName,
+          intent,
+          constraints,
+          sideEffects: splitLines(sideEffectsText),
+          usageScenarios: splitLines(usageScenariosText),
+          confidence: selected.confidence ?? 0.8,
+          needsReview: false,
+        }),
+      });
       if (!res.ok) throw new Error(`save failed: ${res.status}`);
       toast.success(t("saved"));
       close();
@@ -210,10 +204,9 @@ export function BusinessContextDialog() {
         const started = Date.now();
         while (Date.now() - started < 5 * 60 * 1000) {
           await new Promise((resolve) => setTimeout(resolve, 3000));
-          const taskRes = await fetch(
-            `/api/repos/${repositoryId}/context-tasks/${taskId}`,
-            { cache: "no-store" },
-          );
+          const taskRes = await fetch(`/api/repos/${repositoryId}/context-tasks/${taskId}`, {
+            cache: "no-store",
+          });
           const taskData = (await taskRes.json()) as {
             task?: ContextTaskSummary;
           };
@@ -233,9 +226,7 @@ export function BusinessContextDialog() {
   }
 
   function updateConstraint(index: number, patch: Partial<ConstraintRow>) {
-    setConstraints((rows) =>
-      rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
-    );
+    setConstraints((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   return (
@@ -274,8 +265,8 @@ export function BusinessContextDialog() {
             {t("subtitle")}
             {selected && hasContext && (
               <span className="ml-2 text-xs text-muted-foreground">
-                {t("confidence")}: {Math.round((selected.confidence ?? 0) * 100)}%
-                · {t("source")}: {selected.generatedBy ?? "—"}
+                {t("confidence")}: {Math.round((selected.confidence ?? 0) * 100)}% · {t("source")}:{" "}
+                {selected.generatedBy ?? "—"}
               </span>
             )}
           </DialogDescription>
@@ -287,9 +278,7 @@ export function BusinessContextDialog() {
             {t("loading")}
           </div>
         ) : !selected ? (
-          <div className="py-16 text-center text-sm text-muted-foreground">
-            {t("empty")}
-          </div>
+          <div className="py-16 text-center text-sm text-muted-foreground">{t("empty")}</div>
         ) : (
           <div className="grid gap-4">
             {items.length > 1 && (
@@ -322,11 +311,7 @@ export function BusinessContextDialog() {
               </div>
               <div className="grid gap-1.5">
                 <label className="text-sm font-medium">{t("intent")}</label>
-                <Textarea
-                  value={intent}
-                  onChange={(e) => setIntent(e.target.value)}
-                  rows={3}
-                />
+                <Textarea value={intent} onChange={(e) => setIntent(e.target.value)} rows={3} />
               </div>
               <div className="grid gap-1.5">
                 <div className="flex items-center justify-between">
@@ -336,10 +321,7 @@ export function BusinessContextDialog() {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      setConstraints((rows) => [
-                        ...rows,
-                        { type: "business_rule", rule: "" },
-                      ])
+                      setConstraints((rows) => [...rows, { type: "business_rule", rule: "" }])
                     }
                   >
                     <Plus className="mr-1 size-3.5" />
@@ -354,9 +336,7 @@ export function BusinessContextDialog() {
                     <div key={index} className="flex gap-2">
                       <select
                         value={row.type}
-                        onChange={(e) =>
-                          updateConstraint(index, { type: e.target.value })
-                        }
+                        onChange={(e) => updateConstraint(index, { type: e.target.value })}
                         className="h-9 rounded-md border bg-transparent px-2 text-sm"
                       >
                         {CONSTRAINT_TYPES.map((type) => (
@@ -367,9 +347,7 @@ export function BusinessContextDialog() {
                       </select>
                       <Input
                         value={row.rule}
-                        onChange={(e) =>
-                          updateConstraint(index, { rule: e.target.value })
-                        }
+                        onChange={(e) => updateConstraint(index, { rule: e.target.value })}
                         placeholder={t("rulePlaceholder")}
                       />
                       <Button
@@ -377,11 +355,7 @@ export function BusinessContextDialog() {
                         variant="ghost"
                         size="icon"
                         className="size-9 shrink-0"
-                        onClick={() =>
-                          setConstraints((rows) =>
-                            rows.filter((_, i) => i !== index),
-                          )
-                        }
+                        onClick={() => setConstraints((rows) => rows.filter((_, i) => i !== index))}
                       >
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
@@ -418,9 +392,7 @@ export function BusinessContextDialog() {
             onClick={() => setConfirmOpen(true)}
             disabled={!selected || regenerating}
           >
-            <RefreshCw
-              className={`mr-1.5 size-4 ${regenerating ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`mr-1.5 size-4 ${regenerating ? "animate-spin" : ""}`} />
             {regenerating ? t("generating") : t("regenerate")}
           </Button>
           <Button type="button" onClick={save} disabled={!selected || saving}>

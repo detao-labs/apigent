@@ -108,11 +108,7 @@ export class PgQueueProvider implements QueueProvider {
         await handler({ id: row.id, name: row.name, data: row.data });
         await this.setFinished(row.id, "completed", null);
       } catch (err) {
-        await this.setFinished(
-          row.id,
-          "failed",
-          err instanceof Error ? err.message : String(err),
-        );
+        await this.setFinished(row.id, "failed", err instanceof Error ? err.message : String(err));
       }
       return true;
     } finally {

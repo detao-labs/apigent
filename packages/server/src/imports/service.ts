@@ -166,7 +166,9 @@ export async function getLatestImportTask(repositoryId: string): Promise<ImportT
       createdAt: repositoryTasks.createdAt,
     })
     .from(repositoryTasks)
-    .where(and(eq(repositoryTasks.repositoryId, repositoryId), eq(repositoryTasks.taskType, "import")))
+    .where(
+      and(eq(repositoryTasks.repositoryId, repositoryId), eq(repositoryTasks.taskType, "import")),
+    )
     .orderBy(desc(repositoryTasks.createdAt))
     .limit(1);
   return row ? toSummary(row) : null;

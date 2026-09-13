@@ -37,9 +37,7 @@ export function McpConnectCard({
       <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div>
-            <p className="text-xs text-muted-foreground">
-              {t("connectAgent.serviceUrl")}
-            </p>
+            <p className="text-xs text-muted-foreground">{t("connectAgent.serviceUrl")}</p>
             <code className="mt-1 block truncate rounded-md bg-muted px-2 py-1 text-xs">
               {mcpUrl}
             </code>
@@ -54,10 +52,7 @@ export function McpConnectCard({
         </pre>
         <div className="flex gap-2">
           <CopyButton text={snippet} label={t("connectAgent.copy")} />
-          <Link
-            href="/settings"
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
+          <Link href="/settings" className={buttonVariants({ variant: "ghost", size: "sm" })}>
             {t("connectAgent.guide")}
           </Link>
         </div>

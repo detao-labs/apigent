@@ -33,26 +33,14 @@ export function CopyButton({
   }
 
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      size="sm"
-      className={className}
-      onClick={copy}
-    >
+    <Button type="button" variant="secondary" size="sm" className={className} onClick={copy}>
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
       {copied ? t("copied") : label}
     </Button>
   );
 }
 
-export function CopyIconButton({
-  text,
-  title,
-}: {
-  text: string;
-  title?: string;
-}) {
+export function CopyIconButton({ text, title }: { text: string; title?: string }) {
   const [copied, setCopied] = React.useState(false);
 
   async function copy() {
@@ -80,11 +68,7 @@ export function CopyIconButton({
       className="size-6 shrink-0 p-0"
       onClick={copy}
     >
-      {copied ? (
-        <Check className="size-3 text-green-600" />
-      ) : (
-        <Copy className="size-3" />
-      )}
+      {copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}
     </Button>
   );
 }

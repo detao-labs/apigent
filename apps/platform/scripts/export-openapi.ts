@@ -13,11 +13,7 @@ const outFile = path.resolve(scriptDir, "../openapi/platform.json");
 
 async function main() {
   await mkdir(path.dirname(outFile), { recursive: true });
-  await writeFile(
-    outFile,
-    `${JSON.stringify(createOpenApiDocument(), null, 2)}\n`,
-    "utf8",
-  );
+  await writeFile(outFile, `${JSON.stringify(createOpenApiDocument(), null, 2)}\n`, "utf8");
 
   console.log(`OpenAPI spec written to ${outFile}`);
 }

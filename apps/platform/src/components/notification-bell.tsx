@@ -76,9 +76,7 @@ export function NotificationBell() {
     if (item.payload.href) router.push(item.payload.href);
     if (!item.readAt) {
       setItems((prev) =>
-        prev.map((n) =>
-          n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n,
-        ),
+        prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n)),
       );
       setUnread((c) => Math.max(0, c - 1));
       void fetch(`/api/notifications/${item.id}/read`, { method: "POST" }).catch(() => {});
@@ -87,9 +85,7 @@ export function NotificationBell() {
 
   async function markAllRead() {
     await fetch("/api/notifications/read-all", { method: "POST" }).catch(() => {});
-    setItems((prev) =>
-      prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
-    );
+    setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
     setUnread(0);
   }
 
@@ -141,9 +137,7 @@ export function NotificationBell() {
         </div>
         <DropdownMenuSeparator />
         {grouped.length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-            {t("empty")}
-          </div>
+          <div className="px-3 py-8 text-center text-sm text-muted-foreground">{t("empty")}</div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
             {grouped.map(({ category, items: group }) => (
@@ -157,9 +151,7 @@ export function NotificationBell() {
                     className="items-start gap-2 py-2"
                     onClick={() => openNotification(item)}
                   >
-                    <Circle
-                      className={`mt-1.5 size-2 shrink-0 ${PRIORITY_DOT[item.priority]}`}
-                    />
+                    <Circle className={`mt-1.5 size-2 shrink-0 ${PRIORITY_DOT[item.priority]}`} />
                     <span
                       className={`min-w-0 text-sm ${
                         item.readAt ? "text-muted-foreground" : "font-medium"

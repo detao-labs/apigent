@@ -69,9 +69,11 @@ export function validateAPI(api: APIEntry): ParseIssue[] {
 /**
  * Validates a schema entry.
  */
-export function validateSchema(
-  schema: { name: string; type?: string; properties: Record<string, unknown> },
-): ParseIssue[] {
+export function validateSchema(schema: {
+  name: string;
+  type?: string;
+  properties: Record<string, unknown>;
+}): ParseIssue[] {
   const issues: ParseIssue[] = [];
 
   if (!schema.name || schema.name.trim().length === 0) {

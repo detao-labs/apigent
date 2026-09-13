@@ -18,7 +18,11 @@ function sha256(input: string): string {
 }
 
 /** 接口身份：operationId 优先，缺省 METHOD:PATH（大写+trim）。 */
-export function endpointIdentity(operationId: string | null | undefined, method: string, path: string): string {
+export function endpointIdentity(
+  operationId: string | null | undefined,
+  method: string,
+  path: string,
+): string {
   return operationId ?? `${method.trim().toUpperCase()}:${path.trim()}`;
 }
 
@@ -39,9 +43,15 @@ export function hashResponse(resp: ResponseDef): string {
 export function hashEndpoint(api: APIEntry): string {
   const responses = [...api.responses]
     .sort((a, b) =>
-      `${a.statusCode}:${a.contentType ?? ""}`.localeCompare(`${b.statusCode}:${b.contentType ?? ""}`),
+      `${a.statusCode}:${a.contentType ?? ""}`.localeCompare(
+        `${b.statusCode}:${b.contentType ?? ""}`,
+      ),
     )
-    .map((r) => ({ hash: hashResponse(r), statusCode: r.statusCode, contentType: r.contentType ?? null }));
+    .map((r) => ({
+      hash: hashResponse(r),
+      statusCode: r.statusCode,
+      contentType: r.contentType ?? null,
+    }));
 
   return sha256(
     stableStringify({

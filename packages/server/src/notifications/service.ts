@@ -63,18 +63,20 @@ export async function createNotification(input: NotificationInput): Promise<stri
   if (pref && !pref.enabled) return "";
 
   const id = generateId("notification");
-  await getDB().insert(notifications).values({
-    id,
-    userId: input.userId,
-    category: input.category,
-    type: input.type,
-    priority: input.priority ?? "medium",
-    titleKey: input.titleKey,
-    titleParams: input.titleParams ?? {},
-    payload: input.payload ?? {},
-    metadata: input.metadata ?? {},
-    expiresAt: input.expiresAt ?? null,
-  });
+  await getDB()
+    .insert(notifications)
+    .values({
+      id,
+      userId: input.userId,
+      category: input.category,
+      type: input.type,
+      priority: input.priority ?? "medium",
+      titleKey: input.titleKey,
+      titleParams: input.titleParams ?? {},
+      payload: input.payload ?? {},
+      metadata: input.metadata ?? {},
+      expiresAt: input.expiresAt ?? null,
+    });
   return id;
 }
 
@@ -90,9 +92,10 @@ export async function listNotificationPreferences(
     .from(notificationPreferences)
     .where(eq(notificationPreferences.userId, userId));
   const map = new Map(rows.map((r) => [r.category, r.enabled ?? true]));
-  return Object.fromEntries(
-    NOTIFICATION_CATEGORIES.map((c) => [c, map.get(c) ?? true]),
-  ) as Record<NotificationCategory, boolean>;
+  return Object.fromEntries(NOTIFICATION_CATEGORIES.map((c) => [c, map.get(c) ?? true])) as Record<
+    NotificationCategory,
+    boolean
+  >;
 }
 
 /** 设置某分类通知开关。 */

@@ -4,20 +4,9 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { Badge, Card, CardContent, Input } from "@apigent/ui";
-import {
-  Boxes,
-  ChevronRight,
-  Component,
-  Folder,
-  ListTree,
-  Search,
-} from "lucide-react";
+import { Boxes, ChevronRight, Component, Folder, ListTree, Search } from "lucide-react";
 import { SchemaTree } from "@/components/schema-tree";
-import type {
-  RepoComponentDef,
-  RepoDataModel,
-  RepoEndpoint,
-} from "@/services/repos";
+import type { RepoComponentDef, RepoDataModel, RepoEndpoint } from "@/services/repos";
 
 const METHOD_STYLES: Record<string, string> = {
   GET: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -59,8 +48,7 @@ export function DefinitionView({
         ? "comp"
         : null;
   const initialId = params.endpointId ?? params.schemaId ?? params.componentId ?? null;
-  const selectedKey =
-    initialType && initialId ? `${initialType}:${initialId}` : null;
+  const selectedKey = initialType && initialId ? `${initialType}:${initialId}` : null;
 
   const [selected, setSelected] = React.useState<string | null>(selectedKey);
   const [query, setQuery] = React.useState("");
@@ -84,15 +72,11 @@ export function DefinitionView({
   );
   const filteredModels = models.filter(
     (m) =>
-      !q ||
-      m.name.toLowerCase().includes(q) ||
-      (m.description ?? "").toLowerCase().includes(q),
+      !q || m.name.toLowerCase().includes(q) || (m.description ?? "").toLowerCase().includes(q),
   );
   const filteredComponents = components.filter(
     (c) =>
-      !q ||
-      c.name.toLowerCase().includes(q) ||
-      (c.description ?? "").toLowerCase().includes(q),
+      !q || c.name.toLowerCase().includes(q) || (c.description ?? "").toLowerCase().includes(q),
   );
 
   const endpointGroups = React.useMemo(() => {
@@ -117,8 +101,7 @@ export function DefinitionView({
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filteredComponents, d]);
 
-  const toggleGroup = (key: string) =>
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleGroup = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const groupOpen = (key: string) => !collapsed[key];
 
@@ -126,11 +109,7 @@ export function DefinitionView({
     setSelected(key);
     const [type, id] = key.split(":");
     const segment =
-      type === "ep"
-        ? `endpoints/${id}`
-        : type === "model"
-          ? `schemas/${id}`
-          : `components/${id}`;
+      type === "ep" ? `endpoints/${id}` : type === "model" ? `schemas/${id}` : `components/${id}`;
     router.replace(`/repos/${repositoryId}/definition/${segment}`);
   }
 
@@ -389,9 +368,7 @@ function TreeNode({
       {icon}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm">{title}</span>
-        <span className="block truncate text-xs font-mono text-muted-foreground">
-          {subtitle}
-        </span>
+        <span className="block truncate text-xs font-mono text-muted-foreground">{subtitle}</span>
       </span>
     </button>
   );
@@ -412,16 +389,14 @@ function EndpointDetail({
         <div className="flex flex-wrap items-center gap-2">
           <Badge className={methodStyle(ep.method)}>{ep.method}</Badge>
           <code className="font-mono text-sm">{ep.path}</code>
-          {ep.deprecated && (
-            <Badge variant="destructive">{te("endpointsDeprecated")}</Badge>
-          )}
+          {ep.deprecated && <Badge variant="destructive">{te("endpointsDeprecated")}</Badge>}
         </div>
-        <h2 className="mt-2 text-xl font-bold tracking-tight">
-          {ep.summary ?? ep.path}
-        </h2>
+        <h2 className="mt-2 text-xl font-bold tracking-tight">{ep.summary ?? ep.path}</h2>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {ep.operationId && (
-            <span>{te("endpointsOperationId")}: {ep.operationId}</span>
+            <span>
+              {te("endpointsOperationId")}: {ep.operationId}
+            </span>
           )}
           {ep.modules.map((m) => (
             <Badge key={m} variant="secondary">
@@ -432,9 +407,7 @@ function EndpointDetail({
       </div>
 
       {ep.description && (
-        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-          {ep.description}
-        </p>
+        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{ep.description}</p>
       )}
 
       <section>
@@ -510,9 +483,7 @@ function EndpointDetail({
                       {r.contentType}
                     </Badge>
                   )}
-                  <span className="text-sm text-muted-foreground">
-                    {r.description || "—"}
-                  </span>
+                  <span className="text-sm text-muted-foreground">{r.description || "—"}</span>
                 </div>
                 {r.schema ? (
                   <SchemaRefView schemaRef={r.schema} onSelectModel={onSelectModel} />
@@ -526,13 +497,7 @@ function EndpointDetail({
   );
 }
 
-function ModelDetail({
-  m,
-  d,
-}: {
-  m: RepoDataModel;
-  d: (key: string) => string;
-}) {
+function ModelDetail({ m, d }: { m: RepoDataModel; d: (key: string) => string }) {
   const raw = m.schemaRaw ?? {};
   const fieldCount = raw.properties ? Object.keys(raw.properties).length : 0;
   return (
@@ -546,9 +511,7 @@ function ModelDetail({
           </span>
         )}
       </div>
-      {m.description && (
-        <p className="text-sm text-muted-foreground">{m.description}</p>
-      )}
+      {m.description && <p className="text-sm text-muted-foreground">{m.description}</p>}
       <SchemaTree schema={raw} />
     </div>
   );
@@ -583,13 +546,16 @@ function ComponentDetail({
 
   if (c.kind === "securityScheme") {
     if (typeof p.in === "string") meta.push(row("In", p.in));
-    if (typeof p.scheme === "string") meta.push(row("Scheme", <code className="font-mono">{p.scheme}</code>));
+    if (typeof p.scheme === "string")
+      meta.push(row("Scheme", <code className="font-mono">{p.scheme}</code>));
     if (typeof p.bearerFormat === "string") meta.push(row("Bearer format", p.bearerFormat));
     if (p.flows) meta.push(row("Flows", <code className="font-mono">OAuth2</code>));
   } else if (c.kind === "parameter") {
-    if (typeof p.name === "string") meta.push(row("Name", <code className="font-mono">{p.name}</code>));
+    if (typeof p.name === "string")
+      meta.push(row("Name", <code className="font-mono">{p.name}</code>));
   } else if (c.kind === "response") {
-    if (typeof p.contentType === "string") meta.push(row("Media type", <code className="font-mono">{p.contentType}</code>));
+    if (typeof p.contentType === "string")
+      meta.push(row("Media type", <code className="font-mono">{p.contentType}</code>));
   } else if (c.kind === "requestBody") {
     const content = p.content as Record<string, unknown> | undefined;
     if (content) meta.push(row("Media type", Object.keys(content).join(", ")));
@@ -601,12 +567,12 @@ function ComponentDetail({
       meta.push(row("operationRef", <code className="font-mono">{p.operationRef}</code>));
     }
     if (p.parameters) {
-      meta.push(row("Parameters", <code className="font-mono">{JSON.stringify(p.parameters)}</code>));
+      meta.push(
+        row("Parameters", <code className="font-mono">{JSON.stringify(p.parameters)}</code>),
+      );
     }
   } else if (c.kind === "callback") {
-    const expressions = Object.keys(p).filter(
-      (k) => k.includes("{") || k.includes("$"),
-    );
+    const expressions = Object.keys(p).filter((k) => k.includes("{") || k.includes("$"));
     if (expressions.length) {
       meta.push(row("Runtime URL", <code className="font-mono">{expressions.join(", ")}</code>));
     }
@@ -620,16 +586,14 @@ function ComponentDetail({
       </div>
       <Card>
         <CardContent className="p-0">
-          {meta.length
-            ? meta.map((item, i) => (
-                <React.Fragment key={i}>{item}</React.Fragment>
-              ))
-            : <p className="px-4 py-3 text-sm text-muted-foreground">—</p>}
+          {meta.length ? (
+            meta.map((item, i) => <React.Fragment key={i}>{item}</React.Fragment>)
+          ) : (
+            <p className="px-4 py-3 text-sm text-muted-foreground">—</p>
+          )}
         </CardContent>
       </Card>
-      {schema ? (
-        <SchemaRefView schemaRef={schema} onSelectModel={onSelectModel} />
-      ) : null}
+      {schema ? <SchemaRefView schemaRef={schema} onSelectModel={onSelectModel} /> : null}
     </div>
   );
 }

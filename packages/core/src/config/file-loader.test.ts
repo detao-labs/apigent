@@ -116,7 +116,7 @@ describe("loadConfig — .env loading", () => {
     process.env.APIGENT_AUTH_SECRET = "shell-secret";
     fs.writeFileSync(
       path.join(dir, "apigent.config.yaml"),
-      ["mcp:", "  publicUrl: \"https://mcp.example.com/#/tools\"", ""].join("\n"),
+      ["mcp:", '  publicUrl: "https://mcp.example.com/#/tools"', ""].join("\n"),
     );
 
     const config = loadConfig(dir);

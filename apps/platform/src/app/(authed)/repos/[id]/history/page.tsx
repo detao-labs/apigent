@@ -92,9 +92,15 @@ export default async function RepoHistoryPage({ params }: { params: Promise<{ id
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1.5 text-xs">
-                        <Badge variant="secondary">+ {e.changeSummary?.added.length ?? 0} {t("added")}</Badge>
-                        <Badge variant="secondary">~ {e.changeSummary?.updated.length ?? 0} {t("updated")}</Badge>
-                        <Badge variant="destructive">- {e.changeSummary?.removed.length ?? 0} {t("removed")}</Badge>
+                        <Badge variant="secondary">
+                          + {e.changeSummary?.added.length ?? 0} {t("added")}
+                        </Badge>
+                        <Badge variant="secondary">
+                          ~ {e.changeSummary?.updated.length ?? 0} {t("updated")}
+                        </Badge>
+                        <Badge variant="destructive">
+                          - {e.changeSummary?.removed.length ?? 0} {t("removed")}
+                        </Badge>
                       </div>
                     </TableCell>
                   </TableRow>

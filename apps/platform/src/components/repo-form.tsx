@@ -94,10 +94,7 @@ export function RepoForm({ orgs }: { orgs: OrgSummary[] }) {
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              <Link
-                href="/orgs/new"
-                className="underline underline-offset-4 hover:text-primary"
-              >
+              <Link href="/orgs/new" className="underline underline-offset-4 hover:text-primary">
                 {t("createOrg")}
               </Link>{" "}
               {t("orgHint")}

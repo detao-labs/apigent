@@ -20,11 +20,7 @@ export async function seed(): Promise<void> {
   loadConfig();
   const db = getDB();
 
-  const existing = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, DEV_USER_EMAIL))
-    .limit(1);
+  const existing = await db.select().from(users).where(eq(users.email, DEV_USER_EMAIL)).limit(1);
 
   if (existing.length > 0) {
     console.log("[seed] Dev user already exists — nothing to do");

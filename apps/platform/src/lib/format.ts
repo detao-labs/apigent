@@ -12,15 +12,9 @@ const DIVISIONS: { amount: number; name: Intl.RelativeTimeFormatUnit }[] = [
   { amount: Number.POSITIVE_INFINITY, name: "years" },
 ];
 
-export function formatRelativeTime(
-  date: Date | string,
-  locale: string,
-): string {
+export function formatRelativeTime(date: Date | string, locale: string): string {
   const value = typeof date === "string" ? new Date(date) : date;
-  const rtf = new Intl.RelativeTimeFormat(
-    locale === "en" ? "en" : "zh-CN",
-    { numeric: "auto" },
-  );
+  const rtf = new Intl.RelativeTimeFormat(locale === "en" ? "en" : "zh-CN", { numeric: "auto" });
 
   let seconds = (value.getTime() - Date.now()) / 1000;
   for (const division of DIVISIONS) {

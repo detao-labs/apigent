@@ -74,12 +74,11 @@ export async function listEndpointContexts(
     .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
     .leftJoin(
       businessContexts,
-      and(
-        eq(businessContexts.endpointId, endpoints.id),
-        eq(businessContexts.versionId, commitId),
-      ),
+      and(eq(businessContexts.endpointId, endpoints.id), eq(businessContexts.versionId, commitId)),
     )
-    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")))
+    .where(
+      and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")),
+    )
     .orderBy(endpoints.path, endpoints.method);
 
   return rows.map((row) => ({
@@ -147,18 +146,12 @@ export async function saveEndpointContext(
     .select({ id: businessContexts.id })
     .from(businessContexts)
     .where(
-      and(
-        eq(businessContexts.endpointId, endpointId),
-        eq(businessContexts.versionId, commitId),
-      ),
+      and(eq(businessContexts.endpointId, endpointId), eq(businessContexts.versionId, commitId)),
     )
     .limit(1);
 
   if (existing) {
-    await db
-      .update(businessContexts)
-      .set(values)
-      .where(eq(businessContexts.id, existing.id));
+    await db.update(businessContexts).set(values).where(eq(businessContexts.id, existing.id));
   } else {
     await db.insert(businessContexts).values({
       id: generateId("context"),
@@ -173,15 +166,14 @@ export async function saveEndpointContext(
   await refreshCapabilitySnapshot(repositoryId, commitId);
 }
 
-async function refreshCapabilitySnapshot(
-  repositoryId: string,
-  commitId: string,
-): Promise<void> {
+async function refreshCapabilitySnapshot(repositoryId: string, commitId: string): Promise<void> {
   const db = getDB();
   const [epCount] = await db
     .select({ value: count() })
     .from(versionEntityLinks)
-    .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")));
+    .where(
+      and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint")),
+    );
   const rows = await db
     .select({
       generatedBy: businessContexts.generatedBy,

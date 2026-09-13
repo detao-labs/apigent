@@ -53,59 +53,59 @@ export function OrgForm() {
 
   return (
     <PageContainer>
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground">{t("description")}</p>
-      </div>
+      <div className="max-w-2xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("description")}</p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("details")}</CardTitle>
-          <CardDescription>{t("detailsDesc")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">
-                {t("name")}
-              </label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                required
-                placeholder={t("namePlaceholder")}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="description" className="text-sm font-medium">
-                {t("descriptionLabel")}
-              </label>
-              <Textarea
-                id="description"
-                name="description"
-                rows={3}
-                placeholder={t("descriptionPlaceholder")}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex items-center gap-3 pt-4">
-              <Button type="submit" disabled={submitting}>
-                {t("submit")}
-              </Button>
-              <Link href="/orgs" className={buttonVariants({ variant: "ghost" })}>
-                {t("cancel")}
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("details")}</CardTitle>
+            <CardDescription>{t("detailsDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">
+                  {t("name")}
+                </label>
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  placeholder={t("namePlaceholder")}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="description" className="text-sm font-medium">
+                  {t("descriptionLabel")}
+                </label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  rows={3}
+                  placeholder={t("descriptionPlaceholder")}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <div className="flex items-center gap-3 pt-4">
+                <Button type="submit" disabled={submitting}>
+                  {t("submit")}
+                </Button>
+                <Link href="/orgs" className={buttonVariants({ variant: "ghost" })}>
+                  {t("cancel")}
+                </Link>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </PageContainer>
   );
 }

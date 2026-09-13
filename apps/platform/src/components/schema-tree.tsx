@@ -25,9 +25,10 @@ function normalizeSchema(schema: unknown): unknown {
   }
   if (s.properties && typeof s.properties === "object") {
     s.properties = Object.fromEntries(
-      Object.entries(s.properties as Record<string, unknown>).map(
-        ([key, value]) => [key, normalizeSchema(value)],
-      ),
+      Object.entries(s.properties as Record<string, unknown>).map(([key, value]) => [
+        key,
+        normalizeSchema(value),
+      ]),
     );
   }
   if (s.additionalProperties && typeof s.additionalProperties === "object") {

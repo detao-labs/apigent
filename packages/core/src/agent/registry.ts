@@ -13,10 +13,7 @@ export type AgentToolExecutor<Input = unknown, Output = unknown> = (
   input: Input,
 ) => Promise<Output>;
 
-type AnyToolExecutor = (
-  ctx: AgentToolContext,
-  input: unknown,
-) => Promise<unknown>;
+type AnyToolExecutor = (ctx: AgentToolContext, input: unknown) => Promise<unknown>;
 
 export class AgentToolRegistry {
   private definitions = new Map<string, AgentToolDefinition>();
@@ -31,10 +28,7 @@ export class AgentToolRegistry {
     }
     this.definitions.set(definition.name, definition);
     if (executor) {
-      this.executors.set(
-        definition.name,
-        executor as unknown as AnyToolExecutor,
-      );
+      this.executors.set(definition.name, executor as unknown as AnyToolExecutor);
     }
     return this;
   }

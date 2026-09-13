@@ -65,12 +65,8 @@ export function OrgsTable({ orgs }: { orgs: OrgSummary[] }) {
               onClick={() => router.push(`/orgs/${org.id}`)}
             >
               <TableCell className="font-medium">{org.name}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {org.memberCount}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {org.repoCount}
-              </TableCell>
+              <TableCell className="text-right tabular-nums">{org.memberCount}</TableCell>
+              <TableCell className="text-right tabular-nums">{org.repoCount}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
                   <Link

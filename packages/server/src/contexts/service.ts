@@ -204,11 +204,15 @@ export async function getContextTask(
 }
 
 /** 最近一次生成任务（前端轮询 / 仓库状态徽章）。 */
-export async function getLatestContextTask(repositoryId: string): Promise<ContextTaskSummary | null> {
+export async function getLatestContextTask(
+  repositoryId: string,
+): Promise<ContextTaskSummary | null> {
   const [row] = await getDB()
     .select(CONTEXT_FIELDS)
     .from(repositoryTasks)
-    .where(and(eq(repositoryTasks.repositoryId, repositoryId), eq(repositoryTasks.taskType, "context")))
+    .where(
+      and(eq(repositoryTasks.repositoryId, repositoryId), eq(repositoryTasks.taskType, "context")),
+    )
     .orderBy(desc(repositoryTasks.createdAt))
     .limit(1);
   return row ? toSummary(row) : null;

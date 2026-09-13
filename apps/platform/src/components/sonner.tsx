@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
+import * as React from "react";
+import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 // ═══════════════════════════════════════════════════════════════════
 // Sonner Toaster — shadcn 标准消息提示
@@ -15,9 +15,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
   React.useEffect(() => {
     const update = () =>
-      setTheme(
-        document.documentElement.classList.contains("dark") ? "dark" : "light",
-      );
+      setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
     update();
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, {

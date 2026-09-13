@@ -11,11 +11,7 @@ export const metadata: Metadata = {
   description: "API collaboration platform with native AI Agent support",
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Locale comes from the NEXT_LOCALE session cookie (see i18n/request.ts);
   // the URL never contains a language prefix.
   const locale = await getLocale();

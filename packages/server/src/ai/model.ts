@@ -46,8 +46,6 @@ export function createAIModel(flow: LLMFlow = "default"): LanguageModel {
       }).chatModel(modelId);
     case "claude":
     case "gemini":
-      throw new Error(
-        `LLM provider '${llm.provider}' is not supported by the agent runtime yet.`,
-      );
+      throw new Error(`LLM provider '${llm.provider}' is not supported by the agent runtime yet.`);
   }
 }

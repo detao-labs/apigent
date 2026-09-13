@@ -250,9 +250,7 @@ export function ImportVersionDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>
-            {t("subtitle", { repo: repoName })}
-          </DialogDescription>
+          <DialogDescription>{t("subtitle", { repo: repoName })}</DialogDescription>
         </DialogHeader>
 
         {step === "input" && (
@@ -353,10 +351,7 @@ export function ImportVersionDialog({
                 { label: t("stats.models"), value: preview.stats.models, icon: Boxes },
                 { label: t("stats.modules"), value: preview.stats.modules, icon: Upload },
               ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-lg border bg-muted/30 p-3 text-center"
-                >
+                <div key={stat.label} className="rounded-lg border bg-muted/30 p-3 text-center">
                   <stat.icon className="mx-auto mb-1 size-4 text-muted-foreground" />
                   <div className="text-xl font-bold">{stat.value}</div>
                   <div className="text-xs text-muted-foreground">{stat.label}</div>
@@ -384,9 +379,7 @@ export function ImportVersionDialog({
                     >
                       <AlertTriangle className="mt-0.5 size-3 shrink-0" />
                       <span>
-                        {issue.apiId && (
-                          <code className="mr-1 font-mono">{issue.apiId}</code>
-                        )}
+                        {issue.apiId && <code className="mr-1 font-mono">{issue.apiId}</code>}
                         {issue.message}
                       </span>
                     </li>
@@ -484,16 +477,8 @@ export function ImportVersionDialog({
               >
                 {t("cancel")}
               </Button>
-              <Button
-                type="button"
-                onClick={parse}
-                disabled={busy || !content.trim() || tooLarge}
-              >
-                {busy ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Upload className="size-4" />
-                )}
+              <Button type="button" onClick={parse} disabled={busy || !content.trim() || tooLarge}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                 {busy ? t("parsing") : t("parse")}
               </Button>
             </>
@@ -509,16 +494,8 @@ export function ImportVersionDialog({
                 <ArrowLeft className="size-4" />
                 {t("back")}
               </Button>
-              <Button
-                type="button"
-                onClick={confirmImport}
-                disabled={busy || preview.fatal}
-              >
-                {busy ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Check className="size-4" />
-                )}
+              <Button type="button" onClick={confirmImport} disabled={busy || preview.fatal}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                 {busy ? t("importing") : t("confirm")}
               </Button>
             </>

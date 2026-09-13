@@ -71,10 +71,7 @@ export function resolveRefs(
  * Resolve a JSON Pointer path within a document.
  * Supports `#/components/schemas/Foo` and `#/paths/~1users~1{id}/get/responses/200`.
  */
-function resolveRefPath(
-  doc: Record<string, unknown>,
-  ref: string,
-): Record<string, unknown> | null {
+function resolveRefPath(doc: Record<string, unknown>, ref: string): Record<string, unknown> | null {
   if (!ref.startsWith("#/")) return null;
 
   const pathParts = ref

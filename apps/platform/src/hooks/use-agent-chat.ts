@@ -32,10 +32,7 @@ export interface UseAgentChatOptions {
   /** 流式端点，默认 /api/agent/run */
   api?: string;
   /** 读取当前页面上下文（client tool: get_page_context） */
-  getPageContext?: () =>
-    | AgentPageContext
-    | null
-    | Promise<AgentPageContext | null>;
+  getPageContext?: () => AgentPageContext | null | Promise<AgentPageContext | null>;
   /** 把生成的草稿填充到前端表单（client tool: apply_edit_draft） */
   onApplyDraft?: (draft: BusinessContext) => void;
 }
@@ -57,9 +54,7 @@ export function useAgentChat({
   const addToolOutputRef = useRef<AddToolOutput | null>(null);
 
   const onToolCall = useCallback(
-    (options: {
-      toolCall: { toolName: string; toolCallId: string; input: unknown };
-    }) => {
+    (options: { toolCall: { toolName: string; toolCallId: string; input: unknown } }) => {
       const { toolCall } = options;
       const dispatch = async () => {
         switch (toolCall.toolName) {

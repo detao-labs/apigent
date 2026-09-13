@@ -3,12 +3,12 @@ import { computeEndpointFingerprint, endpointKey } from "./fingerprint";
 
 describe("endpointKey", () => {
   it("prefers operationId over method + path", () => {
-    expect(
-      endpointKey({ operationId: "getOrders", method: "GET", path: "/orders" }),
-    ).toBe("getOrders");
-    expect(
-      endpointKey({ operationId: null, method: "POST", path: "/orders" }),
-    ).toBe("POST:/orders");
+    expect(endpointKey({ operationId: "getOrders", method: "GET", path: "/orders" })).toBe(
+      "getOrders",
+    );
+    expect(endpointKey({ operationId: null, method: "POST", path: "/orders" })).toBe(
+      "POST:/orders",
+    );
   });
 });
 
@@ -25,9 +25,7 @@ describe("computeEndpointFingerprint", () => {
   };
 
   it("is stable for identical input", () => {
-    expect(computeEndpointFingerprint(base)).toBe(
-      computeEndpointFingerprint({ ...base }),
-    );
+    expect(computeEndpointFingerprint(base)).toBe(computeEndpointFingerprint({ ...base }));
   });
 
   it("changes when the schema changes", () => {
@@ -35,9 +33,7 @@ describe("computeEndpointFingerprint", () => {
       ...base,
       requestSchema: { type: "object", properties: { a: { type: "string" } } },
     };
-    expect(computeEndpointFingerprint(changed)).not.toBe(
-      computeEndpointFingerprint(base),
-    );
+    expect(computeEndpointFingerprint(changed)).not.toBe(computeEndpointFingerprint(base));
   });
 
   it("is insensitive to response ordering", () => {
@@ -55,8 +51,6 @@ describe("computeEndpointFingerprint", () => {
         { statusCode: "200", contentType: "application/json", schema: { a: 1 } },
       ],
     };
-    expect(computeEndpointFingerprint(a)).toBe(
-      computeEndpointFingerprint(b),
-    );
+    expect(computeEndpointFingerprint(a)).toBe(computeEndpointFingerprint(b));
   });
 });

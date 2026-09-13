@@ -1,8 +1,4 @@
-export type {
-  AgentToolContext,
-  AgentToolDefinition,
-  AgentToolScope,
-} from "./types";
+export type { AgentToolContext, AgentToolDefinition, AgentToolScope } from "./types";
 export { AgentToolRegistry } from "./registry";
 export type { AgentToolExecutor } from "./registry";
 export {

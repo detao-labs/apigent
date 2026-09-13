@@ -24,9 +24,7 @@
   "paths": {
     "/api/auth/register": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "operationId": "registerUser",
         "summary": "Register a new user and start a session",
         "requestBody": {
@@ -51,9 +49,7 @@
                       "$ref": "#/components/schemas/User"
                     }
                   },
-                  "required": [
-                    "user"
-                  ],
+                  "required": ["user"],
                   "additionalProperties": false
                 }
               }
@@ -94,9 +90,7 @@
     },
     "/api/auth/login": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "operationId": "loginUser",
         "summary": "Log in and start a session",
         "requestBody": {
@@ -121,9 +115,7 @@
                       "$ref": "#/components/schemas/User"
                     }
                   },
-                  "required": [
-                    "user"
-                  ],
+                  "required": ["user"],
                   "additionalProperties": false
                 }
               }
@@ -164,9 +156,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "operationId": "logout",
         "summary": "Clear the session cookie",
         "responses": {
@@ -185,9 +175,7 @@
     },
     "/api/auth/me": {
       "get": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "operationId": "getMe",
         "summary": "Get the current session user (null when unauthenticated)",
         "responses": {
@@ -209,9 +197,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ],
+                  "required": ["user"],
                   "additionalProperties": false
                 }
               }
@@ -222,9 +208,7 @@
     },
     "/api/orgs": {
       "get": {
-        "tags": [
-          "Organizations"
-        ],
+        "tags": ["Organizations"],
         "operationId": "listOrgs",
         "summary": "List organizations",
         "security": [
@@ -247,9 +231,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "orgs"
-                  ],
+                  "required": ["orgs"],
                   "additionalProperties": false
                 }
               }
@@ -268,9 +250,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Organizations"
-        ],
+        "tags": ["Organizations"],
         "operationId": "createOrg",
         "summary": "Create an organization",
         "security": [
@@ -300,9 +280,7 @@
                       "$ref": "#/components/schemas/Org"
                     }
                   },
-                  "required": [
-                    "org"
-                  ],
+                  "required": ["org"],
                   "additionalProperties": false
                 }
               }
@@ -369,11 +347,7 @@
             "writeOnly": true
           }
         },
-        "required": [
-          "name",
-          "email",
-          "password"
-        ],
+        "required": ["name", "email", "password"],
         "description": "User registration payload"
       },
       "LoginBody": {
@@ -394,10 +368,7 @@
             "writeOnly": true
           }
         },
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "description": "Login payload"
       },
       "OrgCreateBody": {
@@ -417,10 +388,7 @@
             "example": "acme-corp"
           }
         },
-        "required": [
-          "name",
-          "slug"
-        ],
+        "required": ["name", "slug"],
         "description": "Organization creation payload"
       },
       "User": {
@@ -446,11 +414,7 @@
             "description": "Display name"
           }
         },
-        "required": [
-          "id",
-          "email",
-          "name"
-        ],
+        "required": ["id", "email", "name"],
         "additionalProperties": false,
         "description": "Authenticated user"
       },
@@ -463,9 +427,7 @@
             "description": "Machine-readable error code"
           }
         },
-        "required": [
-          "error"
-        ],
+        "required": ["error"],
         "additionalProperties": false,
         "description": "Error response"
       },
@@ -477,9 +439,7 @@
             "description": "Always true"
           }
         },
-        "required": [
-          "ok"
-        ],
+        "required": ["ok"],
         "additionalProperties": false,
         "description": "Generic success response"
       },
@@ -511,12 +471,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "createdAt"
-        ],
+        "required": ["id", "name", "slug", "createdAt"],
         "additionalProperties": false,
         "description": "Organization summary"
       },
@@ -559,14 +514,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "ownerId",
-          "createdAt",
-          "updatedAt"
-        ],
+        "required": ["id", "name", "slug", "ownerId", "createdAt", "updatedAt"],
         "additionalProperties": false,
         "description": "Full organization record"
       }

@@ -259,9 +259,7 @@ describe("parseOpenAPI", () => {
       });
       const api = parseOpenAPI(input(spec)).apis[0];
       expect(api.requestContentType).toBe("multipart/form-data");
-      const rbSchema = api.requestBody?.schema as
-        | Record<string, unknown>
-        | undefined;
+      const rbSchema = api.requestBody?.schema as Record<string, unknown> | undefined;
       const rbProps = (rbSchema?.properties ?? {}) as Record<string, unknown>;
       const profileImage = rbProps.profileImage as Record<string, unknown> | undefined;
       expect(profileImage?.format).toBe("binary");
@@ -363,9 +361,7 @@ describe("parseOpenAPI", () => {
       });
       const result = parseOpenAPI(input(spec));
       expect(result.apis).toHaveLength(1);
-      expect(
-        result.parseIssues.some((i) => i.message.includes("Circular $ref")),
-      ).toBe(true);
+      expect(result.parseIssues.some((i) => i.message.includes("Circular $ref"))).toBe(true);
     });
   });
 
@@ -394,7 +390,7 @@ describe("parseOpenAPI", () => {
         openapi: "3.0.0",
         info: { title: "Test", version: "1.0" },
         paths: {
-          "pets": {
+          pets: {
             get: {
               operationId: "listPets",
               responses: { "200": { description: "OK" } },
@@ -431,17 +427,13 @@ describe("parseOpenAPI", () => {
       });
       const result = parseOpenAPI(input(swagger));
       expect(result.apis).toHaveLength(0);
-      expect(
-        result.parseIssues.some((i) => i.message.includes("Swagger 2.0")),
-      ).toBe(true);
+      expect(result.parseIssues.some((i) => i.message.includes("Swagger 2.0"))).toBe(true);
     });
 
     it("errors on non-OpenAPI documents", () => {
       const result = parseOpenAPI(input(JSON.stringify({ foo: "bar" })));
       expect(result.apis).toHaveLength(0);
-      expect(
-        result.parseIssues.some((i) => i.message.includes("not a valid OpenAPI")),
-      ).toBe(true);
+      expect(result.parseIssues.some((i) => i.message.includes("not a valid OpenAPI"))).toBe(true);
     });
 
     it("skips APIs with errors but continues parsing others", () => {
@@ -520,9 +512,7 @@ describe("component extraction (components.responses / securitySchemes)", () => 
       repositoryId: "repo_0000000000",
     });
     const responses = result.componentDefs.filter((c) => c.kind === "response");
-    const security = result.componentDefs.filter(
-      (c) => c.kind === "securityScheme",
-    );
+    const security = result.componentDefs.filter((c) => c.kind === "securityScheme");
 
     expect(responses).toHaveLength(1);
     expect(responses[0].name).toBe("ErrorResponse");

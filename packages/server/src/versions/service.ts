@@ -41,7 +41,10 @@ export interface RepoVersionRow {
 }
 
 /** 取某版本 head commit 下按类型的 link 数（entity_id 为多态引用，直接数 link 即可）。 */
-async function countEntities(commitId: string | null, type: "endpoint" | "data_model" | "component"): Promise<number> {
+async function countEntities(
+  commitId: string | null,
+  type: "endpoint" | "data_model" | "component",
+): Promise<number> {
   if (!commitId) return 0;
   const [row] = await getDB()
     .select({ value: sql<number>`count(*)::int` })
@@ -53,13 +56,20 @@ async function countEntities(commitId: string | null, type: "endpoint" | "data_m
 /** 列某仓库的所有版本（分支），按创建倒序。head commit 为空的统计 0。 */
 export async function listVersions(repositoryId: string): Promise<RepoVersionRow[]> {
   const db = getDB();
-  const rows = await db.select().from(versions).where(eq(versions.repositoryId, repositoryId)).orderBy(desc(versions.createdAt));
+  const rows = await db
+    .select()
+    .from(versions)
+    .where(eq(versions.repositoryId, repositoryId))
+    .orderBy(desc(versions.createdAt));
 
   return Promise.all(
     rows.map(async (v) => {
       const [commit] = v.headCommitId
         ? await db
-            .select({ specVersion: versionCommits.specVersion, createdAt: versionCommits.createdAt })
+            .select({
+              specVersion: versionCommits.specVersion,
+              createdAt: versionCommits.createdAt,
+            })
             .from(versionCommits)
             .where(eq(versionCommits.id, v.headCommitId))
             .limit(1)
@@ -98,9 +108,15 @@ export interface CreateVersionInput {
 }
 
 /** 新建版本（分支）。默认 `is_default=false`。 */
-export async function createVersion(repositoryId: string, input: CreateVersionInput): Promise<string> {
+export async function createVersion(
+  repositoryId: string,
+  input: CreateVersionInput,
+): Promise<string> {
   const db = getDB();
-  const parent = input.parentVersionId === undefined ? await getDefaultVersionId(repositoryId) : input.parentVersionId;
+  const parent =
+    input.parentVersionId === undefined
+      ? await getDefaultVersionId(repositoryId)
+      : input.parentVersionId;
   let headCommitId: string | null = null;
 
   if (!input.empty && parent) {
@@ -145,7 +161,11 @@ export async function setDefaultVersion(repositoryId: string, versionId: string)
 }
 
 /** 回滚（R1，移指针）：把版本 head 指回目标 commit。 */
-export async function rollbackVersion(repositoryId: string, versionId: string, targetCommitId: string): Promise<void> {
+export async function rollbackVersion(
+  repositoryId: string,
+  versionId: string,
+  targetCommitId: string,
+): Promise<void> {
   const db = getDB();
   const [version] = await db
     .select({ id: versions.id })
@@ -157,7 +177,11 @@ export async function rollbackVersion(repositoryId: string, versionId: string, t
 }
 
 /** 回滚（R1，移指针）：把版本 head 沿 parent_commit_id 往回走 N 步。 */
-export async function rollbackVersionSteps(repositoryId: string, versionId: string, steps: number): Promise<string> {
+export async function rollbackVersionSteps(
+  repositoryId: string,
+  versionId: string,
+  steps: number,
+): Promise<string> {
   const db = getDB();
   const [version] = await db
     .select({ id: versions.id, headCommitId: versions.headCommitId })
@@ -185,7 +209,10 @@ export async function rollbackVersionSteps(repositoryId: string, versionId: stri
 // 版本对比（diff 两 commit，复用 diff engine）
 // ───────────────────────────────────────────────────────────────
 
-async function loadCommitSnapshot(repositoryId: string, commitId: string | null): Promise<VersionSnapshot> {
+async function loadCommitSnapshot(
+  repositoryId: string,
+  commitId: string | null,
+): Promise<VersionSnapshot> {
   const db = getDB();
   if (!commitId) {
     return { endpoints: [], schemas: [], components: [] };
@@ -205,17 +232,36 @@ async function loadCommitSnapshot(repositoryId: string, commitId: string | null)
       })
       .from(versionEntityLinks)
       .innerJoin(endpoints, eq(endpoints.id, versionEntityLinks.entityId))
-      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "endpoint"))),
+      .where(
+        and(
+          eq(versionEntityLinks.commitId, commitId),
+          eq(versionEntityLinks.entityType, "endpoint"),
+        ),
+      ),
     db
-      .select({ name: dataModels.name, schemaType: dataModels.schemaType, schemaRaw: dataModels.schemaRaw })
+      .select({
+        name: dataModels.name,
+        schemaType: dataModels.schemaType,
+        schemaRaw: dataModels.schemaRaw,
+      })
       .from(versionEntityLinks)
       .innerJoin(dataModels, eq(dataModels.id, versionEntityLinks.entityId))
-      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "data_model"))),
+      .where(
+        and(
+          eq(versionEntityLinks.commitId, commitId),
+          eq(versionEntityLinks.entityType, "data_model"),
+        ),
+      ),
     db
       .select({ kind: components.kind, name: components.name, payload: components.payload })
       .from(versionEntityLinks)
       .innerJoin(components, eq(components.id, versionEntityLinks.entityId))
-      .where(and(eq(versionEntityLinks.commitId, commitId), eq(versionEntityLinks.entityType, "component"))),
+      .where(
+        and(
+          eq(versionEntityLinks.commitId, commitId),
+          eq(versionEntityLinks.entityType, "component"),
+        ),
+      ),
   ]);
 
   return {
@@ -226,7 +272,9 @@ async function loadCommitSnapshot(repositoryId: string, commitId: string | null)
       summary: e.summary,
       description: e.description,
       deprecated: e.deprecated ?? undefined,
-      parameters: Array.isArray(e.parameters) ? (e.parameters as { name: string; in: string; required: boolean }[]) : [],
+      parameters: Array.isArray(e.parameters)
+        ? (e.parameters as { name: string; in: string; required: boolean }[])
+        : [],
       requestContentType: e.requestContentType,
       hasRequestBody: Boolean(e.requestSchema),
     })),
@@ -325,7 +373,12 @@ export async function deleteVersionEntity(
       entityType: versionEntityLinks.entityType,
     })
     .from(versionEntityLinks)
-    .where(and(eq(versionEntityLinks.commitId, parentCommitId), eq(versionEntityLinks.entityId, entityId)))
+    .where(
+      and(
+        eq(versionEntityLinks.commitId, parentCommitId),
+        eq(versionEntityLinks.entityId, entityId),
+      ),
+    )
     .limit(1);
   if (!link) throw new Error(`Entity not found in version ${versionId}: ${entityId}`);
 
@@ -337,7 +390,9 @@ export async function deleteVersionEntity(
     })
     .from(versionEntityLinks)
     .where(eq(versionEntityLinks.commitId, parentCommitId));
-  const remaining = parentLinks.filter((l) => !(l.entityId === entityId && l.identityKey === link.identityKey));
+  const remaining = parentLinks.filter(
+    (l) => !(l.entityId === entityId && l.identityKey === link.identityKey),
+  );
 
   const [parentMeta] = await db
     .select({

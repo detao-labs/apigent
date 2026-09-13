@@ -69,15 +69,15 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
     parsedAt,
     specTitle:
       typeof resolved.info === "object" && resolved.info !== null
-        ? (resolved.info as Record<string, unknown>).title as string | undefined
+        ? ((resolved.info as Record<string, unknown>).title as string | undefined)
         : undefined,
     specVersion:
       typeof resolved.info === "object" && resolved.info !== null
-        ? (resolved.info as Record<string, unknown>).version as string | undefined
+        ? ((resolved.info as Record<string, unknown>).version as string | undefined)
         : undefined,
     specDescription:
       typeof resolved.info === "object" && resolved.info !== null
-        ? (resolved.info as Record<string, unknown>).description as string | undefined
+        ? ((resolved.info as Record<string, unknown>).description as string | undefined)
         : undefined,
   };
 
@@ -122,17 +122,11 @@ export function parseOpenAPI(input: ParseInput): ParsedAPIModel {
 // Internal helpers
 // ───────────────────────────────────────────────────────────────────
 
-function emptyModel(
-  repositoryId: string,
-  issues: ParseIssue[],
-  meta: ParseMeta,
-): ParsedAPIModel {
+function emptyModel(repositoryId: string, issues: ParseIssue[], meta: ParseMeta): ParsedAPIModel {
   return { repositoryId, apis: [], schemas: [], componentDefs: [], parseIssues: issues, meta };
 }
 
-function parseContent(
-  content: string,
-): Record<string, unknown> {
+function parseContent(content: string): Record<string, unknown> {
   const trimmed = content.trim();
 
   // Try JSON first, then fall back to YAML (YAML is a superset of JSON's
@@ -156,10 +150,7 @@ function tryYaml(content: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-function detectVersion(
-  doc: Record<string, unknown>,
-  issues: ParseIssue[],
-): string | null {
+function detectVersion(doc: Record<string, unknown>, issues: ParseIssue[]): string | null {
   if (typeof doc.openapi === "string") {
     const v = doc.openapi;
     if (v.startsWith("3.0") || v.startsWith("3.1")) {
@@ -212,8 +203,7 @@ function extractAPIs(
 
     for (const method of HTTP_METHODS) {
       const operation = (pathItem as Record<string, unknown>)[method.toLowerCase()] as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
 
       if (!operation) continue;
 
@@ -223,15 +213,10 @@ function extractAPIs(
         id,
         method,
         path,
-        operationId:
-          typeof operation.operationId === "string" ? operation.operationId : undefined,
+        operationId: typeof operation.operationId === "string" ? operation.operationId : undefined,
         summary: typeof operation.summary === "string" ? operation.summary : undefined,
-        description:
-          typeof operation.description === "string" ? operation.description : undefined,
-        parameters: mergeParameters(
-          pathLevelParams,
-          extractParameters(operation, issues),
-        ),
+        description: typeof operation.description === "string" ? operation.description : undefined,
+        parameters: mergeParameters(pathLevelParams, extractParameters(operation, issues)),
         requestBody: requestBody?.schema,
         requestContentType: requestBody?.contentType,
         responses: extractResponses(operation),
@@ -304,9 +289,7 @@ function mergeParameters(
   return [...pathLevel.filter((p) => !opKeys.has(key(p))), ...operationLevel];
 }
 
-function isValidParamLocation(
-  loc: unknown,
-): loc is "path" | "query" | "header" | "cookie" {
+function isValidParamLocation(loc: unknown): loc is "path" | "query" | "header" | "cookie" {
   return typeof loc === "string" && ["path", "query", "header", "cookie"].includes(loc);
 }
 
@@ -349,11 +332,7 @@ function extractResponses(operation: Record<string, unknown>): ResponseDef[] {
       let hasSchema = false;
       for (const [mediaType, mediaTypeObj] of Object.entries(rContent)) {
         const mt = mediaTypeObj as Record<string, unknown> | undefined;
-        if (
-          mt &&
-          typeof mt === "object" &&
-          mt.schema
-        ) {
+        if (mt && typeof mt === "object" && mt.schema) {
           hasSchema = true;
           result.push({
             statusCode,
@@ -387,10 +366,7 @@ function extractSecurity(
   return [];
 }
 
-function extractSchemas(
-  doc: Record<string, unknown>,
-  issues: ParseIssue[],
-): SchemaEntry[] {
+function extractSchemas(doc: Record<string, unknown>, issues: ParseIssue[]): SchemaEntry[] {
   const schemas: SchemaEntry[] = [];
 
   const components = doc.components as Record<string, unknown> | undefined;
@@ -426,10 +402,7 @@ function extractSchemas(
  * parameters / requestBodies / headers / examples) into ComponentDef entries,
  * mirroring extractSchemas so components can be managed like data models.
  */
-function extractComponentDefs(
-  doc: Record<string, unknown>,
-  _issues: ParseIssue[],
-): ComponentDef[] {
+function extractComponentDefs(doc: Record<string, unknown>, _issues: ParseIssue[]): ComponentDef[] {
   const out: ComponentDef[] = [];
   const components = doc.components as Record<string, unknown> | undefined;
   if (!components || typeof components !== "object") return out;
@@ -453,8 +426,7 @@ function extractComponentDefs(
       if (!obj || typeof obj !== "object") continue;
       const o = obj as Record<string, unknown>;
       const payload: Record<string, unknown> = { ...o };
-      const description =
-        typeof o.description === "string" ? o.description : undefined;
+      const description = typeof o.description === "string" ? o.description : undefined;
 
       if (kind === "response") {
         // 取第一个带 schema 的 content 媒体类型，便于右栏展示
@@ -464,8 +436,7 @@ function extractComponentDefs(
         if (mediaType) {
           payload.contentType = mediaType;
           const media = (content as Record<string, unknown>)[mediaType] as
-            | Record<string, unknown>
-            | undefined;
+            Record<string, unknown> | undefined;
           const schema = media?.schema as Record<string, unknown> | undefined;
           if (schema) {
             payload.schema = toSchemaRef(schema);

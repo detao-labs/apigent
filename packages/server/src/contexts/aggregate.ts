@@ -47,9 +47,7 @@ export async function buildCapabilitySnapshot(
 
   const capabilities = [
     ...new Set(
-      rows
-        .map((row) => row.capabilityName)
-        .filter((name): name is string => Boolean(name)),
+      rows.map((row) => row.capabilityName).filter((name): name is string => Boolean(name)),
     ),
   ];
   const confidences = rows

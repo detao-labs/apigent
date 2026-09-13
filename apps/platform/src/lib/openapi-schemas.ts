@@ -6,8 +6,7 @@
 
 import * as z from "zod/v4";
 
-const shortId = (prefix: string) =>
-  z.string().regex(new RegExp(`^${prefix}[0-9A-Za-z]{10}$`));
+const shortId = (prefix: string) => z.string().regex(new RegExp(`^${prefix}[0-9A-Za-z]{10}$`));
 
 // ─────────────────────────────────────────────────────────────────────
 // Users
@@ -32,12 +31,7 @@ export type User = z.infer<typeof userSchema>;
 
 export const registerBodySchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(255)
-      .meta({ description: "Display name" }),
+    name: z.string().trim().min(1).max(255).meta({ description: "Display name" }),
     email: z.email().max(255).meta({
       description: "Email address",
       example: "ada@example.com",
@@ -60,11 +54,7 @@ export const loginBodySchema = z
       .min(1)
       .max(255)
       .meta({ description: "Email address", example: "ada@example.com" }),
-    password: z
-      .string()
-      .min(1)
-      .max(128)
-      .meta({ description: "Password", writeOnly: true }),
+    password: z.string().min(1).max(128).meta({ description: "Password", writeOnly: true }),
   })
   .meta({ id: "LoginBody", description: "Login payload" });
 
@@ -75,11 +65,7 @@ export type LoginInput = z.infer<typeof loginBodySchema>;
 // ─────────────────────────────────────────────────────────────────────
 
 const organizationIdField = shortId("org_").meta({ description: "Organization short ID" });
-const orgNameField = z
-  .string()
-  .min(1)
-  .max(255)
-  .meta({ description: "Organization name" });
+const orgNameField = z.string().min(1).max(255).meta({ description: "Organization name" });
 const createdAtField = z
   .date()
   .meta({ format: "date-time", description: "Creation time (ISO 8601)" });
@@ -182,15 +168,9 @@ export const repoSchema = z
   .object({
     id: repositoryIdField,
     name: repoNameField,
-    description: z
-      .string()
-      .nullable()
-      .meta({ description: "Repository description" }),
+    description: z.string().nullable().meta({ description: "Repository description" }),
     organizationId: organizationIdField.meta({ description: "Owning organization UUID" }),
-    orgName: z
-      .string()
-      .min(1)
-      .meta({ description: "Organization display name" }),
+    orgName: z.string().min(1).meta({ description: "Organization display name" }),
     mcpEnabled: z.boolean().meta({ description: "Whether MCP access is enabled" }),
     createdAt: createdAtField,
   })
@@ -227,10 +207,7 @@ export type ImportContentInput = z.infer<typeof importContentBodySchema>;
 
 export const errorResponseSchema = z
   .object({
-    error: z
-      .string()
-      .min(1)
-      .meta({ description: "Machine-readable error code" }),
+    error: z.string().min(1).meta({ description: "Machine-readable error code" }),
   })
   .meta({ id: "ErrorResponse", description: "Error response" });
 

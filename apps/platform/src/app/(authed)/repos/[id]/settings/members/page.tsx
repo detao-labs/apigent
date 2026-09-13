@@ -9,11 +9,7 @@ import { requireUser } from "@/services/auth";
 import { listRepoMembers } from "@/services/repo-members";
 import { loadRepoForPage } from "@/services/repos";
 
-export default async function RepoMembersPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function RepoMembersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
   const t = await getTranslations("repos.detail");

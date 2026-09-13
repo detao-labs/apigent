@@ -4,10 +4,7 @@
 
 import { and, count, eq, inArray } from "drizzle-orm";
 import { endpoints, getDB, organizations, repositories } from "@apigent/server/db";
-import {
-  listAccessibleOrganizationIds,
-  listAccessibleRepositoryIds,
-} from "@apigent/server/authz";
+import { listAccessibleOrganizationIds, listAccessibleRepositoryIds } from "@apigent/server/authz";
 
 export interface DashboardStats {
   organizations: number;

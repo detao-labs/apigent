@@ -8,11 +8,7 @@ import { RepoNotFound } from "@/components/repo-not-found";
 import { requireUser } from "@/services/auth";
 import { loadRepoForPage } from "@/services/repos";
 
-export default async function RepoContextPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function RepoContextPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
   const t = await getTranslations("repos.detail");

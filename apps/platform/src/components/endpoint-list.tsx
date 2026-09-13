@@ -4,14 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  ConfirmDialog,
-  Input,
-} from "@apigent/ui";
+import { Badge, Button, Card, CardContent, ConfirmDialog, Input } from "@apigent/ui";
 import {
   AlertTriangle,
   ChevronRight,
@@ -70,9 +63,7 @@ export function EndpointList({
   const te = useTranslations("repos.detail.endpoints");
   const [query, setQuery] = React.useState("");
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = React.useState<string | null>(
-    endpoints[0]?.id ?? null,
-  );
+  const [selectedId, setSelectedId] = React.useState<string | null>(endpoints[0]?.id ?? null);
 
   const q = query.trim().toLowerCase();
   const filtered = React.useMemo(
@@ -91,8 +82,7 @@ export function EndpointList({
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered, t]);
 
-  const selected =
-    endpoints.find((ep) => ep.id === selectedId) ?? filtered[0] ?? null;
+  const selected = endpoints.find((ep) => ep.id === selectedId) ?? filtered[0] ?? null;
 
   if (endpoints.length === 0) {
     return (
@@ -100,9 +90,7 @@ export function EndpointList({
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
           <ListTree className="mb-4 size-12 text-muted-foreground/50" />
           <h3 className="mb-1 text-lg font-semibold">{te("endpointsEmpty")}</h3>
-          <p className="max-w-md text-muted-foreground">
-            {te("endpointsEmptyDesc")}
-          </p>
+          <p className="max-w-md text-muted-foreground">{te("endpointsEmptyDesc")}</p>
         </CardContent>
       </Card>
     );
@@ -140,9 +128,7 @@ export function EndpointList({
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <p className="text-sm text-muted-foreground">
-                {te("endpointsNoResults")}
-              </p>
+              <p className="text-sm text-muted-foreground">{te("endpointsNoResults")}</p>
               <button
                 type="button"
                 onClick={() => setQuery("")}
@@ -170,9 +156,7 @@ export function EndpointList({
                       />
                       <Folder className="size-4 text-muted-foreground" />
                       <span className="truncate">{name}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {eps.length}
-                      </span>
+                      <span className="ml-auto text-xs text-muted-foreground">{eps.length}</span>
                     </button>
                     {!isCollapsed && (
                       <div className="ml-4 space-y-0.5 border-l pl-2">
@@ -182,22 +166,16 @@ export function EndpointList({
                             type="button"
                             onClick={() => setSelectedId(ep.id)}
                             className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${
-                              selected?.id === ep.id
-                                ? "bg-accent"
-                                : "hover:bg-accent/60"
+                              selected?.id === ep.id ? "bg-accent" : "hover:bg-accent/60"
                             }`}
                           >
                             <span className="flex items-center gap-1.5">
                               <Badge
-                                className={`shrink-0 px-1.5 text-[10px] ${methodStyle(
-                                  ep.method,
-                                )}`}
+                                className={`shrink-0 px-1.5 text-[10px] ${methodStyle(ep.method)}`}
                               >
                                 {ep.method}
                               </Badge>
-                              <span className="truncate text-sm">
-                                {ep.summary ?? ep.path}
-                              </span>
+                              <span className="truncate text-sm">{ep.summary ?? ep.path}</span>
                               {ep.deprecated && (
                                 <AlertTriangle
                                   aria-label={te("endpointsDeprecated")}
@@ -246,10 +224,7 @@ function EndpointDetail({
   const router = useRouter();
   const openBusinessContext = useOpenBusinessContext();
   const [deleteTarget, setDeleteTarget] = React.useState<RepoEndpoint | null>(null);
-  const parameters = (endpoint.parameters ?? []) as Record<
-    string,
-    unknown
-  >[];
+  const parameters = (endpoint.parameters ?? []) as Record<string, unknown>[];
 
   const doDelete = async () => {
     if (!deleteTarget) return;
@@ -271,13 +246,9 @@ function EndpointDetail({
       {/* 头部 */}
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={methodStyle(endpoint.method)}>
-            {endpoint.method}
-          </Badge>
+          <Badge className={methodStyle(endpoint.method)}>{endpoint.method}</Badge>
           <code className="font-mono text-sm">{endpoint.path}</code>
-          {endpoint.deprecated && (
-            <Badge variant="destructive">{te("endpointsDeprecated")}</Badge>
-          )}
+          {endpoint.deprecated && <Badge variant="destructive">{te("endpointsDeprecated")}</Badge>}
         </div>
         <h2 className="mt-2 text-xl font-bold tracking-tight">
           {endpoint.summary ?? endpoint.path}
@@ -299,9 +270,7 @@ function EndpointDetail({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() =>
-              openBusinessContext({ repositoryId, endpointId: endpoint.id })
-            }
+            onClick={() => openBusinessContext({ repositoryId, endpointId: endpoint.id })}
           >
             <Sparkles className="mr-1.5 size-3.5" />
             {te("endpointsContext")}
@@ -321,9 +290,7 @@ function EndpointDetail({
 
       {endpoint.description && (
         <div>
-          <h3 className="mb-1.5 text-sm font-medium">
-            {te("endpointsDescription")}
-          </h3>
+          <h3 className="mb-1.5 text-sm font-medium">{te("endpointsDescription")}</h3>
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">
             {endpoint.description}
           </p>
@@ -332,43 +299,29 @@ function EndpointDetail({
 
       {/* 参数 */}
       <section>
-        <h3 className="mb-2 text-sm font-semibold">
-          {te("endpointsParameters")}
-        </h3>
+        <h3 className="mb-2 text-sm font-semibold">{te("endpointsParameters")}</h3>
         {parameters.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {te("endpointsNoParameters")}
-          </p>
+          <p className="text-sm text-muted-foreground">{te("endpointsNoParameters")}</p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2 font-medium">{te("endpointsName")}</th>
-                  <th className="px-3 py-2 font-medium">
-                    {te("endpointsLocation")}
-                  </th>
-                  <th className="px-3 py-2 font-medium">
-                    {te("endpointsRequired")}
-                  </th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsLocation")}</th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsRequired")}</th>
                   <th className="px-3 py-2 font-medium">{te("endpointsType")}</th>
-                  <th className="px-3 py-2 font-medium">
-                    {te("endpointsDescription")}
-                  </th>
+                  <th className="px-3 py-2 font-medium">{te("endpointsDescription")}</th>
                 </tr>
               </thead>
               <tbody>
                 {parameters.map((p, i) => (
                   <tr key={i} className="border-b last:border-0">
                     <td className="px-3 py-2 font-mono">{String(p.name ?? "")}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {String(p.in ?? "")}
-                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{String(p.in ?? "")}</td>
                     <td className="px-3 py-2">
                       {p.required ? (
-                        <Badge variant="destructive">
-                          {te("endpointsRequired")}
-                        </Badge>
+                        <Badge variant="destructive">{te("endpointsRequired")}</Badge>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
@@ -400,21 +353,15 @@ function EndpointDetail({
         {endpoint.requestSchema ? (
           <SchemaRefView schemaRef={endpoint.requestSchema} />
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {te("endpointsNoRequestBody")}
-          </p>
+          <p className="text-sm text-muted-foreground">{te("endpointsNoRequestBody")}</p>
         )}
       </section>
 
       {/* 响应 */}
       <section>
-        <h3 className="mb-2 text-sm font-semibold">
-          {te("endpointsResponses")}
-        </h3>
+        <h3 className="mb-2 text-sm font-semibold">{te("endpointsResponses")}</h3>
         {endpoint.responses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {te("endpointsNoResponses")}
-          </p>
+          <p className="text-sm text-muted-foreground">{te("endpointsNoResponses")}</p>
         ) : (
           <div className="space-y-1.5">
             {endpoint.responses.map((r, i) => (
@@ -423,10 +370,7 @@ function EndpointDetail({
                 className="space-y-2 rounded-md border px-3 py-2"
               >
                 <div className="flex items-start gap-2">
-                  <Badge
-                    variant={r.isError ? "destructive" : "outline"}
-                    className="font-mono"
-                  >
+                  <Badge variant={r.isError ? "destructive" : "outline"} className="font-mono">
                     {r.statusCode}
                   </Badge>
                   {r.contentType ? (
@@ -463,21 +407,13 @@ function EndpointDetail({
 
 function SchemaRefView({ schemaRef }: { schemaRef: unknown }) {
   const te = useTranslations("repos.detail.endpoints");
-  const ref = schemaRef as
-    | { schema?: unknown; ref?: string; unresolved?: boolean }
-    | null;
+  const ref = schemaRef as { schema?: unknown; ref?: string; unresolved?: boolean } | null;
   if (!ref) return null;
   if (ref.unresolved) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {te("endpointsUnresolved")}
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">{te("endpointsUnresolved")}</p>;
   }
   if (ref.ref) {
-    return (
-      <code className="rounded bg-muted px-1.5 py-0.5 text-sm">{ref.ref}</code>
-    );
+    return <code className="rounded bg-muted px-1.5 py-0.5 text-sm">{ref.ref}</code>;
   }
   if (ref.schema === undefined) {
     return <p className="text-sm text-muted-foreground">—</p>;

@@ -37,10 +37,7 @@ export class MemoryVectorStore implements VectorStore {
       if (condition.$ne !== undefined && value === condition.$ne) return false;
       if (condition.$in !== undefined && !condition.$in.includes(value)) return false;
       if (condition.$nin !== undefined && condition.$nin.includes(value)) return false;
-      if (
-        condition.$contains !== undefined &&
-        !String(value ?? "").includes(condition.$contains)
-      ) {
+      if (condition.$contains !== undefined && !String(value ?? "").includes(condition.$contains)) {
         return false;
       }
     }

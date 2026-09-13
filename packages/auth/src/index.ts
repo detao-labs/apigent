@@ -11,9 +11,4 @@ export {
   resolveSessionMaxAge,
   type CreateAuthConfigOptions,
 } from "./config";
-export {
-  AUTH_SCOPES,
-  authCookieNames,
-  type AuthCookieNames,
-  type AuthScope,
-} from "./cookies";
+export { AUTH_SCOPES, authCookieNames, type AuthCookieNames, type AuthScope } from "./cookies";

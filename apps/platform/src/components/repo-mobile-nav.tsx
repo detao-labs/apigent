@@ -18,8 +18,7 @@ export function RepoMobileNav({ repositoryId }: { repositoryId: string }) {
     { key: "settings", label: t("settings"), url: `${base}/settings` },
   ];
 
-  const isActive = (url: string) =>
-    url === base ? pathname === base : pathname.startsWith(url);
+  const isActive = (url: string) => (url === base ? pathname === base : pathname.startsWith(url));
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b bg-background px-3 py-2 md:hidden">

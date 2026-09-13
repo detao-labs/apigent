@@ -8,16 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@apigent/ui";
-import {
-  ArrowRight,
-  Building2,
-  Check,
-  Circle,
-  Database,
-  Plug,
-  Plus,
-  Upload,
-} from "lucide-react";
+import { ArrowRight, Building2, Check, Circle, Database, Plug, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { McpConnectCard } from "@/components/mcp-connect-card";
 import { PageContainer } from "@/components/page-container";
@@ -31,10 +22,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const t = await getTranslations("dashboard");
   const locale = await getLocale();
-  const [stats, repos] = await Promise.all([
-    getDashboardStats(user.id),
-    listRepos(user.id),
-  ]);
+  const [stats, repos] = await Promise.all([getDashboardStats(user.id), listRepos(user.id)]);
   const mcpConfig = getMcpConfig();
 
   const steps = [
@@ -111,10 +99,7 @@ export default async function DashboardPage() {
           </div>
           <ul className="mt-4 grid grid-cols-1 gap-1 sm:grid-cols-2">
             {steps.map((step) => (
-              <li
-                key={step.key}
-                className="flex items-center gap-3 rounded-md px-2 py-2"
-              >
+              <li key={step.key} className="flex items-center gap-3 rounded-md px-2 py-2">
                 <span className="flex size-5 shrink-0 items-center justify-center">
                   {step.done ? (
                     <Check className="size-5 text-primary" />
@@ -201,9 +186,7 @@ export default async function DashboardPage() {
                           )}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {repo.currentVersion
-                            ? `${repo.currentVersion} · `
-                            : ""}
+                          {repo.currentVersion ? `${repo.currentVersion} · ` : ""}
                           {formatRelativeTime(repo.updatedAt, locale)}
                         </p>
                       </div>

@@ -131,7 +131,11 @@ export async function executeImportTask(taskId: string): Promise<void> {
     .limit(1);
   if (!task) throw new Error(`Import task not found: ${taskId}`);
   if (task.status !== "queued") {
-    logInfo("openapi.import.skipped", { taskId, repositoryId: task.repositoryId, status: task.status });
+    logInfo("openapi.import.skipped", {
+      taskId,
+      repositoryId: task.repositoryId,
+      status: task.status,
+    });
     return;
   }
 
@@ -227,7 +231,12 @@ export async function executeImportTask(taskId: string): Promise<void> {
         const [existingBlob] = await tx
           .select({ id: endpoints.id })
           .from(endpoints)
-          .where(and(eq(endpoints.repositoryId, task.repositoryId), eq(endpoints.contentHash, contentHash)))
+          .where(
+            and(
+              eq(endpoints.repositoryId, task.repositoryId),
+              eq(endpoints.contentHash, contentHash),
+            ),
+          )
           .limit(1);
 
         let endpointId = existingBlob?.id;
@@ -291,7 +300,12 @@ export async function executeImportTask(taskId: string): Promise<void> {
         const [existingBlob] = await tx
           .select({ id: dataModels.id })
           .from(dataModels)
-          .where(and(eq(dataModels.repositoryId, task.repositoryId), eq(dataModels.contentHash, contentHash)))
+          .where(
+            and(
+              eq(dataModels.repositoryId, task.repositoryId),
+              eq(dataModels.contentHash, contentHash),
+            ),
+          )
           .limit(1);
         let blobId = existingBlob?.id;
         if (!blobId) {
@@ -325,7 +339,12 @@ export async function executeImportTask(taskId: string): Promise<void> {
         const [existingBlob] = await tx
           .select({ id: components.id })
           .from(components)
-          .where(and(eq(components.repositoryId, task.repositoryId), eq(components.contentHash, contentHash)))
+          .where(
+            and(
+              eq(components.repositoryId, task.repositoryId),
+              eq(components.contentHash, contentHash),
+            ),
+          )
           .limit(1);
         let blobId = existingBlob?.id;
         if (!blobId) {

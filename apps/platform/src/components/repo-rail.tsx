@@ -37,8 +37,7 @@ export function RepoRail({
     { key: "settings", label: nav("settings"), url: `${base}/settings`, icon: Settings },
   ];
 
-  const isActive = (url: string) =>
-    url === base ? pathname === base : pathname.startsWith(url);
+  const isActive = (url: string) => (url === base ? pathname === base : pathname.startsWith(url));
 
   return (
     <aside className="sticky top-14 hidden h-[calc(100svh-3.5rem)] w-60 shrink-0 flex-col overflow-y-auto border-r bg-muted/20 p-3 md:flex">
@@ -50,9 +49,7 @@ export function RepoRail({
       </Link>
 
       <div className="mt-3 rounded-md bg-background p-3 ring-1 ring-border">
-        <p className="truncate text-sm font-semibold">
-          {repo?.name ?? repositoryId}
-        </p>
+        <p className="truncate text-sm font-semibold">{repo?.name ?? repositoryId}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {repo?.orgName && (
             <Badge variant="secondary" className="max-w-full truncate text-xs">

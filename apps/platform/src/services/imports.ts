@@ -33,10 +33,7 @@ export interface ImportPreview {
   issues: ParseIssue[];
 }
 
-export async function previewImport(
-  repositoryId: string,
-  content: string,
-): Promise<ImportPreview> {
+export async function previewImport(repositoryId: string, content: string): Promise<ImportPreview> {
   const startedAt = Date.now();
   const timer = createTimer();
   try {
