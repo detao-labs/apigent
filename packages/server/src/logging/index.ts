@@ -9,6 +9,11 @@
 //
 // 阶段 B：ALS 贯穿 reqId / taskId / userId / organizationId / repositoryId，让一次
 // 请求 / 一次任务的日志自动带上同一 id，可串起全链路。
+//
+// traceId（P1-3）：与 reqId / taskId **同源**的链路 id，供 OpenTelemetry /
+// Langfuse 之类的 trace 后端使用。设计要点是「一个请求只有一套关联 id」——
+// 因此 traceId 不另起一套生成逻辑，而是：显式传入 > 外层已有 > 兜底
+// （请求兜底到 reqId，任务兜底到 taskId）。这样日志与 trace 永远能互相对齐。
 // ═══════════════════════════════════════════════════════════════════
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -19,6 +24,8 @@ import { generateId } from "../id";
 export interface LoggingContext {
   reqId?: string;
   taskId?: string;
+  /** 链路 id；与 reqId / taskId 同源，供 tracing 后端对齐日志与 span */
+  traceId?: string;
   userId?: string;
   organizationId?: string;
   repositoryId?: string;
@@ -75,14 +82,16 @@ export function newRequestId(): string {
 /** 便捷包装：为一次 HTTP 请求生成 reqId 并在其上下文内执行 handler。 */
 export function withRequestContext<T>(fn: () => T, extra?: LoggingContext): T {
   const base = getLoggingContext();
-  const context: LoggingContext = { ...base, reqId: base.reqId ?? newRequestId(), ...extra };
+  const reqId = base.reqId ?? newRequestId();
+  const context: LoggingContext = { ...base, reqId, traceId: base.traceId ?? reqId, ...extra };
   return storage.run(context, fn);
 }
 
 /** 便捷包装：为一次异步任务生成/复用 taskId 并在其上下文内执行 worker。 */
 export function withTaskContext<T>(taskId: string, fn: () => T, extra?: LoggingContext): T {
   const base = getLoggingContext();
-  const context: LoggingContext = { ...base, taskId, ...extra };
+  // 若任务由某个请求触发，外层 traceId 会被保留 —— 一次操作仍然只有一条链路。
+  const context: LoggingContext = { ...base, taskId, traceId: base.traceId ?? taskId, ...extra };
   return storage.run(context, fn);
 }
 

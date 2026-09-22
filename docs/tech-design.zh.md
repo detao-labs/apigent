@@ -713,7 +713,9 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 | **存储**         | 本地文件系统                                | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                                 |
 | **Diff**         | diff（或自研渲染器）                        | —                   | 版本对比和 AI 编辑建议展示                                                           |
 
-> **实现状态：** LLM 调用已可用——产品代码（业务上下文生成、Agent 运行时）走 `@apigent/server/ai`（基于 Vercel AI SDK 的 `createAIModel()`），DI 容器里的 `getLLM()` 仍是快速失败的桩。容器只注册了 `memory` 向量库、`local` 存储与 Postgres 队列；Embedding、pgvector、BullMQ 以及 MCP Gateway 只在 config/types 中定义，尚无工厂实现——`getEmbedding()`、`getVectorStore()`（非 `memory`）、`getQueue()`（非 `postgres`/`memory`）都会以 `not implemented` 快速失败（参见 `packages/core/src/di/container.test.ts`）。
+> **实现状态：** LLM 调用已可用——产品代码（业务上下文生成、Agent 运行时）走 `@apigent/core/ai`（基于 Vercel AI SDK 的 `createLanguageModel(flow)`）；`@apigent/server/ai` 为兼容 re-export。容器只注册了 `memory` 向量库、`local` 存储与 Postgres 队列；pgvector、BullMQ 以及 MCP Gateway 只在 config/types 中定义，尚无工厂实现——`getVectorStore()`（非 `memory`）、`getQueue()`（非 `postgres`/`memory`）都会以 `not implemented` 快速失败（参见 `packages/core/src/di/container.test.ts`）。
+>
+> **变更说明（2026-09-22，P0-1 定案）：** §5.5.4 / §5.5.5 描述的 `LLMProvider` / `EmbeddingProvider` 接口，以及容器里的 `getLLM()` / `getEmbedding()` 桩已**删除**。模型调用改为直接用 AI SDK 的 `LanguageModel` / `EmbeddingModel` 类型，工厂收敛到 `@apigent/core/ai`；embedding / rerank 属 RAG 专属能力，随 `@apigent/rag` 落地。详见 [modules/rag-package.md](./modules/rag-package.md) §9 A1。下文仍展示这两个接口的小节保留为历史设计上下文。
 
 ## 5.3 API 层设计
 

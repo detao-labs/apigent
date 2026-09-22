@@ -1,6 +1,6 @@
 # Knowledge Retrieval Service
 
-> **状态：** 部分实现——检索配置与内存向量库已存在；完整 RAG 管道/Provider 尚未接线（仅 `memory` 向量库，其它 provider 的 `getEmbedding()`/`getVectorStore()` 会抛 `not implemented`）。
+> **状态：** 仅设计——检索配置与内存向量库已存在；完整 RAG 管道尚未接线（仅 `memory` 向量库，`getVectorStore()` 的非 `memory` provider 会抛 `not implemented`）。embedding / rerank 属 RAG 专属能力，随 `@apigent/rag` 落地（见 [rag-package-tasks.md](./rag-package-tasks.md)）。
 
 > **类型：Platform Service**（确定性逻辑，不需要 LLM）
 

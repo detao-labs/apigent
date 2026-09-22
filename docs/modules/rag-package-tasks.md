@@ -140,37 +140,61 @@
 **准入：** P0-1、P0-3 有结论。
 **退出条件：** `pnpm -r typecheck && pnpm -r lint && pnpm -r test` 全绿，现有功能行为不变。
 
-- [ ] **P1-1 收敛 LLM / Embedding 统一出口**（按 P0-1 定案）
+- [x] **P1-1 收敛 LLM / Embedding 统一出口**（按 P0-1 定案）
   - 改：
     1. `packages/core` 新增 `@apigent/core/ai`：`createLanguageModel(flow)` + 通用 provider 传输层（baseURL / apiKey 解析）。
     2. `@apigent/server/ai` 改为 re-export，现有调用点零改动。
     3. 删除容器里的 `getLLM()` / `getEmbedding()` 死 stub 与 `LLMProvider` / `EmbeddingProvider` 接口，端口统一用 AI SDK 的 `LanguageModel` / `EmbeddingModel`。
     4. **embedding 模型工厂与 rerank 客户端不放 core** —— 它们是 RAG 专属，放 `@apigent/rag`（P4-3 / P5-2）。
   - 验收：`createAIModel()` 的既有调用点行为不变；`@apigent/core/ai` 可独立于 rag 使用（不得 import rag 任何东西）；相关 fail-fast 测试同步更新。
+  - **完成记录（2026-09-22）：**
+    - 新增 `packages/core/src/ai/{index,model,transport}.ts`；`transport.ts` 是通用的「provider 选型 → OpenAI 兼容传输参数」纯函数层（`resolveLLMTransport` / `createOpenAICompatibleProvider`），RAG 后续复用它构造 embedding / rerank 客户端，但选项由 server 注入。
+    - `packages/core/package.json` 新增 `./ai` subpath 与 `ai` / `@ai-sdk/openai-compatible` 依赖。**有意不进 core 根 barrel** —— 根 barrel 会被客户端组件引用，不能把 AI SDK 打进浏览器包。
+    - 删除 `types/llm-provider.ts`、`types/embedding-provider.ts`、`di/providers/stub-{llm,embedding}.ts`，以及容器里的 `getLLM()` / `getEmbedding()` 和对应两个 fail-fast 测试。
+    - 补了 `ai/transport.test.ts`（provider 映射 + fail-fast，7 例）与 `ai/model.test.ts`（flow → modelId 选择 + fail-fast，3 例）替代被删的覆盖。
+    - `packages/server/src/ai/model.ts` 变为 re-export shim，同时导出 `createLanguageModel` 与旧名 `createAIModel`（现有调用点零改动）。调用点全部改名后 shim 可删。
+    - 顺带修掉文档漂移：`CLAUDE.md` 四处、`docs/tech-design{,.zh}.md` 的「实现状态」与 §5.5 说明、`knowledge-retrieval.md` / `rag-observability.md` 各一处。
+  - 验证：`tsc` 六个包全绿（core/server/auth/ui/platform/admin/open）；eslint 干净；测试 core 9 文件 45 例、server 12 文件 77 例、auth 4 例、open 2 例，全通过。
   - 风险：中（触及业务上下文生成与 agent 运行时）。
 
-- [ ] **P1-2 容器通用 provider 注册 API**
+- [x] **P1-2 容器通用 provider 注册 API**
   - 目标：新增一个 vectorStore / embedding 实现不需要改 `packages/core` 源码。
   - 改：`packages/core/src/di/container.ts` —— 把 queue 专用注册口通用化（`registerVectorStoreFactory` / `registerEmbeddingFactory`，或 `registerProvider(component, name, factory)`）。
   - 验收：注册表为空时首次访问仍 fail-fast（沿用既有契约，不静默回退）；既有 `container.test.ts` 的 fail-fast 用例继续通过并覆盖新入口。
   - 风险：低（纯机械重构）。
+  - **完成记录（2026-09-22）：**
+    - 采用**按组件分型的三个方法**而非统一 `registerProvider(component, ...)`：`registerVectorStoreFactory` / `registerStorageFactory` / `registerQueueFactory`。统一入口需要一个工厂类型联合，反而丢掉「不能把 queue 工厂注册进向量库表」这层类型保护。
+    - `ProviderFactory<T>` 改为导出，供 `packages/server` 声明注册函数。
+    - 三条注册契约写进容器注释：① 未注册的 provider 首次访问 fail-fast；② 键就是 `provider` 字段取值；③ 同名重复注册以后注册者为准（内置先注册，故外部可覆盖内置）。
+    - 补 6 个测试覆盖三个新入口、覆盖内置名、以及「枚举里有取值但 core 无内置实现」的场景（qdrant）。
+  - ⚠️ **发现的缺口（属后续任务）**：P0-6 要求 `provider` 字段能**直接写 npm 包名**，但配置类型（`VectorStoreConfig` 等判别联合）仍只接受固定字面量，写包名会被 TS/zod 挡下。
+    放宽配置类型会**改变失败时机**——写错 provider 名会从「配置校验期报错」退化成「运行期才报错」——所以必须与**启动期自检**同时落地，否则是行为退化。Phase 1 要求行为中性，故此处不放宽。已在测试里写明原因。
 
-- [ ] **P1-3 `LoggingContext` 增加 `traceId`**
+- [x] **P1-3 `LoggingContext` 增加 `traceId`**
   - 目标：日志与 trace 同源，避免一个请求两套关联 ID。
   - 改：`packages/server/src/logging/index.ts`。
   - 验收：请求上下文里能读到 `traceId`；由 `reqId` 兜底时不报错。
   - 风险：低。
+  - **完成记录（2026-09-22）：** `LoggingContext` 增加 `traceId`；解析顺序为「显式传入 > 外层已有 > 兜底」——**请求兜底到 `reqId`，任务兜底到 `taskId`**。任务在请求内运行时保留外层 `traceId`（一次操作只有一条链路），`withRequestContext` 的 `extra` 仍可显式覆盖。补 4 个测试。
+  - 待接线（P2-4）：`RagTelemetry` 的 logger adapter 需要读这个 `traceId`；因依赖方向约束（rag 不得 import server），adapter 应由 `packages/server` 提供并注入 rag，而不是 rag 自己去读日志上下文。
 
-- [ ] **P1-4 统一 observability provider 枚举命名**
+- [x] **P1-4 统一 observability provider 枚举命名**
   - 目标：消除 `otlp`（类型定义）与 `otel`（设计文档示例）的命名冲突。
   - 改：设计文档 + `types.ts` / `schema.ts` / 示例 YAML，任选其一作为准。
   - 验收：全文只有一种写法；配置校验接受该值。
   - 风险：低。
+  - **完成记录（2026-09-22）：以 `otlp` 为准，且本次是纯文档修正、零代码改动。**
+    - 理由：代码侧（`types.ts` / `schema.ts` / `apigent.config.example.yaml`）本来就统一用 `otlp`，连嵌套配置键都叫 `observability.otlp`；`otlp` 指具体的 OTLP 导出协议，而 `otel` 是生态名。取 `otlp` 意味着枚举值与嵌套键同名，选 `otel` 则要连嵌套键一起改。
+    - 改动：`rag-observability.md`（表格 + 示例 YAML 的 `provider: otel` 与 `export.otel` → `otlp`），`rag-package.md` 一处枚举列表。`observability.md` 本来就写的是 `otlp`。
 
-- [ ] **P1-5 固化「新增配置槽 checklist」**
+- [x] **P1-5 固化「新增配置槽 checklist」**
   - 目标：把四处同步的要求写进 CLAUDE.md 或脚本，避免漏改导致启动报错。
   - 验收：新同学按 checklist 能一次改对。
   - 风险：低。
+  - **完成记录（2026-09-22）：** 写进 `CLAUDE.md` → Config Module Architecture → **Adding a new config slot — the four-place rule**。
+    - 四处必改：`types.ts` / `schema.ts` / `defaults.ts` / `apigent.config.example.yaml`。
+    - 两处按需：secret 类槽位要接 `file-loader.ts` 的 `injectSecrets()`；被消费的槽位要同步读取方。
+    - 附了一句真实的踩坑案例（`rag.vectorStore.indexType` 四处齐全但**没有任何代码读它**，改 YAML 不生效），并提示改完用 `pnpm --filter @apigent/core test` 验证。
 
 ---
 
@@ -459,7 +483,7 @@
 | 阶段                       | 任务数 | 已完成 | 状态    |
 | -------------------------- | ------ | ------ | ------- |
 | Phase 0 决策冻结           | 6      | 6      | ✅ 完成 |
-| Phase 1 基础重构           | 5      | 0      | 未开始  |
+| Phase 1 基础重构           | 5      | 5      | ✅ 完成 |
 | Phase 2 包骨架与契约       | 9      | 0      | 未开始  |
 | Phase 3 数据模型与配置对齐 | 6      | 0      | 未开始  |
 | Phase 4 摄取               | 8      | 0      | 未开始  |
@@ -468,7 +492,7 @@
 | Phase 7 评估与可观测       | 5      | 0      | 未开始  |
 | Phase 8 MCP 暴露           | 6      | 0      | 未开始  |
 
-**下一个任务：** P1-1 收敛 LLM / Embedding 统一出口（Phase 0 已完成，进入 Phase 1）
+**下一个任务：** P2-1 建 `packages/rag` 包骨架（Phase 1 已完成，进入 Phase 2）
 
 ---
 
@@ -503,11 +527,13 @@
 
 ## 变更日志
 
-| 日期       | 变更                                                                                                                                                                                                                                                      |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-22 | 初版：按设计文档拆出 9 个阶段、58 个任务                                                                                                                                                                                                                  |
-| 2026-09-22 | P0-3 spike 完成（报告：[rag-spike-p0-3.md](../tech/rag-spike-p0-3.md)）；据实测细化 P3-2 / P3-3 / P4-5                                                                                                                                                    |
-| 2026-09-22 | **P0-3 定案：采用 E（应用侧 jieba，`cutForSearch`）**；新增 P2-9 分词器任务，P3-1 增加 `tokenizer_version`，P3-2 定为 `search_text` + generated column                                                                                                    |
-| 2026-09-22 | **P0-2 定案：维度固定 1024 + 记录生产者身份 + 一个部署只有一个活跃模型**；与 P0-3 的 `tokenizer_version` 合并进 P3-1 一次迁移                                                                                                                             |
-| 2026-09-22 | 精简 P0-3 spike 报告（380 → 198 行，改为「对比优先」结构）；删除一次性探查脚本 `scripts/rag-spike/`                                                                                                                                                       |
-| 2026-09-22 | **Phase 0 收尾：P0-1 / P0-4 / P0-5 / P0-6 全部定案。** P0-1：模型调用能力归 `@apigent/core/ai`、embedding/rerank 归 rag；P0-4：chunk 内容寻址 + links 表（含两条权限不变量）；P0-5：不含问答，删除 P5-8 / P7-5；P0-6：provider 支持 npm 包名 + 启动期自检 |
+| 日期       | 变更                                                                                                                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-09-22 | 初版：按设计文档拆出 9 个阶段、58 个任务                                                                                                                                                                                                                                       |
+| 2026-09-22 | P0-3 spike 完成（报告：[rag-spike-p0-3.md](../tech/rag-spike-p0-3.md)）；据实测细化 P3-2 / P3-3 / P4-5                                                                                                                                                                         |
+| 2026-09-22 | **P0-3 定案：采用 E（应用侧 jieba，`cutForSearch`）**；新增 P2-9 分词器任务，P3-1 增加 `tokenizer_version`，P3-2 定为 `search_text` + generated column                                                                                                                         |
+| 2026-09-22 | **P0-2 定案：维度固定 1024 + 记录生产者身份 + 一个部署只有一个活跃模型**；与 P0-3 的 `tokenizer_version` 合并进 P3-1 一次迁移                                                                                                                                                  |
+| 2026-09-22 | 精简 P0-3 spike 报告（380 → 198 行，改为「对比优先」结构）；删除一次性探查脚本 `scripts/rag-spike/`                                                                                                                                                                            |
+| 2026-09-22 | **Phase 0 收尾：P0-1 / P0-4 / P0-5 / P0-6 全部定案。** P0-1：模型调用能力归 `@apigent/core/ai`、embedding/rerank 归 rag；P0-4：chunk 内容寻址 + links 表（含两条权限不变量）；P0-5：不含问答，删除 P5-8 / P7-5；P0-6：provider 支持 npm 包名 + 启动期自检                      |
+| 2026-09-22 | **P1-1 完成**：新增 `@apigent/core/ai`（model + transport），`@apigent/server/ai` 变 shim；删除 `LLMProvider` / `EmbeddingProvider` 与容器死 stub；补 transport / model 单测；修 CLAUDE.md 与 tech-design 的文档漂移                                                           |
+| 2026-09-22 | **Phase 1 完成（5/5）**：P1-1 模型出口收敛；P1-2 容器通用注册 API（记下一个缺口：「provider 写包名」必须与启动期自检同时落地，否则失败时机从配置校验期退化到运行期）；P1-3 `LoggingContext` 加 `traceId`；P1-4 `otlp` 命名统一（纯文档）；P1-5 配置槽 checklist 写进 CLAUDE.md |

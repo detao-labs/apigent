@@ -11,7 +11,8 @@
     "./types": "./src/types/index.ts",
     "./di": "./src/di/index.ts",
     "./i18n": "./src/i18n/index.ts",
-    "./agent": "./src/agent/index.ts"
+    "./agent": "./src/agent/index.ts",
+    "./ai": "./src/ai/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -25,6 +26,8 @@
     "vitest": "^4.0.0"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.30",
+    "ai": "^7.0.62",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   }

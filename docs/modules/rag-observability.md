@@ -72,21 +72,26 @@ await trace.getTracer("rag").startActiveSpan("retrieve.dense", async (span) => {
 
 | provider   | 优势                        | 说明                              |
 | ---------- | --------------------------- | --------------------------------- |
-| `otel`     | 通用，Linux 生态            | 自建 Collector → Tempo/Phoenix 等 |
+| `otlp`     | 通用，Linux 生态            | 自建 Collector → Tempo/Phoenix 等 |
 | `langfuse` | 专做 LLM 追踪，看板友好     | 建议 V0 首选                      |
 | `phoenix`  | OpenInference，RAG 评测推荐 | 若后续接评测看板                  |
 | `none`     | 关闭/仅 console             | 开发用                            |
+
+> **命名以 `otlp` 为准（P1-4 定案）**：该值指 OpenTelemetry 的 **OTLP 导出协议**，
+> 与 `observability.otlp.endpoint` 这个嵌套配置键同名、语义一致；`otel` 是生态名而非导出方式。
+> 代码侧（`types.ts` / `schema.ts` / `apigent.config.example.yaml`）本来就统一用 `otlp`，
+> 本文原先写的 `otel` 是笔误，已更正。
 
 ## 配置设计（`apigent.config.yaml`）
 
 ```yaml
 observability:
-  provider: otel # none | otel | langfuse | phoenix
+  provider: otlp # none | otlp | langfuse | phoenix
   enabled: true
   sampler: parentbased_always_on # 生产可降采样，例如 parentbased_traceidratio
   samplerRatio: 1.0
   export:
-    otel:
+    otlp:
       endpoint: http://localhost:4318
       protocol: http/json # http/json | grpc
 ```
@@ -102,7 +107,7 @@ observability:
 
 ## 依赖
 
-- 上游：Semantic Search Agent、VectorStore / EmbeddingProvider / LLMProvider（AI SDK）
+- 上游：Semantic Search Agent、VectorStore / Embedding 模型 / rerank 客户端（均基于 AI SDK；embedding 与 rerank 随 `@apigent/rag` 落地，语言模型在 `@apigent/core/ai`）
 - 下游：OTel Collector / Langfuse / Phoenix；Web UI（可选 RAG trace 查看）
 - 辅助：`@opentelemetry/api`、`@opentelemetry/sdk-*`、对应 exporter
 

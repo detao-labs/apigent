@@ -11,6 +11,14 @@
 // adding a real implementation is a one-line registration, not a switch
 // edit.
 //
+// 注册 API：`registerVectorStoreFactory` / `registerStorageFactory` /
+// `registerQueueFactory`。三条契约见下方注释。每个组件一张
+// `name → factory` 表，键就是配置里 `provider` 字段的取值。
+//
+// LLM / Embedding 不在这里：它们曾经是永远抛错的死 stub，P1-1 起统一走
+// `@apigent/core/ai`（工厂模式 + AI SDK 的 LanguageModel / EmbeddingModel）。
+// 见 docs/modules/rag-package.md §9 A1。
+//
 // Usage:
 //   import { getContainer } from "@apigent/core/di";
 //   const vs = getContainer().getVectorStore();
@@ -18,23 +26,16 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import type { ApigentConfig } from "../config";
-import type {
-  VectorStore,
-  LLMProvider,
-  EmbeddingProvider,
-  StorageProvider,
-  QueueProvider,
-} from "../types";
+import type { VectorStore, StorageProvider, QueueProvider } from "../types";
 import { MemoryVectorStore, LocalStorageProvider, MemoryQueueProvider } from "./providers";
 
-type ProviderFactory<T> = (config: ApigentConfig) => T;
+/** 组件工厂：吃完整配置，吐出该组件的 provider 实例。 */
+export type ProviderFactory<T> = (config: ApigentConfig) => T;
 
 export class Container {
   private config: ApigentConfig;
 
   private _vectorStore?: VectorStore;
-  private _llm?: LLMProvider;
-  private _embedding?: EmbeddingProvider;
   private _storage?: StorageProvider;
   private _queue?: QueueProvider;
 
@@ -75,12 +76,28 @@ export class Container {
     return factory;
   }
 
-  /**
-   * Register a provider factory for a component.
-   * Used by packages that own the implementation (e.g. packages/server
-   * registers the "postgres" queue factory) — fail-fast contract still
-   * applies: an unregistered provider throws on first access.
-   */
+  // ─────────────────────────────────────────────────────────────────
+  // Provider 注册
+  // ─────────────────────────────────────────────────────────────────
+  //
+  // 供「拥有实现」的包在启动时调用（例：packages/server/queue 注册
+  // `postgres → PgQueueProvider`）。三条契约：
+  //
+  //   1. fail-fast —— 未注册的 provider 在**首次访问**时抛错，不静默回退到
+  //      memory / stub（见 resolve()）。
+  //   2. 键就是配置里 `provider` 字段的取值，因此**可以是 npm 包名**。
+  //      P0-6 定案：`provider` 字段接受「内置枚举值 | npm 包名」。
+  //   3. 同名重复注册**以后注册者为准**。内置实现在构造函数里先注册，所以
+  //      外部包可以借这条覆盖内置同名实现。
+
+  registerVectorStoreFactory(name: string, factory: ProviderFactory<VectorStore>): void {
+    this.vectorStoreFactories[name] = factory;
+  }
+
+  registerStorageFactory(name: string, factory: ProviderFactory<StorageProvider>): void {
+    this.storageFactories[name] = factory;
+  }
+
   registerQueueFactory(name: string, factory: ProviderFactory<QueueProvider>): void {
     this.queueFactories[name] = factory;
   }
@@ -96,24 +113,6 @@ export class Container {
       this._vectorStore = factory(this.config);
     }
     return this._vectorStore;
-  }
-
-  getLLM(): LLMProvider {
-    if (!this._llm) {
-      // No LLM providers are implemented yet — fail fast at wiring time
-      // instead of substituting a stub that throws at call time.
-      throw new Error(`LLM provider '${this.config.llm.provider}' is not implemented yet.`);
-    }
-    return this._llm;
-  }
-
-  getEmbedding(): EmbeddingProvider {
-    if (!this._embedding) {
-      throw new Error(
-        `Embedding provider '${this.config.rag.embedding.provider}' is not implemented yet.`,
-      );
-    }
-    return this._embedding;
   }
 
   getStorage(): StorageProvider {

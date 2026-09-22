@@ -240,6 +240,12 @@ importers:
 
   packages/core:
     dependencies:
+      '@ai-sdk/openai-compatible':
+        specifier: ^3.0.30
+        version: 3.0.30(zod@4.4.3)
+      ai:
+        specifier: ^7.0.62
+        version: 7.0.62(zod@4.4.3)
       yaml:
         specifier: ^2.9.0
         version: 2.9.0

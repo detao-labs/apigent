@@ -55,4 +55,41 @@ describe("logging context", () => {
       expect(getLoggingContext().reqId).toBe("parent");
     });
   });
+
+  describe("traceId", () => {
+    it("falls back to the generated reqId inside a request context", () => {
+      withRequestContext(() => {
+        const ctx = getLoggingContext();
+        expect(ctx.traceId).toBeTruthy();
+        expect(ctx.traceId).toBe(ctx.reqId);
+      });
+    });
+
+    it("falls back to the taskId inside a task context", () => {
+      withTaskContext("task_trace", () => {
+        expect(getLoggingContext().traceId).toBe("task_trace");
+      });
+    });
+
+    it("keeps the outer traceId when a task runs inside a request", () => {
+      withRequestContext(() => {
+        const requestTrace = getLoggingContext().traceId;
+        withTaskContext("task_1", () => {
+          const ctx = getLoggingContext();
+          // 一次操作只有一条链路：任务不新起 trace，只补充 taskId
+          expect(ctx.traceId).toBe(requestTrace);
+          expect(ctx.taskId).toBe("task_1");
+        });
+      });
+    });
+
+    it("lets an explicit traceId override the fallback", () => {
+      withRequestContext(
+        () => {
+          expect(getLoggingContext().traceId).toBe("trace-explicit");
+        },
+        { traceId: "trace-explicit" },
+      );
+    });
+  });
 });

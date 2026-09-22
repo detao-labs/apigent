@@ -1,9 +1,45 @@
 import { describe, it, expect } from "vitest";
 import type { ApigentConfig } from "../config";
+import type { QueueProvider, StorageProvider, VectorStore } from "../types";
 import { Container } from "./container";
 import { MemoryVectorStore } from "./providers/memory-vector-store";
 import { LocalStorageProvider } from "./providers/local-storage";
 import { MemoryQueueProvider } from "./providers/memory-queue";
+
+// ── 注册 API 用的最小假实现 ─────────────────────────────────────────
+
+class FakeVectorStore implements VectorStore {
+  async search() {
+    return [];
+  }
+  async insert() {}
+  async delete() {}
+  async count() {
+    return 0;
+  }
+}
+
+class FakeStorage implements StorageProvider {
+  async save() {}
+  async read() {
+    return Buffer.alloc(0);
+  }
+  async delete() {}
+  async exists() {
+    return false;
+  }
+  async list() {
+    return [];
+  }
+}
+
+class FakeQueue implements QueueProvider {
+  async enqueue() {
+    return "job";
+  }
+  async process() {}
+  async shutdown() {}
+}
 
 function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
   const base: ApigentConfig = {
@@ -72,14 +108,74 @@ describe("Container", () => {
     expect(() => container.getVectorStore()).toThrow(/not implemented/);
   });
 
-  it("fails fast for LLM providers without an implementation", () => {
-    const container = new Container(makeConfig());
-    expect(() => container.getLLM()).toThrow(/not implemented/);
-  });
+  describe("provider registration", () => {
+    it("resolves a vector store registered under a new name", () => {
+      const config = makeConfig();
+      config.rag.vectorStore = { provider: "pgvector", indexType: "hnsw" };
+      const container = new Container(config);
+      const fake = new FakeVectorStore();
+      container.registerVectorStoreFactory("pgvector", () => fake);
+      expect(container.getVectorStore()).toBe(fake);
+    });
 
-  it("fails fast for embedding providers without an implementation", () => {
-    const container = new Container(makeConfig());
-    expect(() => container.getEmbedding()).toThrow(/not implemented/);
+    it("lets a package add an implementation for a config enum value without touching core", () => {
+      // 这是 P1-2 的核心目标：qdrant 在配置类型里有取值、但 core 没有内置实现，
+      // 拥有实现的包只需注册一行即可启用。
+      //
+      // 注：P0-6 定案还要求 provider 字段能直接写 npm 包名。那需要同时放宽
+      // 配置类型并加启动期自检（否则写错 provider 名会从「配置校验期报错」退成
+      // 「运行期报错」），属于后续任务，不在 Phase 1 的行为中性范围内。
+      const config = makeConfig();
+      config.rag.vectorStore = { provider: "qdrant", url: "http://q", collection: "c" };
+      const container = new Container(config);
+      const fake = new FakeVectorStore();
+      container.registerVectorStoreFactory("qdrant", () => fake);
+      expect(container.getVectorStore()).toBe(fake);
+    });
+
+    it("lets a later registration override a built-in name", () => {
+      const container = new Container(makeConfig());
+      expect(container.getVectorStore()).toBeInstanceOf(MemoryVectorStore);
+
+      const fresh = new Container(makeConfig());
+      const fake = new FakeVectorStore();
+      fresh.registerVectorStoreFactory("memory", () => fake);
+      expect(fresh.getVectorStore()).toBe(fake);
+    });
+
+    it("resolves a storage factory registered under a new name", () => {
+      const config = makeConfig();
+      config.storage = {
+        provider: "s3",
+        bucket: "b",
+        region: "r",
+        accessKeyId: "k",
+        secretAccessKey: "s",
+      };
+      const container = new Container(config);
+      const fake = new FakeStorage();
+      container.registerStorageFactory("s3", () => fake);
+      expect(container.getStorage()).toBe(fake);
+    });
+
+    it("resolves a queue factory registered under a new name", () => {
+      const config = makeConfig({
+        queue: { provider: "bullmq", redisUrl: "redis://localhost:6379" },
+      });
+      const container = new Container(config);
+      const fake = new FakeQueue();
+      container.registerQueueFactory("bullmq", () => fake);
+      expect(container.getQueue()).toBe(fake);
+    });
+
+    it("still fails fast when a name is never registered", () => {
+      const container = new Container(makeConfig());
+      expect(() => container.getVectorStore()).not.toThrow(); // memory 内置
+
+      const config = makeConfig();
+      config.rag.vectorStore = { provider: "qdrant", url: "http://q", collection: "c" };
+      expect(() => new Container(config).getVectorStore()).toThrow(/not implemented/);
+    });
   });
 
   it("resolves the local storage provider", () => {

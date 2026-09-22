@@ -350,7 +350,7 @@ interface RagDocument {
 | 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                  | `rag.retrieval.reranker`     |
 | 上下文扩展 | `ContextExpander`   | builtin                                              | —（新增槽位）                |
 | 生成       | `AnswerGenerator`   | LLM（AI SDK）                                        | —（V1 新增）                 |
-| 可观测     | `RagTelemetry`      | noop / logger / otel / langfuse                      | `observability.*`            |
+| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                      | `observability.*`            |
 | 缓存       | `RagCache`          | noop / memory-lru                                    | —（新增槽位）                |
 
 **摄取的写入策略必须是「对账式」（desired-set diff），不能只做 upsert。**
@@ -685,7 +685,9 @@ MCP 挂载需要 DB + authz + keys。两条路：给 `apps/open` 加依赖（进
 
 #### D1 (P0) — `observability` 有枚举无实现，RAG 不得直连 OTel
 
-`observability.provider: none | otlp | langfuse | phoenix` 四条路径都没有实现，OTel 依赖未安装；且 [rag-observability.md](./rag-observability.md) 的示例配置写的是 `provider: otel`，与类型里的 `otlp` **不一致**。
+> ✅ **命名已统一（2026-09-22，P1-4）**：以 `otlp` 为准（见 P1-4 定案），[rag-observability.md](./rag-observability.md) 里的 `otel` 已更正。代码侧本来就统一是 `otlp`，因此本次是纯文档修正、无行为变化。
+
+`observability.provider: none | otlp | langfuse | phoenix` 四条路径都没有实现，OTel 依赖未安装。
 
 **处理：** RAG 走 `RagTelemetry` 端口 + `LoggerTelemetry`（§7），上线即可观测；同时把枚举命名统一（`otlp` vs `otel`），否则将来写适配器要兼容两个名字。
 
