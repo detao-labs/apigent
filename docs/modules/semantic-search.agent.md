@@ -201,6 +201,14 @@ pgvector 查询：
 
 精确匹配：方法名 (`POST`)、路径 (`/orders/refund`)、字段名 (`amount`)、参数名。
 
+> ⚠️ **本节方案已被实测证伪，不要照此实现。** 2026-09-22 的 spike（[rag-spike-p0-3.md](../tech/rag-spike-p0-3.md)）实测：
+>
+> 1. `to_tsvector('english', …)` **不会**切分中文——连续 CJK 是单个 `word` token，"退款" 查不到 "订单退款接口"；english 与 simple 对中文行为一致。
+> 2. `path` 被解析为 **`file` token**（`/orders` 是单个 token），所以下面的 `setweight(path, 'A')` 只在查询串与 path 字面全等时生效；用户写 `orders refund` 时命中率与空召回率分别是 **0% / 100%**。
+> 3. 「PG `tsvector` Generated Column 自动同步」与实现不符：迁移里 `search_vector` 是普通列；且一参形式 `to_tsvector(text)` 是 STABLE，不能用于 generated column，必须写 `to_tsvector('simple'::regconfig, …)`。
+>
+> 采纳的替代方案是「标识符归一化 + CJK 2-gram」纯 SQL 实现（零扩展），中文 sparse 从 33% hit@1 / 67% 空召回提升到 92% hit@1 / 100% hit@3 / 0% 空召回。
+
 **为什么是 BM25 而非简单关键词匹配：**
 
 |          | 简单关键词                                 | BM25                                              |

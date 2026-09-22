@@ -70,15 +70,16 @@
 
 ### Platform Service（确定性模块，普通代码）
 
-| Service                                                 | 职责                                                                                                       | 为什么不需要 LLM                                       |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [OpenAPI Parser Service](./openapi-parser.md)           | 解析 OpenAPI JSON/YAML，生成结构化 API Model                                                               | 规范有明确的 JSON Schema，纯解析+验证逻辑              |
-| [Knowledge Graph Service](./knowledge-graph.md)         | 构建 API 关联图谱（depends_on / follow_up 等）——**V1+ 可选增强，默认关闭**（`rag.knowledgeGraph.enabled`） | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
-| [RAG Observability](./rag-observability.md)             | RAG 管线可观测：采集检索 trace 与指标，经 OpenTelemetry 导出                                               | 埋点、聚合、导出，不涉及理解或推理                     |
-| [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片                                                                  | SQL JOIN + 数据拼装，不涉及理解或推理                  |
-| [Project Context Service](./project-context.md)         | 提取项目级约定（base_url、分页、认证）                                                                     | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理        |
-| [MCP Gateway](./mcp-gateway.md)                         | MCP 协议服务器：路由、鉴权、限流                                                                           | 协议适配和请求路由，纯工程逻辑                         |
-| [Async Queue](./async-queue.md)                         | 异步任务调度（OpenAPI 导入等）+ 通用消息通知（分类/优先级）；`QueueProvider` 可配置（Postgres/BullMQ/SQS） | 队列调度与状态机，确定性逻辑                           |
+| Service                                                 | 职责                                                                                                         | 为什么不需要 LLM                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| [OpenAPI Parser Service](./openapi-parser.md)           | 解析 OpenAPI JSON/YAML，生成结构化 API Model                                                                 | 规范有明确的 JSON Schema，纯解析+验证逻辑              |
+| [Knowledge Graph Service](./knowledge-graph.md)         | 构建 API 关联图谱（depends_on / follow_up 等）——**V1+ 可选增强，默认关闭**（`rag.knowledgeGraph.enabled`）   | 基于 `$ref` 引用、路径模式、字段命名匹配——都是规则匹配 |
+| [RAG Observability](./rag-observability.md)             | RAG 管线可观测：采集检索 trace 与指标，经 OpenTelemetry 导出                                                 | 埋点、聚合、导出，不涉及理解或推理                     |
+| [RAG Package](./rag-package.md)                         | RAG 能力的封装形态：`@apigent/rag` 包结构、三级可替换模型、契约、可观测/评测端口，以及动手前的既有设计阻塞项 | 包边界与阶段编排；检索算法见 semantic-search.agent.md  |
+| [Knowledge Retrieval Service](./knowledge-retrieval.md) | 聚合多个来源的数据，返回完整 API 知识卡片                                                                    | SQL JOIN + 数据拼装，不涉及理解或推理                  |
+| [Project Context Service](./project-context.md)         | 提取项目级约定（base_url、分页、认证）                                                                       | 从 OpenAPI 结构字段中提取，规则匹配，不需要推理        |
+| [MCP Gateway](./mcp-gateway.md)                         | MCP 协议服务器：路由、鉴权、限流                                                                             | 协议适配和请求路由，纯工程逻辑                         |
+| [Async Queue](./async-queue.md)                         | 异步任务调度（OpenAPI 导入等）+ 通用消息通知（分类/优先级）；`QueueProvider` 可配置（Postgres/BullMQ/SQS）   | 队列调度与状态机，确定性逻辑                           |
 
 ### AI Agent（LLM 驱动，真正需要推理）
 
@@ -215,6 +216,8 @@ docs/modules/
   business-context.md              ← Business Context 技术设计（任务/存储/API/UI）
   knowledge-graph.md               ← Knowledge Graph Service
   semantic-search.agent.md         ← Semantic Search Agent (LLM)
+  rag-package.md                   ← RAG Package（包结构 / 可替换性 / 契约 / 前置阻塞项）
+  rag-package-tasks.md             ← RAG Package 分阶段开发任务清单（工作清单，随开发勾选）
   rag-observability.md             ← RAG Observability（无 LLM）
   rag-eval.agent.md                ← RAG Evaluation Agent (LLM-judge)
   knowledge-retrieval.md           ← Knowledge Retrieval Service
