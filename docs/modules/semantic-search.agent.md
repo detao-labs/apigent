@@ -48,16 +48,22 @@ User Query: "退款接口在哪里？"
 
 ## 输入
 
-| 字段               | 类型               | 说明                                                                 |
-| ------------------ | ------------------ | -------------------------------------------------------------------- |
-| `query`            | `string`           | 自然语言查询："查找与退款相关的 API"                                 |
-| `repository_id?`   | `string`           | 限定搜索范围（Repo）                                                 |
-| `organization_id?` | `string`           | 限定搜索范围（Organization 下所有 Repo）                             |
-| `project_id?`      | `string`           | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
-| `top_k?`           | `number`           | 返回数量，默认 10                                                    |
-| `filter?`          | `SearchFilter`     | HTTP 方法、tag、路径前缀等筛选条件                                   |
-| `user_id`          | `string`           | 当前用户 ID（用于权限过滤）                                          |
-| `search_mode?`     | `"fast" \| "deep"` | `fast`: 跳过 Query Rewriting（默认）；`deep`: 完整流程               |
+| 字段              | 类型               | 说明                                                                 |
+| ----------------- | ------------------ | -------------------------------------------------------------------- |
+| `query`           | `string`           | 自然语言查询："查找与退款相关的 API"                                 |
+| `repositoryId?`   | `string`           | 限定搜索范围（Repo）                                                 |
+| `organizationId?` | `string`           | 限定搜索范围（Organization 下所有 Repo）                             |
+| `projectId?`      | `string`           | 限定为某 Project 内的 repo（V1+；双层规则：仅返回用户有权限的 repo） |
+| `topK?`           | `number`           | 返回数量，默认 10                                                    |
+| `filters?`        | `SearchFilter`     | HTTP 方法、tag、路径前缀等筛选条件                                   |
+| `mode?`           | `"fast" \| "deep"` | `fast`: 跳过 Query Rewriting（默认）；`deep`: 完整流程               |
+
+> **命名（2026-09-22 定案）**：本**输入表**已按仓库统一规则改为 **camelCase**（除 MCP 工具名外一律 camelCase）。
+> 另注：权限由调用方解析为 `scope` 传入，接口内不再有 `user_id`。见 [rag-package.md](./rag-package.md) §4 的 `RetrieveRequest` 契约。
+>
+> ⚠️ 本文下方的 TypeScript 接口示例（`SearchResult` / `ScoredAPI` / `ChunkMetadata` 等）仍是 snake_case，
+> 与代码里实际的 camelCase 不一致 —— 这是**既有的文档漂移**，不在本次范围内，见 rag-package-tasks.md 的待办。
+> （注意区分：其中的 SQL 片段与 `metadata` 键名对应真实数据库列，**应当**保持 snake_case。）
 
 ## 输出
 

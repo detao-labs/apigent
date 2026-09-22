@@ -58,10 +58,11 @@ packages/rag/
   src/
     index.ts            # createRagService() —— 唯一的消费入口
     contracts/          # 零重依赖：类型 + 接口 + 错误 + 常量（客户端可安全 import）
+      stages.ts         #   可替换阶段的端口（Embedder / DenseIndex…），第三方 provider 的 peerDependency 目标
     pipeline/           # 纯编排：组装阶段、跑检索、跑摄取；不含任何具体 provider
     stages/             # 各阶段的内置默认实现（纯函数优先）
     adapters/           # 具体后端：pgvector / pg-fts / qwen / openai / cohere / hash(测试)
-    tools/              # search_apis / ask_apis 工具定义（zod，无执行器）
+    tools/              # search_apis 工具定义（zod，无执行器）
     testing/            # 确定性替身：hashEmbedder、memoryIndex、RecordingTelemetry
     eval/               # 评测 harness + 指标计算
 ```
@@ -74,6 +75,8 @@ packages/rag/
 | `@apigent/rag/testing`    | 测试替身                                       | ✅ 但只应出现在测试 |
 | `@apigent/rag/eval`       | 评测入口                                       | ❌ 服务端/脚本      |
 | `@apigent/rag/adapters/*` | 具体实现                                       | ❌                  |
+
+**阶段端口放 `contracts/`**（`stages.ts`），不放实现模块：P0-6 要求第三方 provider 包能把「接口所在包」声明为 peerDependency，若端口藏在 `src/stages/` 里，第三方就得依赖内部路径。端口按需增量添加 —— 当前只有 `Embedder` / `DenseIndex`（P2-5 的测试替身需要它们），其余随各自任务补齐。
 
 ### 2.3 依赖方向（必须遵守，否则成环）
 
@@ -377,11 +380,18 @@ interface RagDocument {
 
 ### 6.1 工具定义只写一次
 
-`@apigent/rag/tools` 导出 `search_apis`（+ V1 的 `ask_apis`）的 name / description / zod schema，**不含执行器**。这与既有的 `packages/core/src/agent` 注册表模式一致（定义与执行器分离）：
+`@apigent/rag/tools` 导出 `search_apis` 的 name / description / zod schema，**不含执行器**（没有 `ask_apis` —— P0-5 定案不含问答）。这与既有的 `packages/core/src/agent` 注册表模式一致（定义与执行器分离）：
 
 - agent 运行时：把定义注册进 `AgentToolRegistry`，执行器复用平台已有 service（可在 V0 就上线，不被 MCP 阻塞）；
 - MCP Gateway：把同一份定义放进 `tools/list`，执行器直连 `RagService`；
 - 平台客户端：需要展示工具清单 / MCP 连接卡时，从 `@apigent/rag/tools` 读，不重复抄 schema。
+
+**命名规则（P2-3 定案，见 CLAUDE.md → External Surface Naming）：工具名 `snake_case`、参数名 `camelCase`。**
+两者角色不同 —— 工具名是**协议面的标识符**（出现在客户端配置、白名单、日志、审计里，且与其他 server 共享命名空间），参数名是**本 server 自己的数据契约**（JSON Schema properties，无跨系统命名空间，用本地习语可与内部类型一致）。
+
+查证过 MCP 官方规范：它只约束工具名（1–128 字符、`[A-Za-z0-9_.-]`、server 内唯一），**对大小写风格中立**（示例含 `getUser`），**对参数名完全未提**。所以这个分工是我们的约定，不是规范要求。
+
+> 这条规则也意味着 `packages/core` 既有工具（`get_endpoint_spec` + `repositoryId`）**本来就符合**，无需迁移、不会破坏 LLM 已学会的 tool call 参数名。
 
 ### 6.2 scope 解析必须收敛成一个函数
 

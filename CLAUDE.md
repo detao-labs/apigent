@@ -45,6 +45,26 @@ All infrastructure concerns have TypeScript interfaces (`VectorStore`, `StorageP
 
 `docs/*.md` files should have a `.zh.md` counterpart, and both must stay in sync when documentation changes (the `common-docs-i18n` skill handles this). Note: only `docs/blueprint.md` and `docs/tech-design.md` currently have `.zh.md`; the `docs/modules/*` docs are English-only as of now.
 
+## External Surface Naming
+
+**One rule: everything is `camelCase` except the MCP tool name.**
+
+| Surface                                                                                   | Convention   |
+| ----------------------------------------------------------------------------------------- | ------------ |
+| MCP tool **name**                                                                         | `snake_case` |
+| MCP tool **parameters** (`inputSchema.properties`)                                        | `camelCase`  |
+| Platform REST JSON (`apps/platform/src/lib/openapi-schemas.ts` → `openapi/platform.json`) | `camelCase`  |
+| Internal TS types                                                                         | `camelCase`  |
+
+Why the tool name is the lone exception — it and the parameter names play different roles:
+
+- The **tool name is an identifier on the protocol surface**: it shows up in client configs, allowlists, log lines and audit trails, and it shares a namespace with other servers (clients aggregating several servers often prefix it). Cross-system identifiers follow ecosystem convention, and mainstream MCP servers use `snake_case` names.
+- **Parameter names are this server's own data contract** — plain JSON Schema `properties` with no cross-server namespace. Using local idiom costs nothing and lets them match the internal types, avoiding a field-name mapping layer.
+
+**What the MCP spec actually says** (`server/tools` → "Tool Names"): tool names SHOULD be 1–128 characters, case-sensitive, restricted to `[A-Za-z0-9_.-]`, and unique within a server. The spec is **casing-neutral** — its own examples include `getUser` and `DATA_EXPORT_v2` — and it says **nothing at all about parameter names**: `inputSchema` is handed to JSON Schema and the `properties` keys are the server's choice. So the split above is _our_ convention, not a spec requirement.
+
+> Consequence worth knowing: keeping parameter names in `camelCase` means the existing agent tools in `packages/core` (`get_endpoint_spec` with `repositoryId`) already conform — no migration needed, and no breaking change to tool calls an LLM has already learned.
+
 ## Technology Stack (V0)
 
 | Layer         | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |

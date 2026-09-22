@@ -119,7 +119,7 @@ Knowledge Retrieval Service
 
 ## 触发方式
 
-- MCP Gateway 调用 `get_api_detail` tool（含 `project_id`）
+- MCP Gateway 调用 `get_api_detail` tool（参数名 `camelCase`，含 `projectId`；见 [mcp-gateway.md](./mcp-gateway.md)）
 - Web UI API 详情页面
 - Change Analysis Agent (V1) 获取变更基线
 

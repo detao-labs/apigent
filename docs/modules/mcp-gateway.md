@@ -34,21 +34,27 @@ apis   api  context
 描述: 语义搜索 API。用自然语言描述意图，返回匹配的 API 列表。
 输入:
   - query (string, required): 搜索意图描述
-  - repository_id (string, optional): 限定仓库
-  - project_id (string, optional): 限定项目（V1+；双层规则，仅返回用户有权限的 repo）
-  - top_k (number, optional): 返回数量，默认 10
+  - repositoryId (string, optional): 限定仓库
+  - organizationId (string, optional): 限定组织
+  - projectId (string, optional): 限定项目（V1+；双层规则，仅返回用户有权限的 repo）
+  - topK (number, optional): 返回数量，默认取 fineRankTopK
+  - mode ("fast" | "deep", optional): fast 跳过查询改写
 输出: { results: [{ api_id, path, method, summary, score, match_reason }] }
 ```
+
+> **命名（2026-09-22 定案）**：工具名 `snake_case`、**参数名 `camelCase`**。见
+> [CLAUDE.md](../../CLAUDE.md) → External Surface Naming 与该规则在 [rag-package.md](./rag-package.md) §6.1 的说明。
+> MCP 规范只约束工具名（字符集 / 长度 / server 内唯一），对大小写风格中立、对参数名未作规定。
 
 ### Tool 2: `get_api_detail`
 
 ```
 描述: 获取 API 完整知识卡片。包含 Schema、能力上下文、使用上下文、示例、关联 API。
 输入:
-  - api_id (string, required): API 标识
-  - project_id (string, required): 使用上下文所属 Project（或默认取用户可访问的第一个项目）
-  - include_examples (boolean, optional): 默认 true
-  - include_relations (boolean, optional): 默认 true
+  - apiId (string, required): API 标识
+  - projectId (string, required): 使用上下文所属 Project（或默认取用户可访问的第一个项目）
+  - includeExamples (boolean, optional): 默认 true
+  - includeRelations (boolean, optional): 默认 true
 输出: APIKnowledgeCard
 ```
 
@@ -57,7 +63,7 @@ apis   api  context
 ```
 描述: 获取项目全局上下文。认证方式、领域概念、API 约定。
 输入:
-  - project_id (string, required)
+  - projectId (string, required)
 输出: ProjectContext
 
 （V1+ 提供，随 Project 实体实现）
