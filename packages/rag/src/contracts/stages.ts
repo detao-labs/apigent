@@ -1,14 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════
-// RAG Contracts — 阶段端口（Embedder / DenseIndex）
+// RAG Contracts — 阶段端口（Embedder / DenseIndex / Tokenizer）
 // ═══════════════════════════════════════════════════════════════════
 //
 // 这里是**可替换阶段的接口面**（P0-6：`provider` 字段既能写内置枚举、也能写
 // npm 包名）。第三方包把本文件所在的 `@apigent/rag/contracts` 声明为
 // **peerDependency**，避免多装出多份接口副本导致的结构不兼容。
 //
-// 只定义 **P2-5 的测试替身必须实现的两个阶段**。其余阶段随各自任务增量添加，
-// 不提前声明：
-//   - SparseIndex / Tokenizer → P4-5、P2-9
+// 只定义**已经有实现或替身的阶段**。其余阶段随各自任务增量添加，不提前声明：
+//   - SparseIndex → P4-5
 //   - Reranker → P5-2；QueryRewriter → P5-5 / P5-6；Fusion / ContextExpander → P5-1 / P5-3
 //
 // 三条约束（与 docs/modules/rag-package.md §3.1 一致）：
@@ -19,6 +18,46 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import type { ChunkLang, ChunkLevel, RagDocumentFields, RagScope, RetrievalFilters } from "./types";
+
+// ───────────────────────────────────────────────────────────────────
+// 分词
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * 分词阶段 —— 稀疏召回的前置。
+ *
+ * 它是**可替换阶段**：P0-3 定案里 `rag.searchStore.provider` 有四个取值
+ * （`pg-fts-jieba` 默认 / `pg-fts-bigram` 备选 / `pg-fts-simple` / `none`），
+ * 而「切什么词」正是它们之间最主要的差别。
+ */
+export interface Tokenizer {
+  /**
+   * 版本串：库版本 + 词典标识 + 分词模式 + 归一化实现版本。
+   *
+   * 落进 `knowledge_chunks.tokenizer_version`（P3-1），检索时校验：不一致 =
+   * **必须 REINDEX**（切分口径变了，旧索引里的词元与新查询的词元对不上，
+   * 表现为「静默查不到」）。所以它不是给人看的注释，是索引元数据。
+   */
+  readonly version: string;
+
+  /**
+   * 分词。
+   *
+   * **索引侧与查询侧必须用同一个实例、同一种模式。** jieba 必须用
+   * `cutForSearch`（搜索模式）而不是默认的 `cut`：实测默认模式把「发货单」切成
+   * 单个词元，用户查「发货」→ 命中 0，而且**不报错、不告警**（spike §4.3）。
+   */
+  tokenize(text: string): string[];
+
+  /**
+   * 标识符归一化：`POST /orders/{id}/refund` → `["post","orders","id","refund"]`。
+   *
+   * 与中文方案**无关**，但是无条件必做的（spike：不做归一化时 `path` 被 FTS
+   * 切成一个 `file` token，用户写 `orders refund` 命中率 0%）。让每个稀疏
+   * provider 各实现一遍必然漂移，所以它被放进端口。
+   */
+  normalizeIdentifiers(text: string): string[];
+}
 
 // ───────────────────────────────────────────────────────────────────
 // 向量化

@@ -84,8 +84,10 @@ export interface RagPipelineConfig {
 }
 
 export const DEFAULT_PIPELINE_CONFIG: RagPipelineConfig = {
+  // 与 `DEFAULT_RAG_CONFIG.retrieval` 的 fineRankTopK / coarseRankTopK 保持一致 ——
+  // 两处默认值不同会变成「没读配置时的行为与读了配置时不同」这种最难查的偏差。
   topK: 10,
-  coarseRankTopK: 30,
+  coarseRankTopK: 20,
   recordQueryText: true,
 };
 

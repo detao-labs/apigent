@@ -258,19 +258,42 @@
     - 有意记下的近似：fixture **忽略 `IndexRequest.endpoints`**（返回全集）。这是**安全方向**的近似 —— 期望集合是超集，对账式同步不会因此误删 chunk。已写在代码注释里。
   - 验证：`pnpm --filter @apigent/rag test` 9 文件 69 例（新增 46 例）；`pnpm -r typecheck && pnpm -r lint && pnpm -r test` 全绿。关键断言：`发货` 召回 `GET /shipments/{id}`、退款查询不跨组织泄漏、空 scope 返回 `[]` 而非抛错、维度不一致 fail-fast。
 
-- [ ] **P2-6 `pipeline` + `createRagService()`**
+- [x] **P2-6 `pipeline` + `createRagService()`**
   - 交付：阶段注册表 + 编排；所有阶段靠注入组装，**管线内不得有隐藏全局单例**。
   - 验收：换掉任一阶段注入即可改变行为，无需改管线代码。
+  - **完成记录（2026-09-22）：** `src/pipeline/{types,registry,service,index}.ts`。
+    - **装配契约**：`createRagService({ registry, providers, config, telemetry, clock, createTraceId, deps })`。`providers` 每阶段一个 `{ name, options }`，`name` 就是 P0-6 的取值面（内置枚举 | npm 包名）；工厂拿到 `{ options, deps }`，`deps` 是 `Record<string, unknown>` 袋子 —— rag 不能依赖 `pg` / `drizzle`，句柄类型由**注册方**（server / 第三方包）自己声明。
+    - **注册表**：按阶段分表（`documentSource` / `embedder` / `denseIndex`），未注册名字解析时 fail-fast 且**报出已注册名单**；同名重复注册以后注册者为准（对齐 P1-2 的三条注册契约）。只登记 P2-6 真能装配的阶段，避免出现「注册表里有、管线里没有」的死槽位。
+    - **装配在构造期完成** = P0-6「启动期自检」的落点：配置里把 provider 名字写错，`createRagService()` 当场抛 `RagConfigError`，而不是等第一次检索才静默返回空。
+    - **管线不 import 任何实现**：`pipeline/**` 只 import `contracts` 与 `telemetry`，具体实现全部由注册方注入 —— 这就是「不得有隐藏全局单例」的可检查形态（P2-8 的 lint 规则会把它变成机器检查）。
+    - **降级 vs 抛错的边界**（写进代码注释，不靠记忆）：embedding 失败**有退路** → 空结果 + `degraded: embedding_unavailable` + `strategy: fallback` + `recordDegradation`；向量库检索失败**无退路**（Phase 2 只有稠密一路）→ 抛 `RagDependencyError`，并由 `searchDense()` 统一把第三方错误包装成稳定 `code`（P5-1 加入稀疏一路后这里会变成「降级到 sparse」的返回路径）；摄取失败 → 抛（`documentSource` 的错误包装成 `RagIngestError`）；**空 scope（无权限）→ 空结果且不打降级标记**（授权结果不是故障），且不调用 embedder。
+    - **索引语义**：`IndexRequest.commitId` 缺省时**不写 link** → 该 chunk 在按 commit 收窄的检索里查不到（fail-closed）；「缺省 = 主版本 head」需要读 DB，属 P4-7。embedder 返回条数与文档数不一致直接抛 `RagIngestError` —— 向量错位会把 A 的向量写到 B 的内容上，是**静默错误**。
+    - **分数**：契约承诺 `score` 0-1，而稠密余弦可为负 → Phase 2 用 `(cos+1)/2` 单调映射占位，P5-1 的融合阶段用自己的最终分取代。
+    - **`health()`**：空索引 → `degraded`（组件通但不能服务），有内容 → `ok`，索引抛错 → `unavailable`（健康检查自己绝不抛，否则故障时拿不到任何信息）。
+    - **有意留的缺口**（代码头注释里有一张表）：`content_hash` 复用与对账式删除（P4-6，`chunksSkipped/Deleted` 恒为 0 而不是假装有值）；`index_empty` 降级（判断「本 scope 内无内容」需要 scope 级计数，SQL 适配器里做才便宜且正确 → P4-4）；`matchReason` / `highlights`（P5-2 / P5-3）；`rerank` / `expand` / `mode: deep` 请求开关（无对应阶段，因此不产生行为差异）。
+  - 验证：rag 11 文件 94 例（新增 25 例），含「换 documentSource / 换 denseIndex 即改行为」「装配期 fail-fast」「embedding 失败降级」「索引失败抛 RagDependencyError」「空 scope 不调用 embedder」「跨组织不泄漏」「恶意 telemetry 下仍能检索」；`pnpm -r typecheck && pnpm -r lint && pnpm -r test` 全绿。
 
-- [ ] **P2-7 端到端单测（含中文查询）**
+- [x] **P2-7 端到端单测（含中文查询）**
   - 覆盖：正常召回、空召回降级、telemetry 记录、中文查询命中。
   - 验收：`pnpm --filter @apigent/rag test` 全绿。
+  - **完成记录（2026-09-22）：** `src/pipeline/e2e.test.ts`（7 例）—— Phase 2 退出条件的直接证据。
+    - 与 `service.test.ts` 的分工：那边按行为逐条钉契约，这边只跑**整链路**，并附一张迷你黄金集（排序质量）。
+    - 关键断言：写入 6 个 chunk → 中文查询 → top1 + trace 完整 + 无降级；embedding 不可用 → **降级标记而不是 500**，且 trace 仍完整（调用方能解释「为什么是空的」）；三条中文查询（发货 / 退款 / 优惠券核销）**top1 全中**；英文查询命中同一接口的英文 chunk；未索引仓库 = **空召回而非降级**（`empty_rate=1` 与 `fallback_rate=0` 分开统计，验证两条指标确实独立）；重复索引同一 commit 幂等（chunk_key 内容寻址）；**任何 span 属性都不含 chunk 正文**（脱敏不变量，用 fixture 正文片段做反向断言）。
+    - 顺带对齐：`DEFAULT_PIPELINE_CONFIG` 取 20/10，与 `DEFAULT_RAG_CONFIG.retrieval` 的 `coarseRankTopK` / `fineRankTopK` 一致 —— 两处默认值不同会产生「没读配置时与读配置时行为不同」这种最难查的偏差。
+    - ⚠️ **发现一个待决策点，转交 P4-4 / P5-1**：现有配置**没有相似度阈值槽位**（如 `minScore`），因此稠密路永远返回 top-K，`empty_rate` 只在 scope 无候选时才非零 —— 这会低估真实空召回。是否引入阈值（放配置还是放请求参数）要在 P4-4 落 SQL 时一并决定，因为阈值在 pgvector 里是**查询内的 SQL 条件**，而做成管线里的后置过滤会让 `LIMIT` 语义错位（先截 top-K 再过滤 → 可能返回 0 条，明明有更多候选）。已写入 P4-4。
+  - 验证：rag 12 文件 101 例；`pnpm -r typecheck && pnpm -r lint && pnpm -r test` 全绿。
 
-- [ ] **P2-8 客户端边界与依赖方向约束**
+- [x] **P2-8 客户端边界与依赖方向约束**
   - 交付：lint 规则 —— `packages/rag/**` 禁止 import `@apigent/server*`；顶层 barrel 不导出纯类型便利入口（避免诱导客户端 import 顶层）。
   - 验收：故意写一句违规 import 会被 lint 拦住。
+  - **完成记录（2026-09-22）：**
+    - `eslint.config.mjs` 新增 RAG 专用块（`files: packages/rag/src/**/*.ts`，排除 `*.test.ts`），三条 `no-restricted-imports`：① 禁止 `@apigent/server` / `@apigent/server/*`（依赖方向）；② 禁止 import `**/testing/**`（生产代码不得用测试替身）；③ 禁止 `**/adapters/**`（管线只认识端口与名字）。**用 lint 而不只靠测试**：越界 import 应该在写下的那一刻报错，而不是等 CI 跑完测试才红。
+    - **顶层 barrel 改为只转发类型**：`export type * from "./contracts"`（TS 5.0+ 语法）。原先的 `export *` 让客户端可以 `import { CHUNK_LEVELS } from "@apigent/rag"` 拿到**值** —— 那条 import 会把整条管线（含 `node:crypto`）打进浏览器包；而 `import type` 会被编译期擦除，是安全的。所以「禁止的是值，不是类型」是最小且精确的约束。值一律走 `@apigent/rag/contracts`。
+    - 新增 `src/boundaries.test.ts`：lint 表达不了的结构约束用测试钉住（`export type *` 与 `export *` 在 lint 眼里一样，但后果差一个浏览器包）+ 一条源码扫描守卫覆盖依赖方向（双保险，沿用 P2-4 的 `no-otel.test.ts` 写法）。三条断言都带**非空跑自检**。
+  - 验收取证：临时加了一个违规文件（`from "@apigent/server/ai"` + `from "./testing/hash-embedder"`），两层都拦住了 —— eslint 报 2 个 error（附指向设计文档的中文说明），`boundaries.test.ts` 的守卫同时失败；随后删除该文件并复跑全绿。
+  - 验证：rag 13 文件 106 例；全工作区 typecheck / lint / test 全绿（eslint 配置改动影响所有包，所以跑了全量）。
 
-- [ ] **P2-9 中文分词器阶段（应用侧 jieba）** ← P0-3 定案产物
+- [x] **P2-9 中文分词器阶段（应用侧 jieba）** ← P0-3 定案产物
   - 交付：`Tokenizer` 阶段 + `@node-rs/jieba` 适配器。
     - 必须用 **`cutForSearch`**（搜索模式），**不得用默认 `cut`**：实测默认模式把「发货单」切成单个词元，用户查「发货」命中为 0。把这条写进代码注释与测试。
     - 同时输出**标识符归一化**结果（method / path / operationId → 小写 + 非字母数字转空格），供稀疏索引使用。
@@ -278,6 +301,23 @@
   - 约束：分词器实例是进程级单例（词典常驻内存），首次加载有开销；三个进程（平台 / worker / MCP 网关）各加载一次，要确认内存与冷启动可接受。
   - 可选增强：领域词典（退款 / 优惠券 / 库存 …）通过 `loadDict` 注入，词典内容与版本一并纳入 `tokenizerVersion`。
   - 验收：`余额` / `发货单` / `优惠券` 切分正确；「发货」能命中「发货单」；同输入重复调用结果稳定。
+  - **完成记录（2026-09-22）：** `src/stages/{identifiers,jieba-tokenizer,index}.ts` + `@apigent/rag/stages` subpath + `Tokenizer` 端口（`contracts/stages.ts`）。依赖 `@node-rs/jieba@2.0.3`（预编译二进制，无需编译）。
+    - **① `cutForSearch`，不是 `cut`。** 有一条专门用例直接钉这件事：`overlap("发货", "发货单查询接口：按发货单号…")` 必须非空；文件头写明「别改成 `cut`」。这是本方案唯一会**静默**掉召回的坑（不报错、不告警）。
+    - **② 标识符归一化独立成纯函数** `normalizeIdentifiers`（`src/stages/identifiers.ts`）：小写 + 非字母数字转空格 + **去重保序**，CJK 保留（path 里可能有 `/订单/{id}`）。它同时挂在 `Tokenizer` 端口上 —— 三个稀疏 provider（jieba / bigram / simple）共用同一行为，各写一遍必然漂移。
+    - **③ 版本串** = `cutForSearch@jieba-2.0.3:dict=builtin:hmm=1:norm=v1`（库版本 + 分词模式 + 词典标识 + 归一化实现版本）。P3-1 直接把它写进 `tokenizer_version`。库版本运行时读已安装包的 `package.json`，读不到才用兜底常量；有一条测试断言兜底常量与已安装版本一致，所以它不会悄悄过期。
+    - **惰性加载是刻意的**：`@node-rs/jieba` 是原生模块、`@node-rs/jieba/dict` 一 import 就把词典读进内存。静态 import 会让**任何** import 到 `./stages` 的进程付这个成本（哪怕 `searchStore.provider: none`，哪怕只是想用 `normalizeIdentifiers`）。改用 `createRequire` 惰性加载后，成本推迟到工厂调用时 —— 正好是启动期，也是 fail-fast 的好位置。
+    - **进程级单例 + 领域词典**：`Jieba.withDict()` 只做一次（P0-3 约束 2）。`loadDict` 是**增量合并**，同一进程加载第二套词典会污染第一套、切分结果从此不可复现 → 遇到第二个不同 `id` 直接抛 `RagConfigError`，而不是静默合并（P0-3 约束 3）。有测试。
+    - **有意不做**：**不拆 camelCase**（`refundOrder` → `refundorder`）。P0-3 定案只写「小写 + 非字母数字转空格」；加它会改分词口径 → `tokenizer_version` 变 → 必须 REINDEX，所以它是个独立决策点而不是顺手优化。当前行为已被测试固定住，将来要改测试会提醒同步改版本号。
+    - **给 P4-5 的接口约定**：索引侧与查询侧必须用**同一实例、同一模式**；查询词元里已经滤掉纯标点，但拼 tsquery 时仍要做一次白名单过滤（防 `:` `&` 之类破坏语法）。
+    - 顺带把 P2-8 的 lint 规则加严一档：`pipeline/**` 连 `**/stages/**` 也不许 import（管线只认识端口与名字）。
+    - **依赖版本精确固定**（`"@node-rs/jieba": "2.0.3"`，不是 `^2.0.3`）：`dict.txt` 随包发布，切分口径又被持久化进 `tokenizer_version`，所以版本一动就得全量 REINDEX。固定版本让升级变成一次**显式的、带 REINDEX 的** diff，而不是 `pnpm update` 的副作用（锁文件本来就冻结了解析结果，这条是为了让升级动作可见）。同时它也是工作区里唯一一个原生预编译依赖，升级风险高于普通纯 JS 包。
+  - 验证：rag 15 文件 122 例（新增 16 例：切分质量 5 + 版本串 3 + 端口委托 1 + 词典 1 + 标识符归一化 6）；全工作区 typecheck / lint / test 全绿。
+
+- [ ] **P2-10 provider 包名加载 + 启动期自检** ← P0-6 定案的最后一块（本任务为 2026-09-22 补记）
+  - 背景：P0-6 定案里「`provider` 字段直接写 npm 包名」与「启动期自检」是两条必做项。P2-6 落地了注册表与解析（名字写错启动即失败），但**按包名动态 `import()` 与导出形状校验**还没有实现；P1-2 也记过同一个缺口（配置类型仍只接受固定字面量，写包名会被 zod / TS 挡下）。
+  - 交付：① `loadStageFactory(kind, name)` —— 先查注册表，未命中则按包名动态加载，并校验导出形状（缺哪个导出要报出来）；② 配置类型放宽为「内置枚举 | 包名」，且**必须与启动期自检同时落地** —— 否则失败时机从「配置校验期」退化成「运行期」，那是行为退化。
+  - 验收：不存在的包名 / 导出形状不对的包 → 启动期可读错误；内置枚举仍走原路径；配置里写包名不再被 zod / TS 拒绝；同名外部包可覆盖内置实现。
+  - 约束：只接受**已安装为依赖的包名**，不按文件路径加载（配置文件常被复制、被工单传递，路径会让它变成任意代码执行入口）。第三方包把 `@apigent/rag/contracts` 声明为 peerDependency。
 
 ---
 
@@ -361,6 +401,7 @@
 - [ ] **P4-4 pgvector 稠密索引适配器**
   - 交付：`DenseIndex` 实现（写入 + 按 `scope` 过滤检索）。
   - 验收：过滤条件在 SQL 层生效（**不是**取回后再过滤）。
+  - **连带（P2-7 转来的待决策点）**：决定是否引入**相似度阈值**（如 `minScore`）。现状没有该配置槽，稠密路永远返回 top-K，`empty_rate` 只在 scope 无候选时才非零，会低估真实空召回。若引入，阈值必须是**查询内的 SQL 条件**（`WHERE embedding <=> $q < $maxDistance`），不能做成管线里的后置过滤 —— 先 `LIMIT` 再过滤会导致「明明有更多候选却返回 0 条」。
 
 - [ ] **P4-5 稀疏索引适配器**（按 P0-3 决策）
   - 交付（`pg-fts-jieba`，默认）：
@@ -515,7 +556,7 @@
 | -------------------------- | ------ | ------ | ------- |
 | Phase 0 决策冻结           | 6      | 6      | ✅ 完成 |
 | Phase 1 基础重构           | 5      | 5      | ✅ 完成 |
-| Phase 2 包骨架与契约       | 9      | 5      | 进行中  |
+| Phase 2 包骨架与契约       | 10     | 9      | 进行中  |
 | Phase 3 数据模型与配置对齐 | 6      | 0      | 未开始  |
 | Phase 4 摄取               | 8      | 0      | 未开始  |
 | Phase 5 检索               | 7      | 0      | 未开始  |
@@ -523,7 +564,7 @@
 | Phase 7 评估与可观测       | 5      | 0      | 未开始  |
 | Phase 8 MCP 暴露           | 6      | 0      | 未开始  |
 
-**下一个任务：** P2-6 `pipeline` + `createRagService()`
+**下一个任务：** P2-10 provider 包名加载 + 启动期自检
 
 ---
 
@@ -571,5 +612,10 @@
 | 2026-09-22 | **P2-1 ~ P2-3 完成**：`packages/rag` 骨架落地（exports 增量声明）；契约落定（`RagScope.commitIds` 取代 `versionIds`，无 answer 相关类型）；`search_apis` 工具定义（与 core 的 `AgentToolDefinition` 结构兼容，由编译期断言钉住）。**遗留决策：工具入参 camelCase vs snake_case，需在 Phase 8 暴露 MCP 前敲定。**                                                                                                                                        |
 | 2026-09-22 | **确立对外命名规则**（写入 CLAUDE.md → External Surface Naming）：**除 MCP 工具名外一律 camelCase** —— MCP 工具名 `snake_case`、MCP 参数名 `camelCase`、平台 REST JSON `camelCase`、内部 TS 类型 `camelCase`。依据：查证 MCP 官方规范 `server/tools`「Tool Names」—— 规范只约束工具名字符集与唯一性、**对大小写风格中立**（示例含 `getUser`）、**对参数名完全未提**。撤销此前新建的 P6-6（core 既有工具已符合该规则，无需迁移）；Phase 6 任务数 6 → 5。 |
 | 2026-09-22 | **P2-4 完成**：`RagTelemetry` 端口（contracts）+ noop / logger / fail-open 实现。脱敏在写入侧收口；`LoggerTelemetry` 依赖注入的日志端口而非 server logger；加源码扫描守卫禁止 `@opentelemetry`。                                                                                                                                                                                                                                                        |
-| 2026-09-22 | **命名规则落地核查**：`knowledge-retrieval.md` 里 MCP 工具调用参数的 `project_id` → `projectId`（唯一一处真实错配）；其余 snake_case 命中经人工筛过，均为 SQL 列名 / DB 元数据 / 非 RAG 模块的既有文档。全工作区 typecheck / lint / test 全绿。                                                                                                                                                                                                                  |
-| 2026-09-22 | **P2-5 完成**：`@apigent/rag/testing`（`hashEmbedder` / `memoryIndex` / `RecordingTelemetry` / fixture `ragDocumentSource`）；顺带在 `contracts/stages.ts` 落地 `Embedder` / `DenseIndex` 两个阶段端口（P0-4 的两条权限不变量在内存实现里先行落地）；`RagDocument` 补 `organizationId` 快照列。rag 测试 23 → 69 例。                                                                                                                                      |
+| 2026-09-22 | **命名规则落地核查**：`knowledge-retrieval.md` 里 MCP 工具调用参数的 `project_id` → `projectId`（唯一一处真实错配）；其余 snake_case 命中经人工筛过，均为 SQL 列名 / DB 元数据 / 非 RAG 模块的既有文档。全工作区 typecheck / lint / test 全绿。                                                                                                                                                                                                         |
+| 2026-09-22 | **P2-5 完成**：`@apigent/rag/testing`（`hashEmbedder` / `memoryIndex` / `RecordingTelemetry` / fixture `ragDocumentSource`）；顺带在 `contracts/stages.ts` 落地 `Embedder` / `DenseIndex` 两个阶段端口（P0-4 的两条权限不变量在内存实现里先行落地）；`RagDocument` 补 `organizationId` 快照列。rag 测试 23 → 69 例。                                                                                                                                    |
+| 2026-09-22 | **P2-6 完成**：`pipeline` 阶段注册表 + `createRagService()`。管线只 import 契约，阶段全部构造期注入（无隐藏单例）；装配期 fail-fast = P0-6 自检落点；降级（embedding 失败）与抛错（向量库不可用、摄取失败）的边界写进代码注释；空 scope 不打降级标记。rag 测试 69 → 94 例。**新增任务 P2-10**（P0-6 剩下的「包名加载 + 导出形状校验」，Phase 2 任务数 9 → 10）。                                                                                        |
+| 2026-09-22 | **P2-7 完成**：端到端单测（Phase 2 退出条件）。三条中文查询 top1 全中、embedding 故障给降级标记而非 500、空召回与降级两条指标独立统计、重复索引幂等、span 属性不含 chunk 正文。顺带把 `DEFAULT_PIPELINE_CONFIG` 对齐 `DEFAULT_RAG_CONFIG.retrieval`。**转出待决策点**：「无相似度阈值导致 empty_rate 低估」记入 P4-4。rag 测试 94 → 101 例。                                                                                                            |
+| 2026-09-22 | **P2-8 完成**：eslint 加 RAG 专用 `no-restricted-imports`（禁 `@apigent/server*` / 测试替身 / 适配器）；顶层 barrel 改为 `export type * from "./contracts"`（禁止客户端从顶层取值，值走 `/contracts`）；新增 `boundaries.test.ts` 钉住导出形态与依赖方向。已用临时违规文件取证两层都能拦住。rag 测试 101 → 106 例。                                                                                                                                     |
+| 2026-09-22 | **P2-9 完成**：`@apigent/rag/stages`（`jiebaTokenizer` + `normalizeIdentifiers`）+ `Tokenizer` 端口。`cutForSearch` 有专测钉住（`cut` 会静默掉召回）；版本串 = 模式 + 库版本 + 词典标识 + 归一化版本，直接供 `tokenizer_version` 落库；jieba 惰性加载（词典不进非稀疏部署的内存）；词典是进程级配置，第二套直接抛错。新增依赖 `@node-rs/jieba@2.0.3`。rag 测试 106 → 122 例。                                                                           |
+| 2026-09-22 | **P2-9 补充：`@node-rs/jieba` 版本精确固定**（`2.0.3`，非 `^2.0.3`）。理由：切分口径持久化在 `tokenizer_version` 里，版本变化 = 必须全量 REINDEX，因此升级要是显式 diff 而不是 `pnpm update` 的副作用；锁文件已冻结解析，这条是让升级动作**可见**。理由同时写进 `rag-package.md` §2.2 与 `jieba-tokenizer.ts` 文件头。                                                                                                                                  |

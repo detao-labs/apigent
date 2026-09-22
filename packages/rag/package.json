@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./contracts": "./src/contracts/index.ts",
+    "./stages": "./src/stages/index.ts",
     "./testing": "./src/testing/index.ts",
     "./tools": "./src/tools/index.ts"
   },
@@ -24,6 +25,7 @@
   },
   "dependencies": {
     "@apigent/core": "workspace:*",
+    "@node-rs/jieba": "2.0.3",
     "zod": "^4.4.3"
   }
 }

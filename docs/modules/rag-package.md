@@ -67,16 +67,18 @@ packages/rag/
     eval/               # 评测 harness + 指标计算
 ```
 
-| Subpath                   | 内容                                           | 客户端可 import？   |
-| ------------------------- | ---------------------------------------------- | ------------------- |
-| `@apigent/rag`            | `createRagService(config, deps)`、服务接口类型 | ❌ 会触及 db/pg     |
-| `@apigent/rag/contracts`  | 查询/结果/scope/trace 类型，错误类，枚举常量   | ✅ 零重依赖         |
-| `@apigent/rag/tools`      | 工具名 / description / zod inputSchema         | ✅ 仅依赖 zod       |
-| `@apigent/rag/testing`    | 测试替身                                       | ✅ 但只应出现在测试 |
-| `@apigent/rag/eval`       | 评测入口                                       | ❌ 服务端/脚本      |
-| `@apigent/rag/adapters/*` | 具体实现                                       | ❌                  |
+| Subpath                   | 内容                                                                                                             | 客户端可 import？            |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@apigent/rag`            | `createRagService(config, deps)`、阶段注册表、telemetry 实现；契约**只做类型转发**（值走 `/contracts`，见 P2-8） | ❌ 会触及 db/pg、node:crypto |
+| `@apigent/rag/contracts`  | 查询/结果/scope/trace 类型，错误类，枚举常量                                                                     | ✅ 零重依赖                  |
+| `@apigent/rag/tools`      | 工具名 / description / zod inputSchema                                                                           | ✅ 仅依赖 zod                |
+| `@apigent/rag/testing`    | 测试替身                                                                                                         | ✅ 但只应出现在测试          |
+| `@apigent/rag/eval`       | 评测入口                                                                                                         | ❌ 服务端/脚本               |
+| `@apigent/rag/adapters/*` | 具体实现                                                                                                         | ❌                           |
 
 **阶段端口放 `contracts/`**（`stages.ts`），不放实现模块：P0-6 要求第三方 provider 包能把「接口所在包」声明为 peerDependency，若端口藏在 `src/stages/` 里，第三方就得依赖内部路径。端口按需增量添加 —— 当前只有 `Embedder` / `DenseIndex`（P2-5 的测试替身需要它们），其余随各自任务补齐。
+
+**分词器依赖精确固定版本**：`@node-rs/jieba` 写 `"2.0.3"` 而非 `"^2.0.3"`。理由不是「安装可复现」（锁文件已经保证），而是**切分口径是持久化状态**：`dict.txt` 随包发布，而 `knowledge_chunks.tokenizer_version` 记录了产出这行数据的分词器（P3-1）。版本一动，存量索引的词元就与新查询的词元对不上（表现为静默查不到），必须全量 REINDEX。固定版本把升级变成一次显式 diff，而不是 `pnpm update` 的副作用。它是本工作区唯一的原生预编译依赖，升级风险也高于纯 JS 包。
 
 ### 2.3 依赖方向（必须遵守，否则成环）
 

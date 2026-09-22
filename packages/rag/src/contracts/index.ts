@@ -43,6 +43,7 @@ export type {
   DenseHit,
   DenseUnlinkSelector,
   DenseIndex,
+  Tokenizer,
 } from "./stages";
 export { RAG_SPAN_NAMES, RAG_METRIC_NAMES } from "./telemetry";
 export type {
