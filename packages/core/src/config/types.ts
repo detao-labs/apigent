@@ -37,6 +37,25 @@ export type VectorStoreProvider =
 
 export type VectorStoreIndexType = "ivfflat" | "hnsw";
 
+/**
+ * 第三方 provider —— 实现由 npm 包提供（P0-6 定案）。
+ *
+ * **为什么是显式判别**（`provider: "package"` + `package` 字段），而不是让
+ * `provider` 直接写包名：判别的字面量一旦变成 `string`，下面这些 union 的
+ * **类型收窄会失效**（`provider === "qwen"` 不再能排除第三方分支，凭据字段退化成
+ * `unknown`），而且配置节点的 `.strict()` 只能放弃 —— 那等于把「配置写错」从
+ * 启动期推到运行期，正是 P1-2 记过的行为退化。显式判别的代价只是用户多写一个键。
+ *
+ * `options` 是**该包自己的配置**：宿主只校验 `package` 是合法包名，锁不住它需要
+ * 哪些键（这是第三方 provider 的固有代价，由包自己校验）。
+ */
+export interface ExternalProviderConfig {
+  provider: "package";
+  /** npm 包名；必须是已安装的依赖，**不接受文件路径** */
+  package: string;
+  options?: Record<string, unknown>;
+}
+
 /** In-memory vector store — local development / tests only */
 export interface MemoryVectorStoreConfig {
   provider: "memory";
@@ -90,7 +109,8 @@ export type VectorStoreConfig =
   | QdrantConfig
   | WeaviateConfig
   | PineconeConfig
-  | ChromaConfig;
+  | ChromaConfig
+  | ExternalProviderConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 3. LLM Provider
@@ -192,7 +212,8 @@ export type EmbeddingConfig =
   | OpenAIEmbeddingConfig
   | CohereEmbeddingConfig
   | LocalBGEConfig
-  | LocalFastEmbedConfig;
+  | LocalFastEmbedConfig
+  | ExternalProviderConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 5. RAG Pipeline
@@ -233,7 +254,11 @@ export interface NoRerankerConfig {
 }
 
 export type RerankerConfig =
-  BgeRerankerConfig | CohereRerankerConfig | QwenRerankerConfig | NoRerankerConfig;
+  | BgeRerankerConfig
+  | CohereRerankerConfig
+  | QwenRerankerConfig
+  | NoRerankerConfig
+  | ExternalProviderConfig;
 
 /**
  * Knowledge Graph enhancement (V1+).
@@ -245,10 +270,13 @@ export interface KnowledgeGraphConfig {
   enabled: boolean;
 }
 
-export interface SearchStoreConfig {
+export interface PgFtsSearchStoreConfig {
   /** Sparse / keyword retrieval backend (V0: PostgreSQL tsvector + GIN) */
   provider: "pg-fts";
 }
+
+/** Sparse store: built-in Postgres FTS, or a third-party package (P0-6). */
+export type SearchStoreConfig = PgFtsSearchStoreConfig | ExternalProviderConfig;
 
 export interface RAGRetrievalConfig {
   /** Retrieval mode: hybrid combines dense+sparse (+KG when enabled) */

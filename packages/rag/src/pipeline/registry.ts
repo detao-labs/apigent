@@ -16,7 +16,7 @@ export function createStageRegistry(): RagStageRegistry {
     if (!existing) {
       // 类型上不可能发生；运行时兜住，是为了让「新增阶段忘了登记」变成明确错误，
       // 而不是静默创建一张没人读的表。
-      throw new RagConfigError(`rag: 未知的阶段类型 "${kind}"`);
+      throw new RagConfigError(`rag: unknown stage kind "${kind}"`);
     }
     return existing;
   }
@@ -31,8 +31,11 @@ export function createStageRegistry(): RagStageRegistry {
       if (!factory) {
         const known = [...table(kind).keys()];
         throw new RagConfigError(
-          `rag: 阶段 "${kind}" 的 provider "${name}" 未注册；` +
-            (known.length > 0 ? `已注册：${known.join(", ")}` : "当前没有任何已注册实现"),
+          `rag: no provider registered for stage "${kind}" under the name "${name}"; ` +
+            (known.length > 0
+              ? `registered: ${known.join(", ")}`
+              : "nothing is registered for this stage yet") +
+            ". If this is an npm package name, load it at startup with `preloadStageProviders()` first.",
         );
       }
       return factory as RagStageFactoryMap[typeof kind];

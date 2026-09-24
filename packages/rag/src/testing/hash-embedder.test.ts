@@ -14,7 +14,7 @@ function cosine(a: number[], b: number[]): number {
 }
 
 describe("hashEmbedder", () => {
-  it("is deterministic across calls (CI 指标可复现的前提)", async () => {
+  it("is deterministic across calls (CI metrics must be reproducible)", async () => {
     const embedder = hashEmbedder();
     const first = await embedder.embed(["退款接口"]);
     const second = await embedder.embed(["退款接口"]);
@@ -45,7 +45,7 @@ describe("hashEmbedder", () => {
     expect(norm).toBeCloseTo(1, 10);
   });
 
-  it("ranks texts sharing tokens above unrelated ones (否则 hit@k 在 CI 里没有意义)", async () => {
+  it("ranks texts sharing tokens above unrelated ones (otherwise hit@k is meaningless)", async () => {
     const embedder = hashEmbedder();
     const { vectors } = await embedder.embed([
       "查询退款进度",
@@ -58,7 +58,7 @@ describe("hashEmbedder", () => {
     expect(cosine(query, unrelated)).toBeLessThanOrEqual(0.2);
   });
 
-  it("matches 发货 against 发货单（bigram 让中文子串可召回）", async () => {
+  it("matches the query 发货 against 发货单 (bigrams make Chinese substrings recallable)", async () => {
     const { vectors } = await hashEmbedder().embed(["发货", "发货单查询接口", "优惠券核销"]);
     const [query, shipment, coupon] = vectors;
 

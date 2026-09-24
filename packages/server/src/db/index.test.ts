@@ -19,6 +19,12 @@ describe("@apigent/server/db public export", () => {
     expect(secretKeys.keyHash).toBeDefined();
     expect(operationLogs.operationType).toBeDefined();
     expect(knowledgeChunks.embedding).toBeDefined();
+    // 生产者身份列（P0-2 / P0-3，迁移 0005）—— 少了任何一列，
+    // 「检索按当前模型过滤 / 分词口径变更需 REINDEX」这两条就没有落点。
+    expect(knowledgeChunks.embeddingModel).toBeDefined();
+    expect(knowledgeChunks.embeddingDim).toBeDefined();
+    expect(knowledgeChunks.embeddingUpdatedAt).toBeDefined();
+    expect(knowledgeChunks.tokenizerVersion).toBeDefined();
     expect(knowledgeChunks.searchVector).toBeDefined();
     expect(knowledgeChunks.chunkKey).toBeDefined();
     expect(implQueueJobs.queueName).toBeDefined();

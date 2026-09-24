@@ -91,7 +91,7 @@ describe("RecordingTelemetry", () => {
     expect(telemetry.degradations).toEqual([]);
   });
 
-  it("still records when wrapped by failOpenTelemetry (即 createRagService 的接线形态)", () => {
+  it("still records when wrapped by failOpenTelemetry (the createRagService wiring)", () => {
     const inner = new RecordingTelemetry();
     const telemetry = failOpenTelemetry(inner);
 

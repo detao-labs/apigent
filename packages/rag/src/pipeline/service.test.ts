@@ -86,7 +86,7 @@ function tickingClock(stepMs: number): () => number {
   };
 }
 
-describe("createRagService — 装配期自检", () => {
+describe("createRagService — assembly-time self-check", () => {
   it("fails at construction when a configured provider is not registered", () => {
     const registry = createStageRegistry();
     registry.register("documentSource", "fixture", () => fixtureDocumentSource());
@@ -136,7 +136,7 @@ describe("createRagService — 装配期自检", () => {
   });
 });
 
-describe("createRagService — 换掉注入即改行为（P2-6 验收）", () => {
+describe("createRagService — swapping a stage changes behaviour (P2-6 acceptance)", () => {
   it("changes indexed content when the document source is swapped", async () => {
     const documents: RagDocument[] = [
       {
@@ -175,7 +175,7 @@ describe("createRagService — 换掉注入即改行为（P2-6 验收）", () =>
   });
 });
 
-describe("createRagService — 摄取", () => {
+describe("createRagService — indexing", () => {
   it("writes the fixture corpus and reports counts with a deterministic duration", async () => {
     const { service, denseIndex } = buildService({ clock: tickingClock(5) });
 
@@ -230,7 +230,7 @@ describe("createRagService — 摄取", () => {
   });
 });
 
-describe("createRagService — 检索", () => {
+describe("createRagService — retrieval", () => {
   it("recalls the Chinese keyword, fills the trace and records metrics", async () => {
     const { service, telemetry } = buildService({ clock: tickingClock(3) });
     await service.index({ repositoryId: REPO, commitId: HEAD });
@@ -305,7 +305,7 @@ describe("createRagService — 检索", () => {
     expect(telemetry.spansNamed("retrieve.dense")[0].status).toBe("error");
   });
 
-  it("throws RagDependencyError when the index fails（Phase 2 只有稠密一路，无处可退）", async () => {
+  it("throws RagDependencyError when the index fails (Phase 2 has only the dense route)", async () => {
     const failingIndex: DenseIndex = {
       upsert: async () => {},
       search: async () => {
@@ -378,7 +378,7 @@ describe("createRagService — 检索", () => {
   });
 });
 
-describe("createRagService — 健康检查", () => {
+describe("createRagService — health", () => {
   it("reports degraded on an empty index and ok once content exists", async () => {
     const { service } = buildService();
 
@@ -410,7 +410,7 @@ describe("createRagService — 健康检查", () => {
   });
 });
 
-describe("createRagService — span 名", () => {
+describe("createRagService — span names", () => {
   it("only emits span names declared in the telemetry contract", async () => {
     const allowed = new Set<RagSpanName>([
       "rag.query",

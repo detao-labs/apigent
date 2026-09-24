@@ -11,22 +11,22 @@ function overlap(query: string, document: string): string[] {
   return tokenizer.tokenize(query).filter((term) => docTerms.has(term));
 }
 
-describe("jiebaTokenizer — 切分质量", () => {
-  it("切分领域词正确（余额 / 发货单 / 优惠券）", () => {
+describe("jiebaTokenizer — segmentation quality", () => {
+  it("segments domain words correctly (余额 / 发货单 / 优惠券)", () => {
     expect(tokenizer.tokenize("账户余额")).toContain("余额");
     expect(tokenizer.tokenize("创建发货单")).toContain("发货单");
     expect(tokenizer.tokenize("使用优惠券")).toContain("优惠券");
   });
 
-  it("「发货」能命中「发货单」（这就是 cutForSearch 而不是 cut 的原因）", () => {
+  it('recalls 发货单 from the query "发货" (why we use cutForSearch, not cut)', () => {
     expect(overlap("发货", "发货单查询接口：按发货单号查询物流轨迹")).not.toHaveLength(0);
   });
 
-  it("「退款」能命中含退款语义的接口描述", () => {
+  it('recalls a refund description from the query "退款"', () => {
     expect(overlap("退款", "退款接口：对已支付的订单发起退款")).toContain("退款");
   });
 
-  it("同输入重复调用结果稳定（索引与查询必须一致）", () => {
+  it("returns identical tokens for identical input (index and query must agree)", () => {
     const first = tokenizer.tokenize("退款接口 POST /orders/{id}/refund");
     const second = tokenizer.tokenize("退款接口 POST /orders/{id}/refund");
 
@@ -34,7 +34,7 @@ describe("jiebaTokenizer — 切分质量", () => {
     expect(first.length).toBeGreaterThan(0);
   });
 
-  it("统一小写并丢掉纯标点词元（查询侧拼 tsquery 时不会破坏语法）", () => {
+  it("lowercases tokens and drops pure punctuation (keeps tsquery syntax safe)", () => {
     const terms = tokenizer.tokenize("Refund, POST /orders/{id}/refund。");
 
     expect(terms).toContain("refund");
@@ -44,7 +44,7 @@ describe("jiebaTokenizer — 切分质量", () => {
   });
 });
 
-describe("jiebaTokenizer — 版本串（tokenizer_version 的取值）", () => {
+describe("jiebaTokenizer — version string (the tokenizer_version value)", () => {
   it("carries library version, mode, dictionary and normalisation version", () => {
     const version = jiebaTokenizer().version;
 
@@ -55,11 +55,11 @@ describe("jiebaTokenizer — 版本串（tokenizer_version 的取值）", () => 
     expect(version).toContain("norm=v1");
   });
 
-  it("hmm 开关进版本串（不同模式必须视为不同分词器）", () => {
+  it("folds the hmm flag into the version (different modes are different tokenizers)", () => {
     expect(jiebaTokenizer({ hmm: false }).version).toContain("hmm=0");
   });
 
-  it("兜底版本常量与已安装的依赖版本一致（防止它悄悄过期）", () => {
+  it("keeps the fallback version constant in sync with the installed dependency", () => {
     const require = createRequire(import.meta.url);
     const pkg = require("@node-rs/jieba/package.json") as { version: string };
 
@@ -67,7 +67,7 @@ describe("jiebaTokenizer — 版本串（tokenizer_version 的取值）", () => 
   });
 });
 
-describe("jiebaTokenizer — 标识符归一化经由端口暴露", () => {
+describe("jiebaTokenizer — identifier normalisation exposed via the port", () => {
   it("delegates to the shared normaliser", () => {
     expect(tokenizer.normalizeIdentifiers("POST /orders/{id}/refund")).toEqual([
       "post",
@@ -78,7 +78,7 @@ describe("jiebaTokenizer — 标识符归一化经由端口暴露", () => {
   });
 });
 
-describe("jiebaTokenizer — 领域词典（进程级配置）", () => {
+describe("jiebaTokenizer — domain dictionary (process-level config)", () => {
   // 放在最后：词典是**进程级**的，加载后会一直影响同一个进程里的后续用例。
   it("loads a domain dictionary and refuses a second, different one", () => {
     const domain = jiebaTokenizer({

@@ -16,6 +16,25 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { z } from "zod";
+import { NPM_PACKAGE_NAME_HINT, NPM_PACKAGE_NAME_PATTERN } from "./provider-package";
+
+// ───────────────────────────────────────────────────────────────────
+// 0. 第三方 provider（npm 包）
+// ───────────────────────────────────────────────────────────────────
+//
+// 形态是显式判别 `{ provider: package, package: "@acme/x", options: {...} }`：
+// 判别字段保持字面量，所以各 union 的**收窄与 `.strict()` 都不受影响**；只有
+// `options` 是「包自己的配置」，宿主无法校验它需要哪些键（见 types.ts 的说明）。
+//
+// `package` 只接受 npm 包名、**不接受文件路径** —— 配置常被复制转发，路径会让它
+// 变成任意代码执行入口（P0-6）。
+export const ExternalProviderConfigSchema = z
+  .object({
+    provider: z.literal("package"),
+    package: z.string().regex(NPM_PACKAGE_NAME_PATTERN, NPM_PACKAGE_NAME_HINT),
+    options: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
 
 // ───────────────────────────────────────────────────────────────────
 // 1. Database
@@ -84,6 +103,7 @@ export const VectorStoreConfigSchema = z.discriminatedUnion("provider", [
       collection: z.string(),
     })
     .strict(),
+  ExternalProviderConfigSchema,
 ]);
 
 // ───────────────────────────────────────────────────────────────────
@@ -186,6 +206,7 @@ export const EmbeddingConfigSchema = z.discriminatedUnion("provider", [
       device: z.enum(["cpu", "cuda"]),
     })
     .strict(),
+  ExternalProviderConfigSchema,
 ]);
 
 // ───────────────────────────────────────────────────────────────────
@@ -219,13 +240,17 @@ export const RerankerConfigSchema = z.discriminatedUnion("provider", [
       provider: z.literal("none"),
     })
     .strict(),
+  ExternalProviderConfigSchema,
 ]);
 
-export const SearchStoreConfigSchema = z
-  .object({
-    provider: z.literal("pg-fts"),
-  })
-  .strict();
+export const SearchStoreConfigSchema = z.discriminatedUnion("provider", [
+  z
+    .object({
+      provider: z.literal("pg-fts"),
+    })
+    .strict(),
+  ExternalProviderConfigSchema,
+]);
 
 export const RAGRetrievalConfigSchema = z
   .object({

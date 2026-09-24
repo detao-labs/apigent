@@ -45,6 +45,22 @@ All infrastructure concerns have TypeScript interfaces (`VectorStore`, `StorageP
 
 `docs/*.md` files should have a `.zh.md` counterpart, and both must stay in sync when documentation changes (the `common-docs-i18n` skill handles this). Note: only `docs/blueprint.md` and `docs/tech-design.md` currently have `.zh.md`; the `docs/modules/*` docs are English-only as of now.
 
+### Runtime output language
+
+**Comments and docs are Chinese; anything the runtime emits is English.**
+
+| What                                                         | Language                        |
+| ------------------------------------------------------------ | ------------------------------- |
+| Comments, JSDoc, commit messages, `docs/**`                  | Chinese                         |
+| Log lines, error messages, zod validation messages           | **English**                     |
+| Test titles and assertion messages (they land in CI logs)    | **English**                     |
+| LLM prompts and tool `description` fields                    | Chinese — model input, not logs |
+| Test fixtures / sample corpora (e.g. the Chinese RAG corpus) | either — they are data          |
+
+Why: logs and thrown errors get grepped, pasted into issues, and shipped to third-party observability backends; a mixed-language stream slows everyone down. Comments stay Chinese because they carry the design rationale for whoever reads the code next.
+
+Reference examples: `packages/core/src/config/provider-package.ts` and the errors in `packages/rag/src/pipeline/**` — English message, Chinese comment explaining the reasoning. There is deliberately **no lint rule**: LLM prompts and fixtures are legitimately Chinese, so this is enforced in review.
+
 ## External Surface Naming
 
 **One rule: everything is `camelCase` except the MCP tool name.**

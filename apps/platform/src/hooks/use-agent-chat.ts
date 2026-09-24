@@ -63,7 +63,8 @@ export function useAgentChat({
           case "apply_edit_draft": {
             const parsed = applyEditDraftTool.inputSchema.safeParse(toolCall.input);
             if (!parsed.success) {
-              throw new Error("apply_edit_draft: 入参校验失败");
+              // 运行时会抛出的字符串统一用英文，与下面的 unknown-tool 分支一致
+              throw new Error("apply_edit_draft: invalid tool input");
             }
             onApplyDraft?.(parsed.data.draft);
             return { ok: true };

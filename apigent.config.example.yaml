@@ -114,6 +114,40 @@ rag:
   knowledgeGraph:
     enabled: false # ⏳ planned (V1+)
 
+  # 3.6 第三方 provider（npm 包）—— 任何 rag.* 的 provider 都可以换成包实现
+  #
+  # 形态是显式判别：provider: package + package: <npm 包名> + options: <该包自己的配置>。
+  # 为什么不让 provider 直接写包名：那会让上面这些 provider 联合类型的类型收窄失效、
+  # 节点也失去未知键校验（写错 `options` 要到运行期才发现）。
+  #
+  # `@acme/…` 只是占位符 —— 换成你自己发布的 scope。本仓库自有的 `@apigent/*` 是
+  # workspace 内部的私有包，别照抄：那样会让人（和 npm）以为官方提供了这些包。
+  #
+  # 约束：包必须已安装为依赖（不接受文件路径 —— 配置常被复制转发，路径会变成任意
+  # 代码执行入口）；改完 YAML 重启即生效，启动期会校验包存在且导出形状正确。
+  #
+  # --- 局部替换示例：把向量库换成第三方实现 ---
+  # vectorStore:
+  #   provider: package
+  #   package: "@acme/apigent-rag-qdrant"
+  #   options:
+  #     url: http://localhost:6333
+  #     collection: apigent_embeddings
+  #
+  # --- 局部替换示例：embedding / reranker / 稀疏检索 ---
+  # embedding:
+  #   provider: package
+  #   package: "@acme/apigent-embedding-v2"
+  #   options:
+  #     endpoint: https://embed.example.com
+  # retrieval:
+  #   reranker:
+  #     provider: package
+  #     package: "@acme/apigent-rerank-v2"
+  # searchStore:
+  #   provider: package
+  #   package: "@acme/apigent-fts"
+
 # ───────────────────────────────────────────────────────────────────
 # 4. Storage — file / asset storage provider
 # ───────────────────────────────────────────────────────────────────

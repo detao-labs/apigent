@@ -58,7 +58,7 @@ describe("fixtureDocumentSource", () => {
     expect(second[0].fields?.tags ?? []).not.toContain("污染");
   });
 
-  it("ignores IndexRequest.endpoints（返回全集是安全方向的近似）", async () => {
+  it("ignores IndexRequest.endpoints (returning everything is the safe direction)", async () => {
     const source = fixtureDocumentSource();
 
     const partial = await source.load(

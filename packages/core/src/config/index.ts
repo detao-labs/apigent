@@ -9,6 +9,8 @@ export type {
   // Database
   DBProvider,
   DatabaseConfig,
+  // 第三方 provider（npm 包）
+  ExternalProviderConfig,
   // Vector Store
   VectorStoreProvider,
   VectorStoreIndexType,
@@ -90,7 +92,14 @@ export {
   ApigentConfigSchema,
   BusinessContextConfigSchema,
   ObservabilityConfigSchema,
+  ExternalProviderConfigSchema,
 } from "./schema";
+
+export {
+  isNpmPackageName,
+  NPM_PACKAGE_NAME_PATTERN,
+  NPM_PACKAGE_NAME_HINT,
+} from "./provider-package";
 
 export {
   DEFAULT_CLAUDE_MODELS,

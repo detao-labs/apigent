@@ -23,7 +23,7 @@ function scope(overrides: Partial<RagScope> = {}): RagScope {
   return { repositoryIds: ["repo-a"], ...overrides };
 }
 
-describe("memoryIndex — 检索与排序", () => {
+describe("memoryIndex — retrieval and ranking", () => {
   it("returns hits sorted by descending score", async () => {
     const index = memoryIndex();
     await index.upsert([
@@ -60,7 +60,7 @@ describe("memoryIndex — 检索与排序", () => {
     expect(hits.map((hit) => hit.chunkKey)).toEqual(["a-first", "m-middle", "z-last"]);
   });
 
-  it("applies the limit after filtering (不变量③：过滤在截断之前)", async () => {
+  it("applies the limit after filtering (filter before truncate)", async () => {
     const index = memoryIndex();
     await index.upsert([
       record({ chunkKey: "other-repo", repositoryId: "repo-b" }),
@@ -78,8 +78,8 @@ describe("memoryIndex — 检索与排序", () => {
   });
 });
 
-describe("memoryIndex — 权限与版本不变量（P0-4）", () => {
-  it("只返回 scope.repositoryIds 内的记录（权限打在 chunk 上）", async () => {
+describe("memoryIndex — permission and version invariants (P0-4)", () => {
+  it("returns only records inside scope.repositoryIds (permission filter on chunks)", async () => {
     const index = memoryIndex();
     await index.upsert([
       record({ chunkKey: "mine" }),
@@ -96,7 +96,7 @@ describe("memoryIndex — 权限与版本不变量（P0-4）", () => {
     expect(hits.map((hit) => hit.chunkKey)).toEqual(["mine"]);
   });
 
-  it("treats an empty scope as no permission, not as 全库（不存在默认全库）", async () => {
+  it("treats an empty scope as no permission, never as the whole corpus", async () => {
     const index = memoryIndex();
     await index.upsert([record({ chunkKey: "mine" })]);
 
@@ -110,7 +110,7 @@ describe("memoryIndex — 权限与版本不变量（P0-4）", () => {
     expect(hits).toEqual([]);
   });
 
-  it("narrows by scope.commitIds without granting access (版本打在 link 上)", async () => {
+  it("narrows by scope.commitIds without granting access (version filter on links)", async () => {
     const index = memoryIndex();
     await index.upsert([
       record({ chunkKey: "commit-1-only", commitIds: ["commit-1"] }),
@@ -162,7 +162,7 @@ describe("memoryIndex — 权限与版本不变量（P0-4）", () => {
   });
 });
 
-describe("memoryIndex — 结构化过滤", () => {
+describe("memoryIndex — structured filters", () => {
   it("filters by method (case-insensitive), tags and path prefix", async () => {
     const index = memoryIndex();
     await index.upsert([
@@ -205,7 +205,7 @@ describe("memoryIndex — 结构化过滤", () => {
   });
 });
 
-describe("memoryIndex — 写入 / 对账 / GC", () => {
+describe("memoryIndex — upsert / reconciliation / GC", () => {
   it("merges commit links on re-upsert and overwrites the vector", async () => {
     const index = memoryIndex();
     await index.upsert([
@@ -282,7 +282,7 @@ describe("memoryIndex — 写入 / 对账 / GC", () => {
   });
 });
 
-describe("memoryIndex — 向量维度契约（P0-2）", () => {
+describe("memoryIndex — vector dimension contract (P0-2)", () => {
   it("rejects a mismatched vector dimension instead of silently mixing models", async () => {
     const index = memoryIndex();
     await index.upsert([record({ chunkKey: "a", vector: [1, 0, 0] })]);

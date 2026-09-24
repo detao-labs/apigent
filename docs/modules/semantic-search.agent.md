@@ -211,9 +211,9 @@ pgvector 查询：
 >
 > 1. `to_tsvector('english', …)` **不会**切分中文——连续 CJK 是单个 `word` token，"退款" 查不到 "订单退款接口"；english 与 simple 对中文行为一致。
 > 2. `path` 被解析为 **`file` token**（`/orders` 是单个 token），所以下面的 `setweight(path, 'A')` 只在查询串与 path 字面全等时生效；用户写 `orders refund` 时命中率与空召回率分别是 **0% / 100%**。
-> 3. 「PG `tsvector` Generated Column 自动同步」与实现不符：迁移里 `search_vector` 是普通列；且一参形式 `to_tsvector(text)` 是 STABLE，不能用于 generated column，必须写 `to_tsvector('simple'::regconfig, …)`。
+> 3. 「PG `tsvector` Generated Column 自动同步」当时与实现不符（`search_vector` 是普通列）；且一参形式 `to_tsvector(text)` 依赖 GUC、是 STABLE，**不能**用于 generated column，必须写 `to_tsvector('simple'::regconfig, …)`。**（已修，见下方「当前形态」）**
 >
-> 采纳的替代方案是「标识符归一化 + CJK 2-gram」纯 SQL 实现（零扩展），中文 sparse 从 33% hit@1 / 67% 空召回提升到 92% hit@1 / 100% hit@3 / 0% 空召回。
+> **最终采纳的替代方案（P0-3 定案）是应用侧分词：jieba `cutForSearch` + 标识符归一化，DB 零扩展**；bigram 保留为备选 provider（`pg-fts-bigram`）。实测：中文 sparse 从 33% hit@1 / 67% 空召回提升到 **92% hit@1 / 100% hit@3 / 0% 空召回**，索引体积约为 bigram 的 0.71×。注意**必须用 `cutForSearch`**——默认 `cut` 把「发货单」切成单个词元，用户查「发货」命中为 0。
 
 **为什么是 BM25 而非简单关键词匹配：**
 
@@ -224,37 +224,39 @@ pgvector 查询：
 | IDF      | 无                                         | 全库词频统计，稀有词权重高                        |
 | API 场景 | `GET /health` 中 "GET" 高权重（错误）      | "GET" IDF 低 → 权重自动降低（正确）               |
 
-**PostgreSQL 原生实现（无需额外组件）：**
+**当前形态（迁移 `0005`，P3-2 落地）—— 分词在应用侧、tsvector 在 DB 侧确定性派生：**
 
 ```sql
--- 1. 预先创建 tsvector 列
-ALTER TABLE chunks ADD COLUMN search_vector tsvector
-  GENERATED ALWAYS AS (
-    setweight(to_tsvector('english', coalesce(method, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(path, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(content, '')), 'C')
-  ) STORED;
+-- 1. 应用侧写入切好词的 search_text（jieba cutForSearch + 标识符归一化），
+--    search_vector 由它派生 —— 没有「正文写完、向量没更新」的窗口期
+ALTER TABLE knowledge_chunks ADD COLUMN search_text text;
+ALTER TABLE knowledge_chunks ADD COLUMN search_vector tsvector
+  GENERATED ALWAYS AS (to_tsvector('simple'::regconfig, search_text)) STORED;
 
-CREATE INDEX ON chunks USING GIN (search_vector);
+CREATE INDEX ON knowledge_chunks USING GIN (search_vector);
 
--- 2. 检索时
-SELECT id, content, ts_rank(search_vector, websearch_to_tsquery('english', :query)) AS bm25_score
-FROM chunks
+-- 排障：直接看「切成了什么」，不必起应用（这是保留 search_text 一列的主要理由）
+SELECT search_text FROM knowledge_chunks WHERE id = :id;
+
+-- 2. 检索时（词元由应用侧**同一个分词器实例**产出、OR 连接 —— 见 P4-5）
+SELECT id, content, ts_rank(search_vector, to_tsquery('simple', :tsquery)) AS bm25_score
+FROM knowledge_chunks
 WHERE repository_id = ANY($accessible_repository_ids)
-  AND search_vector @@ websearch_to_tsquery('english', :query)
+  AND search_vector @@ to_tsquery('simple', :tsquery)
 ORDER BY bm25_score DESC
 LIMIT 50;
 ```
 
-**权重设计（`setweight`）：**
+**权重设计（`setweight`）—— 待 P4-5 定案：**
 
-| 字段      | 权重    | 说明                |
-| --------- | ------- | ------------------- |
-| `method`  | A (1.0) | HTTP 方法，最高精度 |
-| `path`    | A (1.0) | URL 路径，最高精度  |
-| `summary` | B (0.4) | 接口概述，次高      |
-| `content` | C (0.2) | 完整内容和业务描述  |
+| 字段      | 原设计  | 现状                                                                         |
+| --------- | ------- | ---------------------------------------------------------------------------- |
+| `method`  | A (1.0) | 与 path 一起做**标识符归一化**后进 `search_text`；权重怎么算是 P4-5 的开放项 |
+| `path`    | A (1.0) | 同上 —— 原设计对 `file` token 加权无效（spike 实测），归一化后才有意义       |
+| `summary` | B (0.4) | 作为正文词元进 `search_text`                                                 |
+| `content` | C (0.2) | 同上                                                                         |
+
+> 单输入 `search_text` 的代价是**丢了字段级权重**。P4-5 有两条路：① 把关键标识符在 `search_text` 里重复以词频加权；② 再加一列 `search_identifiers`，让生成表达式写成 `setweight(to_tsvector('simple', search_text),'C') || setweight(to_tsvector('simple', search_identifiers),'A')`（仍是确定性生成列）。**在 P4-5 定案之前该表仍为 0 行**（首次写入发生在 P4-7），改形态零成本。
 
 ## 2.3 Knowledge Graph Traversal（结构召回）
 

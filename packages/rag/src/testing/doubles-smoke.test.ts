@@ -65,8 +65,8 @@ async function search(
   return hits.map((hit) => hit.chunkKey);
 }
 
-describe("testing doubles — 离线检索链路", () => {
-  it("召回中文关键词对应的接口（发货 → 发货单查询）", async () => {
+describe("testing doubles — offline retrieval chain", () => {
+  it('recalls the endpoint behind the Chinese query "发货" (→ 发货单查询)', async () => {
     const ctx = await indexRepository(FIXTURE_REPO_CHECKOUT);
 
     const hits = await search(ctx, "发货", [FIXTURE_REPO_CHECKOUT]);
@@ -74,7 +74,7 @@ describe("testing doubles — 离线检索链路", () => {
     expect(hits[0]).toBe("endpoint:GET:/shipments/{id}");
   });
 
-  it("召回退款接口，且不跨仓库 / 跨组织泄漏", async () => {
+  it("recalls the refund endpoint without leaking across repositories or organisations", async () => {
     const checkout = await indexRepository(FIXTURE_REPO_CHECKOUT);
     const legacy = await indexRepository(FIXTURE_REPO_LEGACY);
 
@@ -87,7 +87,7 @@ describe("testing doubles — 离线检索链路", () => {
     expect(legacyHits).toEqual(["endpoint:GET:/legacy/refund"]);
   });
 
-  it("同一条查询也能命中英文 chunk（双语索引）", async () => {
+  it("also recalls the English chunk for the same query (bilingual index)", async () => {
     const ctx = await indexRepository(FIXTURE_REPO_CHECKOUT);
 
     const hits = await search(ctx, "refund order", [FIXTURE_REPO_CHECKOUT]);
@@ -95,7 +95,7 @@ describe("testing doubles — 离线检索链路", () => {
     expect(hits).toContain("endpoint:POST:/orders/{id}/refund:en");
   });
 
-  it("无权限时返回空结果而不是抛错（降级由结果承载，不是异常）", async () => {
+  it("returns an empty result instead of throwing when the scope grants nothing", async () => {
     const ctx = await indexRepository(FIXTURE_REPO_CHECKOUT);
 
     await expect(search(ctx, "退款", [])).resolves.toEqual([]);

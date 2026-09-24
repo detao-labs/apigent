@@ -123,7 +123,8 @@ CLAUDE.md 已明确：客户端组件不能 value-import 任何（传递地）�
 ```yaml
 # apigent.config.yaml
 rag:
-  provider: "@acme/apigent-rag-qdrant" # 内置枚举值，或已安装的 npm 包名
+  provider: package # 内置枚举值，或第三方包（此处为「整体替换」形态，见 P3-7，尚未落地）
+  package: "@acme/apigent-rag-qdrant" # `@acme/…` 是占位符 —— 换成你自己发布的 scope
 ```
 
 ```ts
@@ -151,12 +152,23 @@ interface RagService {
 rag:
   retrieval:
     reranker:
-      provider: "@acme/apigent-rerank-v2" # 内置枚举（none | qwen | cohere | bge-reranker）或 npm 包名
+      # 内置枚举（none | qwen | cohere | bge-reranker），或用第三方包：
+      provider: package
+      package: "@acme/apigent-rerank-v2" # `@acme/…` 是占位符 —— 换成你自己发布的 scope
+      options: { endpoint: "https://rerank.example.com" } # 该包自己的配置
 ```
 
-**统一规则（P0-6 定案）：任何 `provider` 字段都接受「内置枚举值 | npm 包名」两种形态。**
+> **占位符 scope 的用意**：`@acme/` 明确表示「这是别人的、需要你自己发布的包」。本仓库自有的 `@apigent/*` 是 workspace 内部的私有包（全部 `private: true`），把它写进示例会让人以为官方已经提供了这些包。若将来要发布官方 provider 包，文档需要分成「官方 `@apigent/…`」与「自建 `@your-scope/…`」两组示例并各自标注。
+
+**统一规则（P0-6 定案，2026-09-22 形态修订为 B）：`rag.*` 的 `provider` 字段接受「内置枚举值 | 第三方 npm 包实现」两种形态，后者写成显式判别 `provider: package` + `package` + `options`。**
+
+**为什么是显式判别，而不是让 `provider` 直接写包名：** 直接写包名会让 `provider` 的类型变成 `string`，于是这些判别联合**再也无法按 provider 收窄**（`provider === "qwen"` 不能排除第三方分支，`apiKey` 退化成 `unknown`），并且这些配置节点只能放弃 `.strict()` —— 等于把「配置写错」从启动期推到运行期。显式判别多出的成本只是用户切方案时多改一个键。
+
+**范围：只放开 `rag.*`。** 其他段（db / storage / queue / observability）的配置节点带必填凭据（`bucket` / `redisUrl` / `apiKey`），放开后只能透传、等于放弃这些节点的 typo 检测，需要各自单独决策。
 
 **为什么写包名而不是文件路径：** 文件路径会让配置文件变成任意代码执行入口（配置文件常被复制、被工单传递）。包名要求该包**已安装为依赖**，门槛与可审计性高得多，但「改一行配置 + 重启」的体验完全保留。
+
+包名规则只有一处实现（`packages/core/src/config/provider-package.ts`），**zod 校验与运行时加载器共用** —— 否则会出现「配置校验通过、启动加载时被拒」这种自相矛盾的失败。
 
 **实现三要点：**
 
@@ -174,6 +186,10 @@ export default {
 ```
 
 实现上是**阶段注册表 + fail-fast**：每个阶段一张 `name → factory` 表，内置实现由 `@apigent/rag` 注册，包名实现在启动期动态 import 后注册；配置里写了加载不到的名字，在**启动期**就抛错（沿用容器既有契约，不做静默回退）。
+
+**第三方 provider 包的导出约定**（P2-10 落地）：按阶段导出命名工厂 `createDocumentSource` / `createEmbedder` / `createDenseIndex`，或一个 `default` 工厂函数；工厂签名是 `(ctx: { options, deps }) => 阶段实现`，`deps` 里放 DB 句柄之类由宿主注入的东西。加载器会校验形状，形状不对时错误信息会列出「期望的导出名 + 实际导出的键」。
+
+启动期自检入口是 `preloadStageProviders(registry, providers)`：它只做**加载 + 形状校验**并把工厂注册进注册表，**不实例化**（连不上数据库不该让自检失败），返回每个 provider 的来源（内置 / 包）供启动日志打印。真正的实例化发生在 `createRagService()` 的装配期。
 
 ### 3.1 阶段的接口约定
 
@@ -817,16 +833,27 @@ MCP 挂载需要 DB + authz + keys。两条路：给 `apps/open` 加依赖（进
 
 > `ApigentConfigSchema` 是 `.strict()` 的，下列每一项都要同步改 4 处（types / schema / defaults / example yaml），见 F4。
 
-| 变更                                       | 位置               | 说明                                                                                                     |
-| ------------------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------- |
-| 新增 `rag.provider`                        | `rag.*` 顶层       | L0 整体替换开关。按 P0-6 定案，**任何 `provider` 字段都接受「内置枚举值 \| npm 包名」**                  |
-| 扩 `rag.searchStore.provider`              | `rag.searchStore`  | 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）\| `pg-fts-bigram` \| `pg-fts-simple` \| `none`（A3，已定案） |
-| 新增 `rag.telemetry.*`                     | `rag.telemetry`    | `recordQueryText` 等；导出后端仍走 `observability.*`（§7）                                               |
-| 新增 `rag.cache.*`                         | `rag.cache`        | `provider: none \| memory-lru`、`ttl`（D3）                                                              |
-| 新增 `rag.eval.thresholds`                 | `rag.eval`         | hit@3 / MRR / P95 / empty_rate 阈值（§8.2）                                                              |
-| 调整 `rag.vectorStore.indexType`           | `rag.vectorStore`  | 删掉或明确标注「DDL 期决策、YAML 改了不生效」——当前 YAML 写 `ivfflat`，迁移实际建的是 HNSW，两者不一致   |
-| 删除/标注 `rag.embedding.provider: claude` | `rag.embedding`    | Anthropic 无 embedding API（A2）                                                                         |
-| 新增 `embedding_model` 等列                | `knowledge_chunks` | 表结构迁移，非配置（A2）                                                                                 |
+| 变更                                       | 位置               | 说明                                                                                                                                                                                |
+| ------------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新增 `rag.provider`                        | `rag.*` 顶层       | L0 整体替换开关（**P3-7，尚未落地**）。按 P0-6 定案（形态修订为 B），**`rag.*` 的 `provider` 接受「内置枚举值 \| 第三方包」**，后者写成 `provider: package` + `package` + `options` |
+| 扩 `rag.searchStore.provider`              | `rag.searchStore`  | 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）\| `pg-fts-bigram` \| `pg-fts-simple` \| `none`（A3，已定案）                                                                            |
+| 新增 `rag.telemetry.*`                     | `rag.telemetry`    | `recordQueryText` 等；导出后端仍走 `observability.*`（§7）                                                                                                                          |
+| 新增 `rag.cache.*`                         | `rag.cache`        | `provider: none \| memory-lru`、`ttl`（D3）                                                                                                                                         |
+| 新增 `rag.eval.thresholds`                 | `rag.eval`         | hit@3 / MRR / P95 / empty_rate 阈值（§8.2）                                                                                                                                         |
+| 调整 `rag.vectorStore.indexType`           | `rag.vectorStore`  | 删掉或明确标注「DDL 期决策、YAML 改了不生效」——当前 YAML 写 `ivfflat`，迁移实际建的是 HNSW，两者不一致                                                                              |
+| 删除/标注 `rag.embedding.provider: claude` | `rag.embedding`    | Anthropic 无 embedding API（A2）                                                                                                                                                    |
+| 新增 `embedding_model` 等列                | `knowledge_chunks` | ✅ 已落地（迁移 `0005`，P3-1）：`embedding_model` / `embedding_dim` / `embedding_updated_at` / `tokenizer_version`，外加「向量身份必须成套」CHECK 约束（A2 / A3）                   |
+
+### 12.1 部署前置条件（数据库）
+
+RAG 依赖两处数据库侧的准备，**都不在应用启动时执行**：
+
+| 前置                                   | 现状                                                                                                         | 生产要求                                                                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vector` 扩展（pgvector）              | 迁移 `0000` 里的 `CREATE EXTENSION IF NOT EXISTS vector`（本地容器实测已装 `plpgsql` + `vector`）            | **迁移必须由具备 `CREATE EXTENSION` 权限的角色执行**；应用的运行时账号**不应是 superuser**。本地 dev 容器里应用账号恰好是 superuser，属「方便」而非「应然」（spike 已记录）。 |
+| `search_text` / `search_vector` 的形态 | 迁移 `0005`：`search_vector` 是由 `search_text` 派生的生成列（`to_tsvector('simple'::regconfig, …) STORED`） | 无需额外动作；但**分词器口径变化**（`tokenizer_version`）或**生成表达式变化**都必须 `REINDEX` 并同步 `tokenizer_version`（P4-5 的运维项）。                                   |
+
+执行方式：仓库根目录 `pnpm db:migrate` —— 跑完自检「已应用迁移数 ≥ journal 条目数」，不足即非零退出（`drizzle-kit migrate` 会吞异常，所以用 `src/db/migrate.ts` 包了一层）。
 
 ---
 

@@ -66,7 +66,7 @@ describe("client boundary", () => {
   });
 });
 
-describe("顶层 barrel 的导出形态", () => {
+describe("top-level barrel export shape", () => {
   const indexSource = readFileSync(indexPath, "utf8");
   const codeLines = indexSource
     .split("\n")

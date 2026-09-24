@@ -119,8 +119,9 @@ function core(dictionary?: JiebaDictionary): JiebaInstance {
   if (dictionary && loadedDictId !== dictionary.id) {
     if (loadedDictId !== BUILTIN_DICT_ID) {
       throw new RagConfigError(
-        `jieba 词典是进程级配置：已加载 "${loadedDictId}"，不能再加载 "${dictionary.id}"。` +
-          "同一进程出现两套词典会让切分结果不可复现（loadDict 是增量合并）。",
+        `jieba dictionary is process-level state: "${loadedDictId}" is already loaded, so ` +
+          `"${dictionary.id}" cannot be loaded in the same process. Two dictionaries would make ` +
+          "tokenization unreproducible (loadDict merges incrementally).",
       );
     }
     shared.loadDict(Buffer.from(dictionary.content, "utf8"));

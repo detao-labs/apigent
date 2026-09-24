@@ -15,7 +15,7 @@ describe("normalizeIdentifiers", () => {
     expect(normalizeIdentifiers("GET /订单/{id}/发货单")).toEqual(["get", "订单", "id", "发货单"]);
   });
 
-  it("dedupes while preserving order (标识符权重来自 setweight 区段，不靠词频)", () => {
+  it("dedupes while preserving order (identifier weight comes from the setweight section)", () => {
     expect(normalizeIdentifiers("refund refund REFUND order")).toEqual(["refund", "order"]);
   });
 
@@ -32,7 +32,7 @@ describe("normalizeIdentifiers", () => {
     ]);
   });
 
-  it("does NOT split camelCase（有意不做，见文件头；要加就得改口径并 REINDEX）", () => {
+  it("does NOT split camelCase (deliberate: changing that would require a REINDEX)", () => {
     expect(normalizeIdentifiers("refundOrder")).toEqual(["refundorder"]);
   });
 });

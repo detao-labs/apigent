@@ -57,7 +57,16 @@ export async function runMigrations(): Promise<{ applied: number; expected: numb
 if (process.argv[1]?.endsWith("migrate.ts")) {
   runMigrations()
     .then(({ applied, expected }) => {
-      console.log(`[migrate] ${applied}/${expected} migrations applied`);
+      // applied 可能大于 expected：预发布阶段把多条迁移合并成一条后，已经应用过旧
+      // 迁移的库会比 journal 多出几行记账（migrator 只按 created_at 判定已应用，
+      // 合并后的那条会被正确跳过）。这是正常状态，不是错误 —— 所以换个说法，
+      // 免得 "7/6" 让人以为出了 bug。
+      console.log(
+        applied > expected
+          ? `[migrate] up to date: journal has ${expected}, database recorded ${applied} ` +
+              "(the extra rows are migrations that were merged before release)"
+          : `[migrate] ${applied}/${expected} migrations applied`,
+      );
       process.exit(0);
     })
     .catch((err) => {

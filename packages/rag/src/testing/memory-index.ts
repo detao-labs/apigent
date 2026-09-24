@@ -139,7 +139,7 @@ class MemoryIndex implements DenseIndex {
   private assertDimension(record: DenseChunkRecord, length: number): void {
     if (length === 0) {
       throw new RagConfigError(
-        `memoryIndex: 记录 ${record.repositoryId}/${record.chunkKey} 的向量为空`,
+        `memoryIndex: empty vector for ${record.repositoryId}/${record.chunkKey}`,
       );
     }
     if (this.dim === undefined) {
@@ -149,7 +149,9 @@ class MemoryIndex implements DenseIndex {
     if (length !== this.dim) {
       // P0-2：不允许混维度。换模型 / 换维度 = 全量重索引，不是运行时切换。
       throw new RagConfigError(
-        `memoryIndex: 向量维度不一致（索引 ${this.dim} 维，记录 ${record.repositoryId}/${record.chunkKey} 为 ${length} 维）；换 embedding 模型必须全量重索引`,
+        `memoryIndex: vector dimension mismatch (index is ${this.dim}-dimensional, ` +
+          `${record.repositoryId}/${record.chunkKey} is ${length}-dimensional); ` +
+          "switching embedding models requires a full reindex",
       );
     }
   }
@@ -174,7 +176,9 @@ function compare(a: string, b: string): number {
 
 function cosine(a: number[], b: number[]): number {
   if (a.length !== b.length) {
-    throw new RagConfigError(`memoryIndex: 查询向量 ${a.length} 维与索引 ${b.length} 维不一致`);
+    throw new RagConfigError(
+      `memoryIndex: query vector is ${a.length}-dimensional but the index is ${b.length}-dimensional`,
+    );
   }
   let dot = 0;
   let normA = 0;

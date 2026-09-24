@@ -36,6 +36,13 @@
       "when": 1789205324793,
       "tag": "0004_secret_key_repository_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790123171582,
+      "tag": "0005_rag_chunk_producer_identity_and_search_text",
+      "breakpoints": true
     }
   ]
 }

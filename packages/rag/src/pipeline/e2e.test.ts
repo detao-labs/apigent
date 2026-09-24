@@ -50,8 +50,8 @@ function offlineService(embedder: Embedder = hashEmbedder()): {
   return { service, telemetry };
 }
 
-describe("Phase 2 端到端（零外部依赖）", () => {
-  it("写入 → 中文查询 → 排序结果 + trace（无降级）", async () => {
+describe("Phase 2 end-to-end (zero external dependencies)", () => {
+  it("index → Chinese query → ranked results + trace, without degradation", async () => {
     const { service, telemetry } = offlineService();
 
     const report = await service.index({ repositoryId: REPO, commitId: HEAD });
@@ -71,7 +71,7 @@ describe("Phase 2 端到端（零外部依赖）", () => {
     expect(telemetry.degradedReasons()).toEqual([]);
   });
 
-  it("向量化不可用时返回降级标记，而不是 500", async () => {
+  it("returns a degradation marker when embedding is unavailable, not a 500", async () => {
     const failing: Embedder = {
       identity: { model: "failing", dim: 1024 },
       embed: async () => {
@@ -89,7 +89,7 @@ describe("Phase 2 端到端（零外部依赖）", () => {
     expect(result.trace.traceId).toBe("e2e-trace");
   });
 
-  it("迷你黄金集：三条中文查询的 top1 都是期望接口", async () => {
+  it("mini golden set: the top1 hit is the expected endpoint for three Chinese queries", async () => {
     const { service } = offlineService();
     await service.index({ repositoryId: REPO, commitId: HEAD });
 
@@ -102,13 +102,13 @@ describe("Phase 2 端到端（零外部依赖）", () => {
     for (const { query, expected } of golden) {
       const result = await service.retrieve({ query, scope: SCOPE });
       const top3 = result.results.slice(0, 3).map((hit) => hit.chunkKey);
-      expect(result.results[0]?.chunkKey, `query="${query}" 的 top3 是 ${JSON.stringify(top3)}`).toBe(
+      expect(result.results[0]?.chunkKey, `query="${query}" top3 was ${JSON.stringify(top3)}`).toBe(
         expected,
       );
     }
   });
 
-  it("英文查询命中同一接口的英文 chunk", async () => {
+  it("recalls the English chunk of the same endpoint for an English query", async () => {
     const { service } = offlineService();
     await service.index({ repositoryId: REPO, commitId: HEAD });
 
@@ -119,7 +119,7 @@ describe("Phase 2 端到端（零外部依赖）", () => {
     );
   });
 
-  it("scope 指向未索引的仓库时是空召回，不是降级", async () => {
+  it("treats a scope pointing at an unindexed repository as an empty recall, not a degradation", async () => {
     const { service, telemetry } = offlineService();
     await service.index({ repositoryId: REPO, commitId: HEAD });
 
@@ -139,7 +139,7 @@ describe("Phase 2 端到端（零外部依赖）", () => {
     );
   });
 
-  it("重复索引同一 commit 是幂等的（chunk_key 内容寻址）", async () => {
+  it("re-indexing the same commit is idempotent (content-addressed chunk_key)", async () => {
     const { service } = offlineService();
 
     await service.index({ repositoryId: REPO, commitId: HEAD });
@@ -149,7 +149,7 @@ describe("Phase 2 端到端（零外部依赖）", () => {
     expect(health.details).toMatchObject({ chunks: 6 });
   });
 
-  it("任何 span 属性都不含 chunk 正文（脱敏不变量）", async () => {
+  it("never puts chunk text into span attributes (redaction invariant)", async () => {
     const { service, telemetry } = offlineService();
     await service.index({ repositoryId: REPO, commitId: HEAD });
     await service.retrieve({ query: "退款", scope: SCOPE });

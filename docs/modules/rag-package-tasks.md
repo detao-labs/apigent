@@ -114,17 +114,22 @@
   - 谁负责生成：平台助手 / MCP 客户端 / 外部 agent（Cursor、Claude）拿检索结果自行生成。
   - 阻塞：P2-3、P5-8、P7-5。
 
-- [x] **P0-6 冻结整体替换粒度（L0 是否进 V0）** → **定案：`provider` 字段支持「内置枚举 | npm 包名」，改 YAML + 重启即可切换**
-  - **统一规则：任何 `provider` 字段都接受两种取值 —— 内置枚举值，或 npm 包名。**
+- [x] **P0-6 冻结整体替换粒度（L0 是否进 V0）** → **定案：`provider` 字段支持「内置枚举 | npm 包实现」，改 YAML + 重启即可切换**
+  - **统一规则：`rag.*` 的 `provider` 字段接受两种取值 —— 内置枚举值，或第三方 npm 包实现。**
     ```yaml
     rag:
       embedding:
-        provider: openai # 内置枚举
+        provider: openai # ① 内置枚举
       retrieval:
         reranker:
-          provider: "@acme/apigent-rerank-v2" # npm 包名（局部替换）
-      provider: "@acme/apigent-rag-qdrant" # 整体替换（L0）
+          # ② 第三方包（局部替换）：显式判别，见下方「形态修订」
+          provider: package
+          package: "@acme/apigent-rerank-v2"
+          options: { endpoint: "https://rerank.example.com" }
     ```
+  - **形态修订（2026-09-22 定案 B）。** 原案是让 `provider` 直接写包名；实测这会让 `EmbeddingConfig` / `VectorStoreConfig` / `SearchStoreConfig` / `RerankerConfig` 这些判别联合出现 `provider: string` 分支 —— **TS 收窄失效**（`provider === "qwen"` 无法再排除第三方分支，`apiKey` 等字段退化成 `unknown`），且这些配置节点只能放弃 `.strict()`，等于把「配置写错」从启动期推到运行期（P1-2 记过的同类行为退化）。
+    **改为显式判别：`provider: package` + `package: <npm 包名>` + `options: <该包自己的配置>`。** 代价是用户切方案时多改一个键；换来判别联合的类型收窄、`.strict()`、失败时机（配置校验期）全部保留。
+    范围：**只放开 `rag.*` 的 provider 字段**。其他段（db / storage / queue / observability）的配置节点带必填凭据（`bucket` / `redisUrl` / `apiKey`），放开后只能透传、等于放弃这些节点的 typo 检测，需要各自单独决策。
   - **用户流程**：`pnpm add <包>` → YAML 写包名 → 重启 → 生效。
   - **为什么写包名而不是文件路径**：文件路径会让配置文件变成任意代码执行入口（配置文件常被复制、被工单传递）。包名要求**该包必须已安装为依赖**，门槛与可审计性高得多，但「改一行配置 + 重启」的体验完全保留。
   - **启动期自检**（必做）：加载所有配置声明的 provider 并校验导出形状，不合格则**启动失败并给出可读错误**——同时给「重启后生效」一个明确的成功 / 失败信号。
@@ -313,11 +318,25 @@
     - **依赖版本精确固定**（`"@node-rs/jieba": "2.0.3"`，不是 `^2.0.3`）：`dict.txt` 随包发布，切分口径又被持久化进 `tokenizer_version`，所以版本一动就得全量 REINDEX。固定版本让升级变成一次**显式的、带 REINDEX 的** diff，而不是 `pnpm update` 的副作用（锁文件本来就冻结了解析结果，这条是为了让升级动作可见）。同时它也是工作区里唯一一个原生预编译依赖，升级风险高于普通纯 JS 包。
   - 验证：rag 15 文件 122 例（新增 16 例：切分质量 5 + 版本串 3 + 端口委托 1 + 词典 1 + 标识符归一化 6）；全工作区 typecheck / lint / test 全绿。
 
-- [ ] **P2-10 provider 包名加载 + 启动期自检** ← P0-6 定案的最后一块（本任务为 2026-09-22 补记）
+- [x] **P2-10 provider 包名加载 + 启动期自检** ← P0-6 定案的最后一块（本任务为 2026-09-22 补记）
   - 背景：P0-6 定案里「`provider` 字段直接写 npm 包名」与「启动期自检」是两条必做项。P2-6 落地了注册表与解析（名字写错启动即失败），但**按包名动态 `import()` 与导出形状校验**还没有实现；P1-2 也记过同一个缺口（配置类型仍只接受固定字面量，写包名会被 zod / TS 挡下）。
   - 交付：① `loadStageFactory(kind, name)` —— 先查注册表，未命中则按包名动态加载，并校验导出形状（缺哪个导出要报出来）；② 配置类型放宽为「内置枚举 | 包名」，且**必须与启动期自检同时落地** —— 否则失败时机从「配置校验期」退化成「运行期」，那是行为退化。
   - 验收：不存在的包名 / 导出形状不对的包 → 启动期可读错误；内置枚举仍走原路径；配置里写包名不再被 zod / TS 拒绝；同名外部包可覆盖内置实现。
   - 约束：只接受**已安装为依赖的包名**，不按文件路径加载（配置文件常被复制、被工单传递，路径会让它变成任意代码执行入口）。第三方包把 `@apigent/rag/contracts` 声明为 peerDependency。
+  - **进展（2026-09-22）—— ① 已落地，② 待决策（阻塞）：**
+    - ① `src/pipeline/loader.ts`：`loadStageFactory(registry, kind, name, { loadModule })`、`preloadStageProviders()`、`STAGE_FACTORY_EXPORT_NAMES`。16 例测试。
+      - **内置命中不走加载路径**（用 `vi.fn()` 断言未被调用）；包名 → 动态 `import()` → 形状校验 → **注册进 registry**，所以同一 registry 上第二次解析不再 import。
+      - **导出形状**：命名导出 `createDocumentSource` / `createEmbedder` / `createDenseIndex`，或 `default` 工厂函数。错误信息必须同时说清「期望什么 + 实际有什么」。
+      - **文件路径被明确拒绝**：`./x`、`../x`、`/abs/x`、`C:\x`、`file:/x` 五种形态各一条用例，且断言**根本不调用加载器**（P0-6 的安全边界：配置常被复制转发，路径 = 任意代码执行入口）。
+      - **`preloadStageProviders()` 是启动期自检入口**：返回 `[{ kind, name, source: "registry" | "package" }]` 供启动日志打印（P0-6 要的「成功 / 失败信号」），任一项不可用即抛 `RagConfigError` 让进程启动失败。自检只做「加载 + 形状校验」，**不实例化**（连不上 DB 不该让自检失败）。
+      - 错误信息兼顾两种可能：包没装 vs 内置枚举还没接线（例如 P4-4 之前的 `pgvector`），并列出该阶段已注册的实现。
+    - ② **配置面放宽（2026-09-22 定案 B 后完成）**：
+      - 新增 `provider: package` + `package: <npm 包名>` + `options: {}` 的显式判别分支，挂到 `VectorStoreConfig` / `EmbeddingConfig` / `SearchStoreConfig` / `RerankerConfig` 四个 union（`SearchStoreConfig` 由「单个 interface」改为「union」，原 interface 更名 `PgFtsSearchStoreConfig`）。
+      - **包名规则只有一个实现**：`packages/core/src/config/provider-package.ts` 导出 `NPM_PACKAGE_NAME_PATTERN` / `isNpmPackageName` / `NPM_PACKAGE_NAME_HINT`，zod 校验与 `loadStageFactory` 共用 —— 否则会出现「配置校验通过、加载时被拒」这种自相矛盾的启动失败。
+      - 示例 YAML 补了 4 个注释示例（vectorStore / embedding / reranker / searchStore）。`defaults.ts` 不动（新分支是可选的，默认仍是内置实现）。
+      - **`file-loader.ts` 不需要改**：B 方案没有把 provider 拓宽成 `string`，按名字索引环境变量的写法（`embApiKeyMap[provider]`）与各处 `provider === "qdrant"` 判断全部照旧。
+      - 测试 +22 例（core 51 → 73）：四个 union 各自覆盖「带 options 的 scoped 包」「不带 options」「路径被拒（4 种形态）」「缺 `package` 字段」「节点级 typo 仍被 `.strict()` 拒绝」。
+      - ⚠️ **发现一个新缺口（已记为 P3-7）**：P0-6 里的 **L0 整体替换没有配置槽** —— `RAGConfig` 顶层没有 `provider`，所以「换掉整条管线」目前无处声明。
 
 ---
 
@@ -329,21 +348,47 @@
 
 > 时序要点：本阶段必须在**任何真实摄取写入之前**完成，但不必在 Phase 2 之前 —— 那时还没有数据要迁移。
 
-- [ ] **P3-1 `knowledge_chunks` 增加「生产者身份」列**
+- [x] **P3-1 `knowledge_chunks` 增加「生产者身份」列**
   - 交付：一次迁移同时加两组字段。
     - **向量侧（P0-2 定案）**：`embedding_model`（形如 `qwen:text-embedding-v4`）/ `embedding_dim` / `embedding_updated_at` + 必要索引；检索按当前模型过滤，不匹配的行视为待重索引、不参与召回。
     - **文本侧（P0-3 定案）**：`tokenizer_version`，记录该行文本是哪个分词器版本 + 词典版本 + 分词模式产出的；检索时校验，不一致则拒绝检索或强制重索引。
   - 说明：两者本质是同一类问题——「这行数据是用哪个模型 / 哪个版本产出的」，合并一次迁移。
   - **时机红利**：`knowledge_chunks` 当前 **0 行**，本迁移零成本、无需回填。（spike 实测确认）
   - 验收：迁移命名可读（`pnpm db:generate -- --name=...`）；新旧模型向量混表的场景在类型 / SQL 层面被排除。
+  - **完成记录（2026-09-22）：** 迁移 `0005`（drizzle-kit 离线 diff 生成）+ schema `packages/server/src/db/schema/knowledge.ts`。**（2026-09-24 重整：本任务与 P3-2 的两条迁移已合并为 `0005_rag_chunk_producer_identity_and_search_text.sql`，见 P3-2 记录。）**
+    - 4 列**全部可空**（因为 `embedding` 本身可空 —— sparse-only / 延迟回填；`tokenizer` 也可能不参与）：`embedding_model varchar(128)` / `embedding_dim integer` / `embedding_updated_at timestamptz` / `tokenizer_version varchar(128)`。
+    - **新增 CHECK 约束 `knowledge_chunks_embedding_identity_check`**：向量身份必须**成套出现** —— `(embedding IS NULL) = (embedding_model IS NULL)`，dim / updatedAt 同理。这就是验收要求的「SQL 层面排除」：有向量却不知道是谁产的、多长、何时写入，数据库直接拒绝。
+    - 新增索引 `knowledge_chunks_embedding_model_idx`（btree）：服务于按当前模型过滤与「待重索引」统计（`WHERE embedding_model <> $current`）。
+    - **决策留痕：为什么是 4 个独立列，而不是一个 `producer jsonb`**（用户提问后确认保持列，2026-09-22）。核心理由是**失败方式**：`@apigent/rag` 的检索 SQL 是**手写字符串**（注入的 `SqlExecutor` 端口，不经过 drizzle 类型系统）——列名写错 PG 当场报 `column ... does not exist`；JSON 键写错则 `producer->>'…'` 返回 NULL、条件不成立、**该行被静默过滤**，表现为「检索突然查不到东西」。次要理由：① 类型强制（`integer` 拒字符串、`timestamptz` 拒任意字符串，JSON 里都能混进去）；② 表头既定约束 —— 身份字段要能 1:1 映射成 Milvus scalar field / ES document field；③ 与既有 `metadata` 的语义分离（那是「这条知识是什么」＝业务内容、文档源可自由填写；producer identity 是「这行数据是谁产的」＝工程元数据）。
+    - 附带结论：这 4 个字段**不同质** —— `embedding_model` / `tokenizer_version` 是**查询关键**（过滤 / 一致性门禁），`embedding_dim` / `embedding_updated_at` 是**纯审计**（维度已被 `vector(1024)` 列类型强制）。将来若要精简 schema，该动的是后两个，而不是把前两个降级成 JSON。
+    - **有意没加的东西**：① 没有给 `tokenizer_version` 加对称的 CHECK（如「search_vector 非空 ⇒ tokenizer_version 非空」）—— 那要等 P3-2 定下 `search_text` / generated column 的形态，现在加会在 P3-2 返工；② 没有给 `embedding_dim` 加 `= 1024` 的 CHECK —— 维度由 `vector(1024)` 强制，写死常量反而让将来换维度多一次改约束。
+    - **命令形式的坑（顺手修正）**：本任务原文写的 `pnpm db:generate -- --name=…` 在 pnpm 11 下会把 `--` 原样透传给 drizzle-kit，报 `Unrecognized options for command 'generate': --`。**正确形式是 `pnpm db:generate --name=…`**（下面 Phase 3 各任务同理）。
+  - 验证（离线）：`pnpm db:check` 通过（Everything's fine）；`packages/server/src/db/index.test.ts` 补了 4 列的导出断言；全工作区 typecheck / lint / test 全绿。
+  - **迁移已执行（2026-09-22，本地 Docker Postgres `localhost:5433/apigent`）**：
+    - 执行前检查：`knowledge_chunks` **0 行**（零成本前提成立）、已应用 5 个迁移、4 列 / 索引 / 约束均不存在。
+    - `pnpm db:migrate` → `[migrate] 6/6 migrations applied`。
+    - 执行后复核：4 列存在且类型正确（`integer` / `timestamp with time zone` / 两个 `character varying`，均 nullable）、`knowledge_chunks_embedding_model_idx` 存在、CHECK 定义与预期逐字一致。
+    - **约束负向验收**（在事务内 + SAVEPOINT，全部 ROLLBACK，事后表仍 0 行）：① 有向量但身份全空 → 拒绝 `[23514] knowledge_chunks_embedding_identity_check`；② 有向量但只填了模型（缺 dim / 时间）→ 同样拒绝；③ 无向量且身份全空（sparse-only 形态）→ 按预期允许。
+    - 说明：负向用例用 `session_replication_role=replica` 临时关掉 FK 触发器，让被测对象只有 CHECK（否则空库上没有 org/repo，插入会先被外键挡住，测不出约束本身）。该设置与所有插入都在同一事务内回滚。
 
-- [ ] **P3-2 修正 `search_vector` 形态**
+- [x] **P3-2 修正 `search_vector` 形态**
   - 现状：设计文档称其为 generated column「自动同步、无窗口期」，实际是**普通列**；且 `to_tsvector(text)` 是 STABLE、不能用于 generated column。
   - P0-3 定案后的形态（推荐）：应用侧写入切好词的 **`search_text`** 列，`search_vector` 做成从它派生的 generated column：
     `GENERATED ALWAYS AS (to_tsvector('simple'::regconfig, search_text)) STORED`
     这样分词在应用侧、tsvector 在 DB 侧确定性生成，且**保留纯 SQL 可调试性**（可以直接 `select search_text` 看到切成了什么）。
   - 验收：写入一条 chunk 后 `search_vector` 非空；`select search_text` 能看到 jieba 的切分结果；同步修正设计文档表述。
   - 部署注意（spike 实测）：`CREATE EXTENSION vector` 需要 superuser，而当前应用账号 `apigent` 恰好是 superuser；生产环境不应如此——**扩展安装必须是部署 / 迁移步骤，不是应用启动步骤**。写进部署前置条件。
+  - **完成记录（2026-09-22 / 2026-09-24 重整）：** **迁移历史重整（2026-09-24，用户要求）** —— P3-1 与 P3-2 原是两条迁移（旧 `0005_rag_chunk_producer_identity.sql`、旧 `0006_rag_search_text_generated_vector.sql`），因**未上线且 `knowledge_chunks` 0 行**，已合并为单条 **`0005_rag_chunk_producer_identity_and_search_text.sql`**（旧的 0006 文件与快照删除，journal 只留一条）。
+    - 合并后的 `when` **沿用旧 0006 的时间戳**：migrator 只按 `created_at` 判定已应用（读了 drizzle 源码确认），这样「已跑过旧 0005+0006」的库会被跳过、schema 与合并结果一致；只到 0004 的库 / 全新库会正常执行这一条。已实测：主库 `pnpm db:migrate` 输出 `up to date: journal has 6, database recorded 7`（无报错）；临时库全新跑完整链路 `6/6 migrations applied`。
+    - 顺带修掉 `migrate.ts` 的一处误导输出：`applied > expected` 时会打印 `7/6 migrations applied`，看着像 bug，改成 `up to date: journal has 6, database recorded 7 (the extra rows are migrations that were merged before release)`。
+    - **合并安全性验证**：在临时库上跑完整迁移链（0000→0005），再与主库逐项对比 `knowledge_chunks` —— **21 列 / 8 索引 / 8 约束完全一致**；`drizzle-kit check` 通过；再跑一次 `generate` 报 `No schema changes, nothing to migrate`（证明快照与 schema 同步，后续 diff 不会漂）。临时库用完即删。
+    - schema 改动不变（仍是本节列出的内容，只是与 P3-1 的列合并在同一条迁移里）。
+    - schema：新增 `search_text text`；`search_vector` 由普通列改为 `generatedAlwaysAs(sql\`to_tsvector('simple'::regconfig, "search_text")\`)`；**新增 `knowledge_chunks_tokenizer_identity_check`**（`(search_text IS NULL) = (tokenizer_version IS NULL)`）—— 这条正是 P3-1 记录里说「等 P3-2 定下形态再加」的那条。
+    - **为什么 `simple` 而不是 `english`**：中文不靠 PG parser，而 english 的 stemming 会改动英文标识符。一参形式 `to_tsvector(text)` 依赖 GUC 且是 STABLE，不能用于生成列（spike 实测）。
+    - ⚠️ **drizzle-kit 生成结果有两处必须手工修**（已写进迁移文件头，原样跑会坏）：① **顺序错** —— 它把 `ADD COLUMN search_vector`（引用 `search_text`）排在 `ADD COLUMN search_text` 之前，PG 会报 `column "search_text" does not exist`；② **静默丢索引** —— `DROP COLUMN search_vector` 会连带删掉 `knowledge_chunks_search_vector_gin_idx`，而 drizzle 认为该索引没变、不会重建 ⇒ 稀疏检索会**悄悄退化成顺序扫描**，且快照与库从此不一致（后续 generate 也看不出来）。迁移里已显式重建该索引。
+    - **动真库之前的预演**：把 0006 的全部 DDL 放进一个事务跑完并 `ROLLBACK`，验证了「生成列表达式正确」「GIN 索引被重建」「约束已加」「写入 `search_text` 后 `search_vector` 自动非空且能被 `to_tsquery` 命中」「两个方向的身份约束都被拒绝」，回滚后 0 行、`search_vector` 回到非生成列（无残留）。**这一步值得固化成习惯**：DDL 迁移可以先在事务里预演。
+    - 文档同步：`semantic-search.agent.md` §2.2 —— 修掉「generated column 与实现不符」的第 3 条（改为「已修 + 指向当前形态」）、把「采纳 CJK bigram」更正为 P0-3 最终定案（应用侧 jieba `cutForSearch`，bigram 仅备选）、SQL 示例整段换成 `search_text → generated search_vector` 的新形态；`rag-package.md` 新增 §12.1 部署前置条件。
+    - **转出开放项（记入 P4-5）**：单输入 `search_text` **丢了字段级权重**（原设计 method/path A 级、summary B、content C）。两条候选路：① 关键标识符在 `search_text` 里重复做词频加权；② 再加一列 `search_identifiers`，生成表达式写成 `setweight(...search_text,'C') || setweight(...search_identifiers,'A')`。**P4-5 定案前该表仍为 0 行，改形态零成本。**
 
 - [ ] **P3-3 按 P0-3 决策调整 `rag.searchStore`**
   - 交付：枚举扩为 `pg-fts-jieba`（默认）/ `pg-fts-bigram`（备选）/ `pg-fts-simple` / `none`，四处同步。
@@ -377,6 +422,13 @@
   - 连带：换 embedding 模型或维度必须重建该索引，与 P0-2 属同一类「DDL 期、不可运行时切换」的问题。同理，`vector_cosine_ops` 这个距离度量也是 DDL 期决策，换它会改变结果排序。
   - 运维提示：对账式删除会在 HNSW 图里留下大量死元组，长期会退化，需要定期 `REINDEX`（或按仓库分区缓解）。
 
+- [ ] **P3-7 L0 整体替换：`rag.provider` 配置槽 + `RagService` 工厂加载** ← P0-6 承诺、P2-10 发现的缺口（2026-09-22 补记）
+  - 问题：P0-6 的示例里有 `provider: "@acme/apigent-rag-qdrant" # 整体替换（L0）`，但 `RAGConfig` **顶层没有 `provider` 字段** —— 也就是说「换掉整条管线」今天无处声明，只有阶段级替换可用。
+  - 交付：① `RAGConfig` 顶层加 `provider`（缺省 `builtin`，或 `{ provider: package, package, options }`），四处同步；② `@apigent/server` 装配时按它选择：内置 = 本包的 `createRagService()`，第三方 = 加载包导出的 `createRagService`（复用 P2-10 的加载器与形状校验）。
+  - 验收：YAML 写一个第三方 RAG 包名 → 重启后 `POST /api/search` 走的是那个包；包不存在 / 形状不对 → 启动期可读错误；缺省（不写）行为与今天完全一致。
+  - 形态：与 P0-6 定案 B 一致 —— 显式判别，不把 `provider` 拓宽成 `string`（`RAGConfig` 是普通 object，但保持同一套写法以免用户要记两种形态）。
+  - 依赖：与 P5-4（scope 解析）/ P6-1（API route）同期接线最自然 —— 那时才第一次真正构造 `RagService`。
+
 ---
 
 ## Phase 4 — 摄取（写路径）
@@ -409,6 +461,7 @@
     2. 查询路径：**用同一个分词器实例、同一个 `cutForSearch` 模式**处理查询串，词元去重后以 **OR** 连接成 tsquery（用 AND 会几乎必然空召回），并过滤掉非 `[a-z0-9 CJK]` 的词元以免破坏 tsquery 语法；
     3. 标识符归一化结果一并写入 `search_text` 的标识符区段；
     4. 字段权重按新方案重设（原 `path` A 级权重对 `file` token 无效）。
+  - **⚠️ 待决策（P3-2 转来）**：当前 `search_vector` 只由 `search_text` 一个输入派生（迁移 `0005`），**字段级权重已经丢掉**。两条候选：① 关键标识符在 `search_text` 里重复，用词频做加权（零 schema 改动）；② 加一列 `search_identifiers`，生成表达式写成 `setweight(to_tsvector('simple', search_text),'C') || setweight(to_tsvector('simple', search_identifiers),'A')`（仍是确定性生成列，但要再出一次迁移）。在 P4-7 首次写入之前该表一直是 0 行，两条路都零成本。
   - 交付（`pg-fts-bigram`，备选）：纯 SQL 的 CJK 2-gram 函数，版本化命名（如 `cjk_bigram_v1`），文档侧与查询侧必须用同一个函数。
   - 验收：用同一套语料与查询集，`pg-fts-jieba` 与 `pg-fts-bigram` 均达到 92%+ hit@1 / 100% hit@3 / 0% 空召回；改写式查询不要求命中（那是 dense 的职责）。
   - 运维：分词器版本或词典变更、bigram 函数变更，都必须 `REINDEX` 并更新 `tokenizer_version`；写进实现注释与运维文档。
@@ -550,21 +603,61 @@
 
 ---
 
+## Phase 9 — 插件 SDK 对外发布（**已决定延后：先记录，后面专门实现**）
+
+**状态（2026-09-22）：** 方向已确认（对外提供一个 slim 契约包，插件作者 `pnpm add` 它即可），但用户明确「**先记录下吧，后面再专门实现**」。**本阶段暂不排期**，不影响 Phase 3-8。
+
+**延后要付的代价（写在这里，免得将来惊讶）：** P9-1 没做之前，Phase 4/5 写 adapter 时会从 `pipeline/types` import 工厂签名（`RagStageFactoryContext` 等）；将来搬迁到 `contracts/` 时，这些 import 要一起改 —— 机械但要碰多个文件。
+
+**目标：** 让外部开发者「`pnpm add <契约包>` 就能写自己的 Apigent provider 插件」，而不是只能在同一 monorepo 内加 workspace 包。
+**准入：** 待确认 #9 的三个前置决策有结论（npm scope / 构建路线 / 发布节奏）。
+**退出条件：** 一个仓库外的示例插件，仅依赖发布的契约包，能通过宿主启动期自检并生效。
+
+> **为什么单独成阶段：** 它是**发布工程**，不是检索功能；混进 Phase 3-8 会把 V0 的完成条件搅浑。但其中 **P9-1（契约包边界）建议提前**：它决定「插件的工厂签名从哪个包 import」，会影响 Phase 4/5 写 adapter 时的 import 形态，事后改要动一圈。
+
+- [ ] **P9-1 契约包边界：把插件面向的类型与常量挪进 `contracts/`**
+  - 问题（实测）：插件的工厂签名现在在宿主侧 —— `RagStageFactoryContext` / `RagStageDeps` / `RagEmbedderFactory` / `RagDenseIndexFactory` / `RagDocumentSourceFactory` / `RagStageFactoryMap` 在 `pipeline/types.ts`，导出名约定 `STAGE_FACTORY_EXPORT_NAMES` 在 `pipeline/loader.ts`。
+  - 交付：这些**插件面向**的类型与常量移入 `contracts/stages.ts`（宿主侧的 `RagServiceOptions` / `RagStageRegistry` / `RagPipelineConfig` 留在 pipeline），`pipeline/**` 改为从 contracts import。
+  - 验收：`packages/rag/src/contracts/**` 里能拿到「写一个 embedder 插件所需的全部类型与常量」；rag 测试全绿（纯搬迁，零行为变化）。
+  - 依赖：无。可以在 Phase 3 之前做。
+
+- [ ] **P9-2 新包 `rag-contracts` + 第一条构建管线**
+  - 交付：`packages/rag-contracts`（零运行时依赖），导出 `"./contracts"` 与 `"./testing"` 两个子路径；`tsc --module commonjs` 出 `dist/*.js` + `*.d.ts`，配齐 `files` / `exports` / `publishConfig` / `main` / `types`。
+  - 已实测的约束：ESM 产物不可用（extensionless 相对导入 → `ERR_MODULE_NOT_FOUND`）；CJS 产物可用（实测加载成功）；契约 + 替身产物 104K 未压缩、无原生依赖。
+  - 验收：`pnpm --filter @apigent/rag-contracts build` 产出可 `node -e "require(...)"` 的包；`npm pack --dry-run` 的内容清单里没有源测试文件。
+  - 备选：引入 tsup/unbuild 出 ESM+CJS 双份（多一个构建依赖）；或全仓改 `moduleResolution: node16` + 显式 `.js` 扩展（侵入面最大，不建议）。
+
+- [ ] **P9-3 宿主侧消费改造（零破坏）**
+  - 交付：`packages/rag` 依赖 `rag-contracts`；`@apigent/rag/contracts` 与 `@apigent/rag/testing` 保留为 **re-export shim**（与 P1-1 处理 `@apigent/server/ai` 同一手法），既有 import 一行不改。
+  - 验收：全仓 typecheck / lint / test 全绿且**无调用点改动**；`boundaries.test.ts` 与 lint 规则继续通过。
+
+- [ ] **P9-4 版本握手：不兼容的插件必须在启动期失败**
+  - 交付：契约包导出 `RAG_CONTRACTS_VERSION`；插件工厂对象需带同名版本；`preloadStageProviders()` 比对并在不匹配时抛 `RagConfigError`（错误里给出「宿主版本 / 插件版本 / 建议」）。
+  - 理由：P0-6 把「版本不兼容」列为三个实现难点之一，而当前 loader 只校验导出形状。
+  - 验收：伪造一个版本不匹配的插件包 → 启动期可读错误（而不是运行到一半才炸）；版本一致 → 正常通过。
+
+- [ ] **P9-5 插件作者文档 + 示例插件 + 发布流程**
+  - 交付：`docs/plugins/rag-provider.md`（导出约定、工厂签名、`options` 由包自己校验、`peerDependency` 写法、本地如何用 `link:` 调试）；一个仓库外可复制的示例插件；CI 发布步骤（`npm publish --provenance` 之类）。
+  - 验收：按文档从零写一个 embedder 插件，只依赖发布的契约包，能在宿主里跑通检索。
+
+---
+
 ## 进度看板
 
-| 阶段                       | 任务数 | 已完成 | 状态    |
-| -------------------------- | ------ | ------ | ------- |
-| Phase 0 决策冻结           | 6      | 6      | ✅ 完成 |
-| Phase 1 基础重构           | 5      | 5      | ✅ 完成 |
-| Phase 2 包骨架与契约       | 10     | 9      | 进行中  |
-| Phase 3 数据模型与配置对齐 | 6      | 0      | 未开始  |
-| Phase 4 摄取               | 8      | 0      | 未开始  |
-| Phase 5 检索               | 7      | 0      | 未开始  |
-| Phase 6 平台接入           | 5      | 0      | 未开始  |
-| Phase 7 评估与可观测       | 5      | 0      | 未开始  |
-| Phase 8 MCP 暴露           | 6      | 0      | 未开始  |
+| 阶段                       | 任务数 | 已完成 | 状态             |
+| -------------------------- | ------ | ------ | ---------------- |
+| Phase 0 决策冻结           | 6      | 6      | ✅ 完成          |
+| Phase 1 基础重构           | 5      | 5      | ✅ 完成          |
+| Phase 2 包骨架与契约       | 10     | 10     | ✅ 完成          |
+| Phase 3 数据模型与配置对齐 | 7      | 2      | 进行中           |
+| Phase 4 摄取               | 8      | 0      | 未开始           |
+| Phase 5 检索               | 7      | 0      | 未开始           |
+| Phase 6 平台接入           | 5      | 0      | 未开始           |
+| Phase 7 评估与可观测       | 5      | 0      | 未开始           |
+| Phase 8 MCP 暴露           | 6      | 0      | 未开始           |
+| Phase 9 插件 SDK 对外发布  | 5      | 0      | 已记录，延后实现 |
 
-**下一个任务：** P2-10 provider 包名加载 + 启动期自检
+**下一个任务：** P3-3 按 P0-3 决策调整 `rag.searchStore`
 
 ---
 
@@ -595,27 +688,86 @@
 6. ~~embedding 维度固定 1024~~ → **已定案：固定 1024**，见 P0-2。
 7. **评测集由谁标注、规模多少**（PRD §8 亦列为未决项）？
 
+8. ~~**`provider` 写包名时的 YAML 形态**~~ → **已定案（2026-09-22）：采用 B —— 显式判别 `provider: package` + `package: <npm 包名>` + `options: {...}`，范围仅 `rag.*` 的 provider 字段。** 落地点：`provider-package.ts`（共用包名规则）+ `types.ts` / `schema.ts` 四个 union + 示例 YAML；`defaults.ts` 与 `file-loader.ts` 无需改。原两条候选与代价保留如下，便于回溯。
+
+   **A. P0-6 原案：`provider` 直接写包名**
+
+   ```yaml
+   rag:
+     embedding:
+       provider: "@acme/apigent-embedding-v2" # 节点里 provider 之外的键 = 该包的 options（透传）
+       endpoint: "https://…"
+   ```
+
+   - 好处：切方案只改 `provider` 一行，其余 options 原样透传 —— 用户理解成本最低。
+   - 代价 ①：这几个判别联合一旦出现 `provider: string` 分支，**TS 收窄失效**（`config.rag.embedding.provider === "qwen"` 不再能排除第三方分支，`apiKey` 会退化成 `unknown`）；`file-loader.ts` 里三处 `embApiKeyMap[provider]` 这类「按名字索引」的写法都要改成显式判断。
+   - 代价 ②：该节点**失去 `.strict()`** —— 第三方 options 的拼写错误（`apkiKey`）无法在配置校验期发现，只能由包自己校验（这是第三方 provider 的固有代价，但要明确接受）。
+
+   **B. 显式判别：`provider: package` + `package:` + `options:`**
+
+   ```yaml
+   rag:
+     embedding:
+       provider: package
+       package: "@acme/apigent-embedding-v2"
+       options:
+         endpoint: "https://…"
+   ```
+
+   - 好处：判别联合的收窄、`.strict()`、失败时机（配置校验期）全部保留；`file-loader.ts` 不需要改；错误信息能精确指出「package 字段不是合法包名」。
+   - 代价：切方案要改两个键（`provider: openai` → `provider: package` 再加 `package:`），比 A 多一步；偏离 P0-6 已记录的字面形态（需同步更新决策记录）。
+
+   **建议 B。** 理由：A 省下的是「用户少写一个键」，付出的是**核心配置模块的类型安全与校验能力**；而 P1-2 已经记过一次同类教训 —— 「放宽配置类型会改变失败时机，必须先补上启动期自检，否则是行为退化」。B 让「配置错误」继续停在启动期，且不牺牲既有类型。
+
+   8.1 **范围问题**：只放开 RAG 段（embedding / vectorStore / searchStore / reranker），还是**所有** `provider` 字段？其他段（db / storage / queue / observability / auth）的配置节点带必填凭据字段（`bucket` / `redisUrl` / `apiKey`），放开后只能透传，等于放弃这些节点的 typo 检测。**建议仅 RAG 段** —— P0-6 的动机是「RAG 的替换粒度（L0/L1）」，其他段各有自己的替换机制，要放开应各自单独决策。
+
+9. **契约包能不能发布到 npm？**（2026-09-22 提出 —— **「第三方 provider 包」的硬前置**）。P0-6 要求第三方包把「接口所在包」声明为 peerDependency，但事实是：`@apigent/rag` 是 `private: true`，八个 workspace 包（`auth` / `core` / `rag` / `server` / `ui` / `admin` / `open` / `platform`）**一个都没发布**。所以「第三方 provider 包」今天只能在**同一 monorepo 内**实现（workspace 包），对外部开发者并不成立。
+   - **A. 发布 `@apigent/rag`**：第三方可直接 peerDependency。代价是包体不小（含 pipeline / stages / `@node-rs/jieba` 原生依赖），且一旦发布就要背语义化版本承诺。
+   - **B. 拆一个零依赖的 slim 契约包**（如 `@apigent/rag-contracts`，就是现在的 `contracts/` 子模块）供第三方 peerDependency，实现包保持私有。代价是多一个包要同步发布。
+   - **C. V0 不对外开放**：只支持 workspace 包 / 官方包。代价是必须把文档里「第三方包」的措辞改成「workspace 包」，否则是在承诺一条走不通的扩展路径。
+   - 无论选哪条，都要和**开源策略 / 发布流程**一起定（包名占用、是否租用 scope、版本策略）。P2-10 的加载器本身与这个决策无关，已落地不受影响。
+
+   **spike 实测（2026-09-22，用户追问「能否提供一个 npm 包让插件作者 import」后做的）：**
+
+   - 仓库现状：所有包 `main` 指向 `./src/index.ts`、无 `files`、**无 build 脚本**，devDeps 里没有任何打包器（只有 eslint / prettier / typescript / vitest）。**要发布就必须先有第一条构建管线。**
+   - `tsc` 直接出产物**可行**：`contracts/` + `testing/` 合计 **104K（未压缩）**，产物里**没有** `@node-rs/jieba`、也没有 `node:` 内建依赖（实测 grep 无命中）—— 说明 slim 契约包真的可以零运行时依赖。
+   - 但 **ESM 产物在 Node 下跑不起来**：`tsc --module esnext` 保留 extensionless 相对导入（`from "./hash-embedder"`），实测 `import()` 报 `ERR_MODULE_NOT_FOUND`。而 **CJS 产物实测可加载**（`require` → `{ model: "test:hash", dim: 1024 }`）。
+   - ⇒ 最省事的路线是 **`tsc --module commonjs` + `.d.ts`（零新依赖，今天就能发）**；要 ESM/CJS 双份就得引入打包器（tsup / unbuild，多一个构建依赖 + 配置）。**建议先走 CJS**：插件在宿主 Node 进程里跑，CJS 包对 ESM 消费者也有 interop，代价可忽略。
+   - 另一个实测出来的内容缺口：**插件作者要实现的工厂签名不在 `contracts/` 里** —— `RagStageFactoryContext` / `RagEmbedderFactory` / `RagDenseIndexFactory` / `RagDocumentSourceFactory` 与导出名约定 `STAGE_FACTORY_EXPORT_NAMES` 都在 `pipeline/`（宿主侧）。要「引入一个包就能写插件」，这些必须先挪进契约包。
+
+   **用户决定（2026-09-22）：方向取 B —— 对外提供 slim 契约包；实现延后，先记录（见 Phase 9）。** 在此之前，「第三方 provider 包」的有效范围仍是 monorepo 内的 workspace 包 / 官方包；对外文档不要承诺「`pnpm add` 就能写插件」，直到 P9-2 发出第一个版本。
+
 ---
 
 ## 变更日志
 
-| 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-22 | 初版：按设计文档拆出 9 个阶段、58 个任务                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 2026-09-22 | P0-3 spike 完成（报告：[rag-spike-p0-3.md](../tech/rag-spike-p0-3.md)）；据实测细化 P3-2 / P3-3 / P4-5                                                                                                                                                                                                                                                                                                                                                  |
-| 2026-09-22 | **P0-3 定案：采用 E（应用侧 jieba，`cutForSearch`）**；新增 P2-9 分词器任务，P3-1 增加 `tokenizer_version`，P3-2 定为 `search_text` + generated column                                                                                                                                                                                                                                                                                                  |
-| 2026-09-22 | **P0-2 定案：维度固定 1024 + 记录生产者身份 + 一个部署只有一个活跃模型**；与 P0-3 的 `tokenizer_version` 合并进 P3-1 一次迁移                                                                                                                                                                                                                                                                                                                           |
-| 2026-09-22 | 精简 P0-3 spike 报告（380 → 198 行，改为「对比优先」结构）；删除一次性探查脚本 `scripts/rag-spike/`                                                                                                                                                                                                                                                                                                                                                     |
-| 2026-09-22 | **Phase 0 收尾：P0-1 / P0-4 / P0-5 / P0-6 全部定案。** P0-1：模型调用能力归 `@apigent/core/ai`、embedding/rerank 归 rag；P0-4：chunk 内容寻址 + links 表（含两条权限不变量）；P0-5：不含问答，删除 P5-8 / P7-5；P0-6：provider 支持 npm 包名 + 启动期自检                                                                                                                                                                                               |
-| 2026-09-22 | **P1-1 完成**：新增 `@apigent/core/ai`（model + transport），`@apigent/server/ai` 变 shim；删除 `LLMProvider` / `EmbeddingProvider` 与容器死 stub；补 transport / model 单测；修 CLAUDE.md 与 tech-design 的文档漂移                                                                                                                                                                                                                                    |
-| 2026-09-22 | **Phase 1 完成（5/5）**：P1-1 模型出口收敛；P1-2 容器通用注册 API（记下一个缺口：「provider 写包名」必须与启动期自检同时落地，否则失败时机从配置校验期退化到运行期）；P1-3 `LoggingContext` 加 `traceId`；P1-4 `otlp` 命名统一（纯文档）；P1-5 配置槽 checklist 写进 CLAUDE.md                                                                                                                                                                          |
-| 2026-09-22 | **P2-1 ~ P2-3 完成**：`packages/rag` 骨架落地（exports 增量声明）；契约落定（`RagScope.commitIds` 取代 `versionIds`，无 answer 相关类型）；`search_apis` 工具定义（与 core 的 `AgentToolDefinition` 结构兼容，由编译期断言钉住）。**遗留决策：工具入参 camelCase vs snake_case，需在 Phase 8 暴露 MCP 前敲定。**                                                                                                                                        |
-| 2026-09-22 | **确立对外命名规则**（写入 CLAUDE.md → External Surface Naming）：**除 MCP 工具名外一律 camelCase** —— MCP 工具名 `snake_case`、MCP 参数名 `camelCase`、平台 REST JSON `camelCase`、内部 TS 类型 `camelCase`。依据：查证 MCP 官方规范 `server/tools`「Tool Names」—— 规范只约束工具名字符集与唯一性、**对大小写风格中立**（示例含 `getUser`）、**对参数名完全未提**。撤销此前新建的 P6-6（core 既有工具已符合该规则，无需迁移）；Phase 6 任务数 6 → 5。 |
-| 2026-09-22 | **P2-4 完成**：`RagTelemetry` 端口（contracts）+ noop / logger / fail-open 实现。脱敏在写入侧收口；`LoggerTelemetry` 依赖注入的日志端口而非 server logger；加源码扫描守卫禁止 `@opentelemetry`。                                                                                                                                                                                                                                                        |
-| 2026-09-22 | **命名规则落地核查**：`knowledge-retrieval.md` 里 MCP 工具调用参数的 `project_id` → `projectId`（唯一一处真实错配）；其余 snake_case 命中经人工筛过，均为 SQL 列名 / DB 元数据 / 非 RAG 模块的既有文档。全工作区 typecheck / lint / test 全绿。                                                                                                                                                                                                         |
-| 2026-09-22 | **P2-5 完成**：`@apigent/rag/testing`（`hashEmbedder` / `memoryIndex` / `RecordingTelemetry` / fixture `ragDocumentSource`）；顺带在 `contracts/stages.ts` 落地 `Embedder` / `DenseIndex` 两个阶段端口（P0-4 的两条权限不变量在内存实现里先行落地）；`RagDocument` 补 `organizationId` 快照列。rag 测试 23 → 69 例。                                                                                                                                    |
-| 2026-09-22 | **P2-6 完成**：`pipeline` 阶段注册表 + `createRagService()`。管线只 import 契约，阶段全部构造期注入（无隐藏单例）；装配期 fail-fast = P0-6 自检落点；降级（embedding 失败）与抛错（向量库不可用、摄取失败）的边界写进代码注释；空 scope 不打降级标记。rag 测试 69 → 94 例。**新增任务 P2-10**（P0-6 剩下的「包名加载 + 导出形状校验」，Phase 2 任务数 9 → 10）。                                                                                        |
-| 2026-09-22 | **P2-7 完成**：端到端单测（Phase 2 退出条件）。三条中文查询 top1 全中、embedding 故障给降级标记而非 500、空召回与降级两条指标独立统计、重复索引幂等、span 属性不含 chunk 正文。顺带把 `DEFAULT_PIPELINE_CONFIG` 对齐 `DEFAULT_RAG_CONFIG.retrieval`。**转出待决策点**：「无相似度阈值导致 empty_rate 低估」记入 P4-4。rag 测试 94 → 101 例。                                                                                                            |
-| 2026-09-22 | **P2-8 完成**：eslint 加 RAG 专用 `no-restricted-imports`（禁 `@apigent/server*` / 测试替身 / 适配器）；顶层 barrel 改为 `export type * from "./contracts"`（禁止客户端从顶层取值，值走 `/contracts`）；新增 `boundaries.test.ts` 钉住导出形态与依赖方向。已用临时违规文件取证两层都能拦住。rag 测试 101 → 106 例。                                                                                                                                     |
-| 2026-09-22 | **P2-9 完成**：`@apigent/rag/stages`（`jiebaTokenizer` + `normalizeIdentifiers`）+ `Tokenizer` 端口。`cutForSearch` 有专测钉住（`cut` 会静默掉召回）；版本串 = 模式 + 库版本 + 词典标识 + 归一化版本，直接供 `tokenizer_version` 落库；jieba 惰性加载（词典不进非稀疏部署的内存）；词典是进程级配置，第二套直接抛错。新增依赖 `@node-rs/jieba@2.0.3`。rag 测试 106 → 122 例。                                                                           |
-| 2026-09-22 | **P2-9 补充：`@node-rs/jieba` 版本精确固定**（`2.0.3`，非 `^2.0.3`）。理由：切分口径持久化在 `tokenizer_version` 里，版本变化 = 必须全量 REINDEX，因此升级要是显式 diff 而不是 `pnpm update` 的副作用；锁文件已冻结解析，这条是让升级动作**可见**。理由同时写进 `rag-package.md` §2.2 与 `jieba-tokenizer.ts` 文件头。                                                                                                                                  |
+| 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-22 | 初版：按设计文档拆出 9 个阶段、58 个任务                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 2026-09-22 | P0-3 spike 完成（报告：[rag-spike-p0-3.md](../tech/rag-spike-p0-3.md)）；据实测细化 P3-2 / P3-3 / P4-5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-09-22 | **P0-3 定案：采用 E（应用侧 jieba，`cutForSearch`）**；新增 P2-9 分词器任务，P3-1 增加 `tokenizer_version`，P3-2 定为 `search_text` + generated column                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-09-22 | **P0-2 定案：维度固定 1024 + 记录生产者身份 + 一个部署只有一个活跃模型**；与 P0-3 的 `tokenizer_version` 合并进 P3-1 一次迁移                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 2026-09-22 | 精简 P0-3 spike 报告（380 → 198 行，改为「对比优先」结构）；删除一次性探查脚本 `scripts/rag-spike/`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-09-22 | **Phase 0 收尾：P0-1 / P0-4 / P0-5 / P0-6 全部定案。** P0-1：模型调用能力归 `@apigent/core/ai`、embedding/rerank 归 rag；P0-4：chunk 内容寻址 + links 表（含两条权限不变量）；P0-5：不含问答，删除 P5-8 / P7-5；P0-6：provider 支持 npm 包名 + 启动期自检                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-09-22 | **P1-1 完成**：新增 `@apigent/core/ai`（model + transport），`@apigent/server/ai` 变 shim；删除 `LLMProvider` / `EmbeddingProvider` 与容器死 stub；补 transport / model 单测；修 CLAUDE.md 与 tech-design 的文档漂移                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 2026-09-22 | **Phase 1 完成（5/5）**：P1-1 模型出口收敛；P1-2 容器通用注册 API（记下一个缺口：「provider 写包名」必须与启动期自检同时落地，否则失败时机从配置校验期退化到运行期）；P1-3 `LoggingContext` 加 `traceId`；P1-4 `otlp` 命名统一（纯文档）；P1-5 配置槽 checklist 写进 CLAUDE.md                                                                                                                                                                                                                                                                                                                                         |
+| 2026-09-22 | **P2-1 ~ P2-3 完成**：`packages/rag` 骨架落地（exports 增量声明）；契约落定（`RagScope.commitIds` 取代 `versionIds`，无 answer 相关类型）；`search_apis` 工具定义（与 core 的 `AgentToolDefinition` 结构兼容，由编译期断言钉住）。**遗留决策：工具入参 camelCase vs snake_case，需在 Phase 8 暴露 MCP 前敲定。**                                                                                                                                                                                                                                                                                                       |
+| 2026-09-22 | **确立对外命名规则**（写入 CLAUDE.md → External Surface Naming）：**除 MCP 工具名外一律 camelCase** —— MCP 工具名 `snake_case`、MCP 参数名 `camelCase`、平台 REST JSON `camelCase`、内部 TS 类型 `camelCase`。依据：查证 MCP 官方规范 `server/tools`「Tool Names」—— 规范只约束工具名字符集与唯一性、**对大小写风格中立**（示例含 `getUser`）、**对参数名完全未提**。撤销此前新建的 P6-6（core 既有工具已符合该规则，无需迁移）；Phase 6 任务数 6 → 5。                                                                                                                                                                |
+| 2026-09-22 | **P2-4 完成**：`RagTelemetry` 端口（contracts）+ noop / logger / fail-open 实现。脱敏在写入侧收口；`LoggerTelemetry` 依赖注入的日志端口而非 server logger；加源码扫描守卫禁止 `@opentelemetry`。                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-09-22 | **命名规则落地核查**：`knowledge-retrieval.md` 里 MCP 工具调用参数的 `project_id` → `projectId`（唯一一处真实错配）；其余 snake_case 命中经人工筛过，均为 SQL 列名 / DB 元数据 / 非 RAG 模块的既有文档。全工作区 typecheck / lint / test 全绿。                                                                                                                                                                                                                                                                                                                                                                        |
+| 2026-09-22 | **P2-5 完成**：`@apigent/rag/testing`（`hashEmbedder` / `memoryIndex` / `RecordingTelemetry` / fixture `ragDocumentSource`）；顺带在 `contracts/stages.ts` 落地 `Embedder` / `DenseIndex` 两个阶段端口（P0-4 的两条权限不变量在内存实现里先行落地）；`RagDocument` 补 `organizationId` 快照列。rag 测试 23 → 69 例。                                                                                                                                                                                                                                                                                                   |
+| 2026-09-22 | **P2-6 完成**：`pipeline` 阶段注册表 + `createRagService()`。管线只 import 契约，阶段全部构造期注入（无隐藏单例）；装配期 fail-fast = P0-6 自检落点；降级（embedding 失败）与抛错（向量库不可用、摄取失败）的边界写进代码注释；空 scope 不打降级标记。rag 测试 69 → 94 例。**新增任务 P2-10**（P0-6 剩下的「包名加载 + 导出形状校验」，Phase 2 任务数 9 → 10）。                                                                                                                                                                                                                                                       |
+| 2026-09-22 | **P2-7 完成**：端到端单测（Phase 2 退出条件）。三条中文查询 top1 全中、embedding 故障给降级标记而非 500、空召回与降级两条指标独立统计、重复索引幂等、span 属性不含 chunk 正文。顺带把 `DEFAULT_PIPELINE_CONFIG` 对齐 `DEFAULT_RAG_CONFIG.retrieval`。**转出待决策点**：「无相似度阈值导致 empty_rate 低估」记入 P4-4。rag 测试 94 → 101 例。                                                                                                                                                                                                                                                                           |
+| 2026-09-22 | **P2-8 完成**：eslint 加 RAG 专用 `no-restricted-imports`（禁 `@apigent/server*` / 测试替身 / 适配器）；顶层 barrel 改为 `export type * from "./contracts"`（禁止客户端从顶层取值，值走 `/contracts`）；新增 `boundaries.test.ts` 钉住导出形态与依赖方向。已用临时违规文件取证两层都能拦住。rag 测试 101 → 106 例。                                                                                                                                                                                                                                                                                                    |
+| 2026-09-22 | **P2-9 完成**：`@apigent/rag/stages`（`jiebaTokenizer` + `normalizeIdentifiers`）+ `Tokenizer` 端口。`cutForSearch` 有专测钉住（`cut` 会静默掉召回）；版本串 = 模式 + 库版本 + 词典标识 + 归一化版本，直接供 `tokenizer_version` 落库；jieba 惰性加载（词典不进非稀疏部署的内存）；词典是进程级配置，第二套直接抛错。新增依赖 `@node-rs/jieba@2.0.3`。rag 测试 106 → 122 例。                                                                                                                                                                                                                                          |
+| 2026-09-22 | **P2-9 补充：`@node-rs/jieba` 版本精确固定**（`2.0.3`，非 `^2.0.3`）。理由：切分口径持久化在 `tokenizer_version` 里，版本变化 = 必须全量 REINDEX，因此升级要是显式 diff 而不是 `pnpm update` 的副作用；锁文件已冻结解析，这条是让升级动作**可见**。理由同时写进 `rag-package.md` §2.2 与 `jieba-tokenizer.ts` 文件头。                                                                                                                                                                                                                                                                                                 |
+| 2026-09-22 | **P2-10 ① 完成（provider 包加载 + 启动期自检）**：`pipeline/loader.ts` 的 `loadStageFactory` / `preloadStageProviders`；内置命中不走加载路径、包名走动态 import + 导出形状校验（命名导出或 default）、加载成功即注册；文件路径五形态全部拒绝且不触发加载；自检只做「加载 + 形状校验」不实例化。rag 测试 122 → 138 例。**② 配置面放宽阻塞于「待确认」第 8 条**（`provider` 直接写包名 vs 显式 `provider: package` + `package:`）。                                                                                                                                                                                      |
+| 2026-09-22 | **P2-10 ② 完成 + Phase 2 收官（10/10）**：定案 B —— 第三方 provider 写成显式判别 `provider: package` + `package` + `options`，挂进 `VectorStoreConfig` / `EmbeddingConfig` / `SearchStoreConfig` / `RerankerConfig` 四个 union；包名规则收敛到 `packages/core/src/config/provider-package.ts`，zod 与 `loadStageFactory` 共用（避免「校验通过但加载被拒」）。`defaults.ts` / `file-loader.ts` 无需改。core 测试 51 → 73 例。**新记缺口 P3-7**：P0-6 的 L0 整体替换（`rag.provider`）没有配置槽，Phase 3 任务数 6 → 7。                                                                                                 |
+| 2026-09-22 | **约定：运行时会输出的字符串统一英文**（用户要求）。扫描全仓后改动：`@apigent/rag` 的 pipeline / stages / testing 替身里全部 `RagConfigError` / `RagIngestError` / `RagDependencyError` 文案；`packages/core/src/config/provider-package.ts` 的 zod 提示；`apps/platform` 一处 `apply_edit_draft` 校验错误；我新加的测试标题与断言消息（仓库基线本来就是英文标题，我引入的 55 条中文标题算偏差）。**保留中文的**：注释 / JSDoc、LLM 提示词与工具 `description`、中文检索语料与测试数据、守卫测试里的注释样本 —— 它们不是日志。约定写进 `CLAUDE.md` → Runtime output language（含例外清单与「为什么不加 lint 规则」）。 |
+| 2026-09-22 | **示例里的第三方包名：保留 `@acme/…` 占位符，不改用 `@apigent/…`**（用户提问后核查）。理由：`@apigent/*` 是本仓库自己的 workspace 命名空间（八个包全部 `private: true`），写成示例会被读成「官方已提供」，而 `pnpm add` 会 404。改用 `@your-scope/…` 也可，但 `@acme` 是既有惯例且 P0-6 决策记录已用它。顺带**发现真问题并记为待确认第 9 条**：契约包发布不出去（`@apigent/rag` 私有），第三方 provider 包今天只能在 monorepo 内实现。同时修掉两处定案 B 遗留的文档漂移：L0 示例的旧形态、§12 表格里「任何 `provider` 字段」的旧说法。                                                                                 |
+| 2026-09-22 | **新增 Phase 9「插件 SDK 对外发布」（5 个任务，非 V0 阻塞）** + 待确认第 9 条补 spike 实测：仓库无构建管线（所有包 `main` 指向 `.ts`、无 build 脚本、无打包器）；`tsc` 出契约+替身产物 104K、无原生依赖；**ESM 产物实测 `ERR_MODULE_NOT_FOUND`（extensionless 相对导入）、CJS 产物实测可加载** ⇒ 建议先走 CJS。另记一个内容缺口：插件作者要实现的工厂签名（`RagStageFactoryContext` 等）在 `pipeline/` 而非 `contracts/`，已列为 **P9-1**（建议提前到 Phase 3 之前，因为它影响 Phase 4/5 写 adapter 的 import 形态）。                                                                                                 |
+| 2026-09-22 | **插件 SDK 定调：只记录、延后实现。** 方向取「对外提供 slim 契约包」（待确认 #9 的选项 B），但**本阶段不排期**（Phase 9 5 个任务保持未开始，标注 `已记录，延后实现`）。同时写下**延后代价**：P9-1 未做之前，Phase 4/5 的 adapter 会从 `pipeline/types` import 工厂签名，将来搬迁要一起改；以及**对外措辞约束**：P9-2 发出首个版本之前，文档不要承诺「`pnpm add` 就能写插件」。当前主线仍是 Phase 3（P3-1）。                                                                                                                                                                                                           |
+| 2026-09-22 | **P3-1 完成（Phase 3 首个任务）**：迁移 `0005_rag_chunk_producer_identity.sql`（离线生成，**未执行**）—— 4 列（`embedding_model` / `embedding_dim` / `embedding_updated_at` / `tokenizer_version`）+ `knowledge_chunks_embedding_model_idx` + CHECK 约束「向量身份必须成套」。**取舍留痕**：`producer jsonb` 被否，理由是 rag 检索 SQL 手写（不过 drizzle 类型系统），JSON 键写错会**静默空召回**而列名写错 PG 当场报错；4 字段还被区分为「查询关键 2 个 / 纯审计 2 个」。顺手修正命令形式：`pnpm db:generate -- --name=…` → `pnpm db:generate --name=…`（pnpm 11 会透传 `--`）。                                      |
+| 2026-09-22 | **P3-1 迁移已执行 + 验收**：本地 Docker Postgres（`localhost:5433/apigent`）迁移前 `knowledge_chunks` 0 行、5 个迁移；`pnpm db:migrate` → `6/6`；复核 4 列 / 索引 / CHECK 全部生效；约束负向验收（事务内 + SAVEPOINT + 回滚）三种形态全部符合设计。                                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-09-22 | **P3-2 完成 + 迁移已执行（7/7）**：`search_vector` 改为由 `search_text` 派生的生成列（`to_tsvector('simple'::regconfig, …) STORED`），新增 `knowledge_chunks_tokenizer_identity_check`。**drizzle-kit 生成结果有两处必须手工修**：顺序错（先引用未建的 `search_text`）、`DROP COLUMN` 静默丢掉 GIN 索引（已显式重建，否则稀疏检索会悄悄退化）。动真库前先在事务里预演整条 DDL + 功能验证再回滚。同步修掉 `semantic-search.agent.md` §2.2 的三处过期表述，`rag-package.md` 新增 §12.1 部署前置条件。**转出开放项**：单输入丢了字段级权重 → 记入 P4-5。                                                                  |
+| 2026-09-24 | **迁移历史重整（用户要求）**：P3-1 与 P3-2 的两条迁移合并为单条 `0005_rag_chunk_producer_identity_and_search_text.sql`（未上线 + `knowledge_chunks` 0 行）。合并后的 `when` 沿用旧 0006 时间戳 —— 读 drizzle 源码确认 migrator 只按 `created_at` 判定，所以已迁移的库自动跳过、只到 0004 的库与全新库正常执行。**验证**：临时库全新跑链路 `6/6` 且与主库表结构**完全一致**（21 列 / 8 索引 / 8 约束）；`db:check` 通过；再 `generate` 报 `No schema changes`。顺带修 `migrate.ts` 的误导输出（`7/6 migrations applied` → `up to date: journal has 6, database recorded 7 …`）。                                        |

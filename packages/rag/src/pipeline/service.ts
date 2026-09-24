@@ -115,7 +115,7 @@ export function createRagService(options: RagServiceOptions): RagService {
         // 向量与文档错位是**致命的静默错误**：会把 A 的向量写到 B 的内容上，
         // 检索结果看起来正常但全是错的。所以这里必须 fail-fast。
         throw new RagIngestError(
-          `embedder 返回 ${vectors.length} 条向量，但待索引文档有 ${docs.length} 条`,
+          `embedder returned ${vectors.length} vectors for ${docs.length} documents`,
         );
       }
 
@@ -273,7 +273,7 @@ export function createRagService(options: RagServiceOptions): RagService {
       const embedded = await embedder.embed([query]);
       const vector = embedded.vectors[0];
       if (!vector) {
-        return { ok: false, error: new RagDependencyError("embedder 未返回查询向量") };
+        return { ok: false, error: new RagDependencyError("embedder returned no query vector") };
       }
       return { ok: true, vector, tokens: embedded.tokens ?? 0 };
     } catch (error) {
@@ -292,7 +292,9 @@ export function createRagService(options: RagServiceOptions): RagService {
       return await denseIndex.search(query);
     } catch (error) {
       if (error instanceof RagError) throw error;
-      throw new RagDependencyError(`稠密检索失败：${messageOf(error)}`, { cause: error });
+      throw new RagDependencyError(`dense retrieval failed: ${messageOf(error)}`, {
+        cause: error,
+      });
     }
   }
 
@@ -348,7 +350,7 @@ function toRetrievedChunk(hit: DenseHit): RetrievedChunk {
 /** 摄取失败一律带稳定的 `code`，调用方（API route / 任务队列）不必解析 message。 */
 function asIngestError(repositoryId: string, error: unknown): Error {
   if (error instanceof RagError) return error;
-  return new RagIngestError(`索引仓库 ${repositoryId} 失败：${messageOf(error)}`, {
+  return new RagIngestError(`failed to index repository ${repositoryId}: ${messageOf(error)}`, {
     cause: error,
   });
 }
