@@ -59,8 +59,9 @@ rag:
     indexType: ivfflat # "ivfflat" | "hnsw"
 
   searchStore:
-    # "pg-fts" 🟡 config slot defined — sparse retrieval not wired to this setting yet
-    provider: pg-fts
+    # "pg-fts-jieba" (default) | "pg-fts-bigram" | "pg-fts-simple" | "none"
+    # 🟡 config slot defined — sparse retrieval not wired to this setting yet (P4-5)
+    provider: pg-fts-jieba
 
   # 3.3 Query rewriting — LLM query rewriting
   queryRewrite: true # 🟡 requires an LLM provider implementation

@@ -270,13 +270,70 @@ export interface KnowledgeGraphConfig {
   enabled: boolean;
 }
 
-export interface PgFtsSearchStoreConfig {
-  /** Sparse / keyword retrieval backend (V0: PostgreSQL tsvector + GIN) */
-  provider: "pg-fts";
+// ───────────────────────────────────────────────────────────────────
+// 稀疏检索后端（`rag.searchStore`，P0-3 定案 A3）
+// ───────────────────────────────────────────────────────────────────
+//
+// 三个内置取值**共用同一条** pg-fts 读写路径（应用侧写 `search_text` → 生成列
+// `search_vector` → GIN 索引），差别只在**应用侧的分词口径**。所以它们是一个后端
+// 的三套切词方案，不是三个独立后端 —— 换值等于换 `tokenizer_version`，**必须全量
+// REINDEX**：切分口径变了，旧索引里的词元与新查询的词元对不上，表现为静默查不到
+// （P3-1 / P3-2）。
+//
+// 为什么拆成三个接口，而不是一个 `provider: "pg-fts-jieba" | …`：与 embedding /
+// reranker 保持同一种判别联合形态（`schema.ts` 用 `discriminatedUnion`，
+// `schema.test.ts` 有「schema 推断类型 === 手写类型」的编译期断言），也为将来的
+// 变体专属配置留位置（例如 jieba 的领域词典标识）。
+
+/**
+ * 默认的内置稀疏后端：PostgreSQL FTS（`tsvector` + GIN 索引）+ 应用侧 jieba。
+ *
+ * jieba 必须用 `cutForSearch`（搜索模式）而非默认 `cut`：默认模式把「发货单」
+ * 切成单个词元，用户查「发货」命中为 0，而且不报错、不告警（P0-3 spike §4.3）。
+ */
+export interface PgFtsJiebaSearchStoreConfig {
+  provider: "pg-fts-jieba";
 }
 
-/** Sparse store: built-in Postgres FTS, or a third-party package (P0-6). */
-export type SearchStoreConfig = PgFtsSearchStoreConfig | ExternalProviderConfig;
+/**
+ * 备选：CJK 2-gram 切分。
+ *
+ * 保留它是因为**零依赖、无词典版本漂移**（不引入原生模块），是 jieba 出问题时的
+ * 逃生通道；代价是索引更大、有少量噪音匹配（P0-3 spike 实测索引体积约为 jieba 的
+ * 1.4 倍）。
+ */
+export interface PgFtsBigramSearchStoreConfig {
+  provider: "pg-fts-bigram";
+}
+
+/**
+ * 只用 PostgreSQL 的 `simple` parser：FTS 只服务英文词与归一化后的标识符，
+ * 中文语义召回全部交给 dense。零新增依赖，中文关键词精确匹配最弱。
+ */
+export interface PgFtsSimpleSearchStoreConfig {
+  provider: "pg-fts-simple";
+}
+
+/**
+ * 关闭稀疏路 —— 管线退化为 dense-only。
+ *
+ * 写成显式的 `none` 而不是「省略这个键」：`searchStore` 是必填槽位，`none` 表示
+ * 「我知道没有稀疏召回，且接受」，与「忘了配」在配置里可区分。
+ */
+export interface DisabledSearchStoreConfig {
+  provider: "none";
+}
+
+/**
+ * Sparse store: built-in Postgres FTS variants (P0-3), disabled, or a third-party
+ * package (P0-6).
+ */
+export type SearchStoreConfig =
+  | PgFtsJiebaSearchStoreConfig
+  | PgFtsBigramSearchStoreConfig
+  | PgFtsSimpleSearchStoreConfig
+  | DisabledSearchStoreConfig
+  | ExternalProviderConfig;
 
 export interface RAGRetrievalConfig {
   /** Retrieval mode: hybrid combines dense+sparse (+KG when enabled) */

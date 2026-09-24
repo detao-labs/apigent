@@ -43,6 +43,13 @@
       "when": 1790123171582,
       "tag": "0005_rag_chunk_producer_identity_and_search_text",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790237804073,
+      "tag": "0006_rag_chunk_content_addressing",
+      "breakpoints": true
     }
   ]
 }

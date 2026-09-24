@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { z } from "zod";
-import type { ApigentConfig } from "./types";
+import type { ApigentConfig, RetrievalMode, SearchStoreConfig } from "./types";
 import {
   ApigentConfigSchema,
   AppsConfigSchema,
   DatabaseConfigSchema,
   EmbeddingConfigSchema,
+  RAGConfigSchema,
   RerankerConfigSchema,
   SearchStoreConfigSchema,
   VectorStoreConfigSchema,
@@ -42,7 +43,7 @@ describe("ApigentConfigSchema", () => {
         chunkStrategy: "hierarchical",
         embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
         vectorStore: { provider: "pgvector", indexType: "hnsw" },
-        searchStore: { provider: "pg-fts" },
+        searchStore: { provider: "pg-fts-jieba" },
         queryRewrite: true,
         queryRewriteCacheTtl: 3600,
         retrieval: {
@@ -165,7 +166,7 @@ describe("ExternalProviderConfig (third-party providers)", () => {
 
   it("keeps the built-in branches intact", () => {
     expect(VectorStoreConfigSchema.safeParse({ provider: "memory" }).success).toBe(true);
-    expect(SearchStoreConfigSchema.safeParse({ provider: "pg-fts" }).success).toBe(true);
+    expect(SearchStoreConfigSchema.safeParse({ provider: "pg-fts-jieba" }).success).toBe(true);
     expect(RerankerConfigSchema.safeParse({ provider: "none" }).success).toBe(true);
   });
 
@@ -179,5 +180,82 @@ describe("ExternalProviderConfig (third-party providers)", () => {
     const message = result.success ? "" : JSON.stringify(result.error.issues);
     expect(message).toContain("npm package name");
     expect(message).toContain("file paths are not accepted");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// P3-3 — `rag.searchStore` 的四个内置取值，以及「稀疏路关掉」的语义
+// ───────────────────────────────────────────────────────────────────
+//
+// 验收①：非法值 fail-fast（**包括已退役的旧值 `pg-fts`** —— 它不做别名，见
+// schema.ts 的注释）。
+//
+// 验收②：选 `none` 时管线走 dense-only 且**不报错** —— 这里是它在配置层能被钉住的
+// 部分：`none` 本身合法，`hybrid` + `none` 合法（退化为 dense-only），只有
+// `sparse-only` + `none` 这种「保证空结果」的组合在启动期被拒。
+
+describe("SearchStoreConfig — P0-3 variants (P3-3)", () => {
+  const builtInProviders = ["pg-fts-jieba", "pg-fts-bigram", "pg-fts-simple", "none"] as const;
+
+  for (const provider of builtInProviders) {
+    it(`accepts the built-in provider "${provider}"`, () => {
+      expect(SearchStoreConfigSchema.safeParse({ provider }).success).toBe(true);
+    });
+  }
+
+  it("rejects the retired `pg-fts` value instead of aliasing it", () => {
+    // 别名会让「这条索引是哪套分词产出的」不可判定，而 tokenizer_version 正是
+    // 靠它决定要不要 REINDEX。
+    expect(SearchStoreConfigSchema.safeParse({ provider: "pg-fts" }).success).toBe(false);
+  });
+
+  it("rejects an unknown variant", () => {
+    expect(SearchStoreConfigSchema.safeParse({ provider: "pg-fts-icu" }).success).toBe(false);
+  });
+});
+
+describe("RAGConfigSchema — sparse availability vs retrievalMode (P3-3)", () => {
+  /** 除「稀疏后端 + 检索模式」外的字段用一份最小的合法配置填满。 */
+  function ragConfig(provider: SearchStoreConfig["provider"], retrievalMode: RetrievalMode) {
+    return {
+      chunkStrategy: "hierarchical",
+      embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
+      vectorStore: { provider: "pgvector", indexType: "hnsw" },
+      searchStore: { provider },
+      queryRewrite: true,
+      queryRewriteCacheTtl: 3600,
+      retrieval: {
+        retrievalMode,
+        fusionMethod: "rrf",
+        coarseRankTopK: 20,
+        fineRankTopK: 10,
+        reranker: { provider: "qwen", apiKey: "sk-test", model: "qwen3-rerank" },
+      },
+      knowledgeGraph: { enabled: false },
+    };
+  }
+
+  it("accepts dense-only retrieval with the sparse store disabled", () => {
+    expect(RAGConfigSchema.safeParse(ragConfig("none", "dense-only")).success).toBe(true);
+  });
+
+  it("accepts hybrid retrieval with the sparse store disabled (degrades to dense-only)", () => {
+    // 这是验收②的配置层形态：显式关掉稀疏路**不是**启动错误，只是没有稀疏召回。
+    expect(RAGConfigSchema.safeParse(ragConfig("none", "hybrid")).success).toBe(true);
+  });
+
+  it("rejects sparse-only retrieval with the sparse store disabled", () => {
+    const result = RAGConfigSchema.safeParse(ragConfig("none", "sparse-only"));
+
+    expect(result.success).toBe(false);
+    const message = result.success ? "" : JSON.stringify(result.error.issues);
+    expect(message).toContain("sparse-only");
+    expect(message).toContain("pg-fts-jieba");
+  });
+
+  it("keeps sparse-only retrieval valid as long as a sparse store is configured", () => {
+    // 这条把上一条钉成「窄规则」：被拒的是组合，不是 sparse-only 本身。
+    expect(RAGConfigSchema.safeParse(ragConfig("pg-fts-jieba", "sparse-only")).success).toBe(true);
+    expect(RAGConfigSchema.safeParse(ragConfig("pg-fts-bigram", "sparse-only")).success).toBe(true);
   });
 });

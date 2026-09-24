@@ -243,10 +243,29 @@ export const RerankerConfigSchema = z.discriminatedUnion("provider", [
   ExternalProviderConfigSchema,
 ]);
 
+// P0-3 定案 A3：三个内置取值共用同一条 pg-fts 路径，只差应用侧分词口径；
+// `none` 关闭稀疏路（管线 dense-only）。旧值 `pg-fts` 已退役，**不做别名** ——
+// 别名会让「这条索引是哪套分词产出的」变得不可判定，而 `tokenizer_version`
+// 正是靠它判定要不要 REINDEX。
 export const SearchStoreConfigSchema = z.discriminatedUnion("provider", [
   z
     .object({
-      provider: z.literal("pg-fts"),
+      provider: z.literal("pg-fts-jieba"),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal("pg-fts-bigram"),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal("pg-fts-simple"),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal("none"),
     })
     .strict(),
   ExternalProviderConfigSchema,
@@ -277,7 +296,23 @@ export const RAGConfigSchema = z
       })
       .strict(),
   })
-  .strict();
+  .strict()
+  // 跨字段校验（P3-3）：稀疏路关掉之后，仍然**要求**稀疏结果才能出结果的模式是
+  // 无法满足的配置 —— 那样检索会返回空集且不报错，属于最难查的一类故障。
+  // 反过来 `hybrid` + `none` 是**允许**的：它退化为 dense-only，这是用户显式选择
+  // 的降级，不是错误（P3-3 验收②）。
+  .superRefine((config, ctx) => {
+    if (config.retrieval.retrievalMode !== "sparse-only") return;
+    if (config.searchStore.provider !== "none") return;
+    ctx.addIssue({
+      code: "custom",
+      path: ["retrieval", "retrievalMode"],
+      message:
+        'retrievalMode "sparse-only" needs a sparse store, but searchStore.provider is "none", ' +
+        'so every query would return an empty result set. Use "pg-fts-jieba" ' +
+        '(or "pg-fts-bigram" / "pg-fts-simple"), or set retrievalMode to "dense-only".',
+    });
+  });
 
 // ───────────────────────────────────────────────────────────────────
 // 6. Storage Provider

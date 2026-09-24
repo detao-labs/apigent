@@ -13,7 +13,7 @@
 //   definitions   可复用定义            data_models · components
 //   context       能力上下文            business_contexts
 //   task          异步任务与投递         repository_tasks · impl_queue_jobs
-//   knowledge     检索单元              knowledge_chunks
+//   knowledge     检索单元与版本树      knowledge_chunks · knowledge_chunk_links
 //   notification  站内通知              notifications · notification_preferences
 //   audit         操作审计              operation_logs · operation_log_details
 // ═══════════════════════════════════════════════════════════════════
@@ -46,7 +46,7 @@ export { businessContexts } from "./context";
 export { repositoryTasks, implQueueJobs } from "./task";
 
 // 检索
-export { knowledgeChunks } from "./knowledge";
+export { knowledgeChunks, knowledgeChunkLinks } from "./knowledge";
 
 // 通知
 export { notifications, notificationPreferences } from "./notification";

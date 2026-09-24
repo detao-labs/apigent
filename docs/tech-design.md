@@ -1449,7 +1449,7 @@ rag:
     provider: pgvector
     indexType: ivfflat
   searchStore:
-    provider: pg-fts
+    provider: pg-fts-jieba
   queryRewrite: true
   retrieval:
     retrievalMode: hybrid
@@ -1526,7 +1526,7 @@ rag:
     host: milvus-prod.internal
     port: 19530
   searchStore:
-    provider: pg-fts
+    provider: pg-fts-jieba # "pg-fts-bigram" | "pg-fts-simple" | "none" also accepted
   retrieval:
     reranker:
       provider: cohere

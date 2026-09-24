@@ -79,7 +79,7 @@ export const DEFAULT_RAG_CONFIG: RAGConfig = {
   chunkStrategy: "hierarchical",
   embedding: { provider: "qwen", apiKey: "", model: "text-embedding-v4" },
   vectorStore: { provider: "pgvector", indexType: "ivfflat" },
-  searchStore: { provider: "pg-fts" },
+  searchStore: { provider: "pg-fts-jieba" },
   queryRewrite: true,
   queryRewriteCacheTtl: 3600,
   retrieval: {

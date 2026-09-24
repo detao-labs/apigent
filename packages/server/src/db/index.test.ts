@@ -7,6 +7,7 @@ import {
   secretKeys,
   operationLogs,
   knowledgeChunks,
+  knowledgeChunkLinks,
   implQueueJobs,
   repositoryTasks,
   notifications,
@@ -27,6 +28,10 @@ describe("@apigent/server/db public export", () => {
     expect(knowledgeChunks.tokenizerVersion).toBeDefined();
     expect(knowledgeChunks.searchVector).toBeDefined();
     expect(knowledgeChunks.chunkKey).toBeDefined();
+    // 内容寻址（P0-4，迁移 0006）：chunk 是版本无关的内容块，版本关系在 links 表。
+    expect(knowledgeChunks.contentHash).toBeDefined();
+    expect(knowledgeChunkLinks.commitId).toBeDefined();
+    expect(knowledgeChunkLinks.chunkId).toBeDefined();
     expect(implQueueJobs.queueName).toBeDefined();
     expect(implQueueJobs.data).toBeDefined();
     expect(repositoryTasks.taskType).toBeDefined();

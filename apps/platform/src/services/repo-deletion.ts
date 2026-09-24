@@ -5,11 +5,14 @@
 // 数据库里所有指向 repositories 的外键都是 NO ACTION，因此必须在**同一个事务**
 // 里按依赖顺序清理干净（顺序依据实际外键图，勿随意调整）：
 //
-//   operation_log_details → knowledge_chunks → business_contexts
+//   operation_log_details → knowledge_chunk_links → knowledge_chunks → business_contexts
 //   → endpoint_relationships → endpoint_responses → endpoints
 //   → data_models / components → version_entity_links
 //   → repository_tasks → version_commits → versions
 //   → repository_members → repositories
+//
+// `knowledge_chunk_links` 同时外键指向 `knowledge_chunks` 与 `version_commits`，
+// 必须排在**两者之前**删除（P3-4）。
 //
 // 审计行**不删除**：只把 `repository_id` 置空，日志本身留在组织维度上继续可查
 // （仓库的删除事件本身也在其中，靠 summary 保留仓库名）。
@@ -28,6 +31,7 @@ import {
   endpointResponses,
   endpoints,
   getDB,
+  knowledgeChunkLinks,
   knowledgeChunks,
   operationLogDetails,
   operationLogs,
@@ -90,6 +94,22 @@ export async function deleteRepository(
       .delete(operationLogDetails)
       .where(inArray(operationLogDetails.operationId, repoLogIds));
 
+    // links 指向 chunk 与 commit 两张表，两边各删一次是有意的：正常情况下两个集合
+    // 一致（chunk 与 commit 同属一个仓库），任一不一致都会在这里被清干净，而不是
+    // 让外键挡住整个仓库删除（顺序见文件头）。
+    const repoChunkIds = tx
+      .select({ id: knowledgeChunks.id })
+      .from(knowledgeChunks)
+      .where(eq(knowledgeChunks.repositoryId, repositoryId));
+    const repoCommitIds = tx
+      .select({ id: versionCommits.id })
+      .from(versionCommits)
+      .where(eq(versionCommits.repositoryId, repositoryId));
+    await tx.delete(knowledgeChunkLinks).where(inArray(knowledgeChunkLinks.chunkId, repoChunkIds));
+    await tx
+      .delete(knowledgeChunkLinks)
+      .where(inArray(knowledgeChunkLinks.commitId, repoCommitIds));
+
     await tx.delete(knowledgeChunks).where(eq(knowledgeChunks.repositoryId, repositoryId));
 
     const repoEndpointIds = tx
@@ -107,10 +127,6 @@ export async function deleteRepository(
     await tx.delete(dataModels).where(eq(dataModels.repositoryId, repositoryId));
     await tx.delete(components).where(eq(components.repositoryId, repositoryId));
 
-    const repoCommitIds = tx
-      .select({ id: versionCommits.id })
-      .from(versionCommits)
-      .where(eq(versionCommits.repositoryId, repositoryId));
     await tx.delete(versionEntityLinks).where(inArray(versionEntityLinks.commitId, repoCommitIds));
 
     // repository_tasks 有自引用 depends_on：先断开再删，避免同语句内的顺序问题

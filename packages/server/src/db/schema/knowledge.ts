@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  primaryKey,
   customType,
   vector,
   check,
@@ -29,12 +30,23 @@ import { endpoints } from "./endpoint";
 //   - 检索主单元为 L2 (endpoint full)，精排后按 parent_id 扩展上下文
 //
 // 兼容未来 Milvus / Elasticsearch：
-//   - 权限与身份字段（organization_id / repository_id / version_id / endpoint_id /
-//     lang / chunk_key / parent_id）全部是独立列，可 1:1 映射为
+//   - 权限与身份字段（organization_id / repository_id / endpoint_id / lang /
+//     chunk_key / content_hash / parent_id）全部是独立列，可 1:1 映射为
 //     Milvus scalar fields 或 ES document fields；
 //   - chunk_key 是跨系统稳定 ID（repo 内唯一），同步/导出按它幂等 upsert；
 //   - 富元数据放 metadata jsonb（Milvus JSON field / ES flattened）；
 //   - search_vector 是 PG 专属（tsvector），ES 接管稀疏检索后可移除。
+//
+// 内容寻址（P0-4 定案，P3-4 迁移落地）：
+//   - chunk 是**版本无关**的内容块，同 `endpoints`；「哪个 commit 用哪些 chunk」
+//     由 `knowledge_chunk_links` 承担（与 `version_entity_links` 同构）。因此本表
+//     没有 version_id：挂它等于在一个已做内容寻址的系统里按版本复制行 —— 50 个
+//     commit 就是 50 份几乎相同的 chunk。
+//   - 唯一键是 **`(repository_id, chunk_key, content_hash)`**：同一逻辑单元
+//     （chunk_key）内容变了就是新行，内容没变则复用旧行 —— 行数只随**去重后的
+//     内容量**增长；回滚 / 切分支**零重索引**（只改 head_commit_id）。
+//   - `repository_id` 留在 chunk 上是**权限不变量的地基**：权限过滤打 chunk、
+//     版本过滤打 link，两层 AND，绝不做跨仓库内容共享（否则权限基准消失）。
 //
 // 混合检索（BM25 + embedding）：
 //   - embedding vector(1024) + HNSW (vector_cosine_ops) → dense 召回
@@ -75,15 +87,16 @@ export const knowledgeChunks = pgTable(
     repositoryId: text("repository_id")
       .notNull()
       .references(() => repositories.id),
-    /** 所属 OpenAPI 版本（project/usage-context chunk 可为空） */
-    versionId: text("version_id").references(() => versionCommits.id),
     /** endpoint 级 chunk 关联（L2/L3） */
     endpointId: text("endpoint_id").references(() => endpoints.id),
     /** 分层 chunk 的父节点（L3 → L2；双语 chunk 共享同一 parent） */
     parentId: text("parent_id").references((): AnyPgColumn => knowledgeChunks.id),
     /**
      * 跨系统稳定 ID（repo 内唯一），如
-     * `{version}:{level}:{method}:{path}:{lang}` — Milvus/ES 同步按它 upsert
+     * `{level}:{method}:{path}:{lang}` — Milvus/ES 同步按它 upsert。
+     *
+     * **不含 version**（P0-4）：同一逻辑单元跨版本保持同一个 key，版本关系由
+     * `knowledge_chunk_links` 表达；带上 version 会让「回滚零重索引」不成立。
      */
     chunkKey: varchar("chunk_key", { length: 512 }).notNull(),
     /** 层级：project | tag | workflow | endpoint | schema | rules */
@@ -146,8 +159,16 @@ export const knowledgeChunks = pgTable(
       .notNull(),
   },
   (table) => [
-    // 幂等同步锚点：repo 内 chunk_key 唯一
-    uniqueIndex("knowledge_chunks_repository_key_idx").on(table.repositoryId, table.chunkKey),
+    // 内容寻址的幂等锚点：repo 内「同一逻辑单元 + 同一内容」唯一。
+    // 同一 (repository_id, chunk_key) 允许有多行（内容不同 = 多个历史内容块），
+    // 所以它同时是查询锚点 —— WHERE repository_id = $1 AND chunk_key = ANY($2)
+    // 走这个唯一索引的**前缀**即可，因此没有再补一条 (repository_id, chunk_key)
+    // 的非唯一索引（那是纯冗余：写放大与空间都白付）。
+    uniqueIndex("knowledge_chunks_repository_key_hash_idx").on(
+      table.repositoryId,
+      table.chunkKey,
+      table.contentHash,
+    ),
     // 权限过滤（org 级查询）
     index("knowledge_chunks_organization_idx").on(table.organizationId),
     // endpoint 级检索 / 上下文扩展
@@ -178,5 +199,42 @@ export const knowledgeChunks = pgTable(
       "knowledge_chunks_tokenizer_identity_check",
       sql`(${table.searchText} IS NULL) = (${table.tokenizerVersion} IS NULL)`,
     ),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// Knowledge Chunk Links — 版本树（commit → chunk）
+// ═══════════════════════════════════════════════════════════════════
+//
+// 与 `version_entity_links` 同构：commit 是「哪个版本」，chunk 是版本无关的内容块。
+// 未变的内容跨 commit 复用同一行 chunk，所以回滚 / 切主分支只改 `versions.head_commit_id`，
+// **零重索引**。
+//
+// 检索侧的两层过滤（P0-4 不变量，务必守住）：
+//   - 权限层：`WHERE c.repository_id = ANY($accessibleRepos)` —— 打在 **chunk** 上；
+//   - 版本层：`JOIN knowledge_chunk_links l ON l.commit_id = ANY($commits)` —— 只做
+//     **收窄**，不承担任何权限语义。
+//   两层在同一 SQL、`ORDER BY … LIMIT` 之前 → 仍是**检索前过滤**，没有「先取回
+//   再过滤」的越权窗口，也不会把 20 条配额浪费在越权 / 非活跃行上。
+//
+// 索引的两点说明：
+//   1. 主键 `(commit_id, chunk_id)` 的 btree 已能服务 `commit_id = $1`（前缀），
+//      所以**不再**单列建 `(commit_id)` 索引（纯冗余）；
+//   2. 反方向 `chunk_id` 是**真的需要**索引的：对账式 GC 要判断「这个 chunk 还有
+//      没有别的 commit 引用」（`NOT EXISTS (SELECT 1 FROM links WHERE chunk_id = …)`），
+//      没有它每次 GC 都是对 links 的顺序扫描。
+export const knowledgeChunkLinks = pgTable(
+  "knowledge_chunk_links",
+  {
+    commitId: text("commit_id")
+      .notNull()
+      .references(() => versionCommits.id),
+    chunkId: text("chunk_id")
+      .notNull()
+      .references(() => knowledgeChunks.id),
+  },
+  (table) => [
+    primaryKey({ columns: [table.commitId, table.chunkId] }),
+    index("knowledge_chunk_links_chunk_idx").on(table.chunkId),
   ],
 );

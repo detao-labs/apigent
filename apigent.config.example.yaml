@@ -92,8 +92,16 @@ rag:
     # collection: apigent_embeddings
 
   searchStore:
-    # "pg-fts" 🟡 config slot defined — sparse retrieval not wired to this setting yet
-    provider: pg-fts
+    # Sparse (keyword) retrieval backend. All three pg-fts variants share the same
+    # read/write path (app-side `search_text` → generated `search_vector` → GIN index);
+    # they differ only in how text is segmented on the application side. Switching the
+    # value changes `tokenizer_version` and therefore requires a full REINDEX.
+    #   "pg-fts-jieba"  ✅ default — jieba `cutForSearch` + identifier normalisation
+    #   "pg-fts-bigram" 🟡 CJK 2-gram — no native dependency, escape hatch if jieba breaks
+    #   "pg-fts-simple" 🟡 English words + identifiers only; Chinese recall comes from dense
+    #   "none"          🟡 no sparse path at all — retrieval degrades to dense-only
+    # 🟡 config slot defined — sparse retrieval not wired to this setting yet (P4-5)
+    provider: pg-fts-jieba
 
   # 3.3 Query rewriting — LLM query rewriting
   queryRewrite: true # 🟡 requires an LLM provider implementation

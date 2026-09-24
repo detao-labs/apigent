@@ -357,22 +357,22 @@ interface RagDocument {
 
 ## 5. 阶段清单
 
-| 阶段       | 接口                | 内置实现                                             | 配置槽                       |
-| ---------- | ------------------- | ---------------------------------------------------- | ---------------------------- |
-| 文档构建   | `RagDocumentSource` | `pg-document-source`                                 | —                            |
-| 分块       | `Chunker`           | `hierarchical` / `fixed`                             | `rag.chunkStrategy`          |
-| 向量化     | `Embedder`          | qwen / openai / cohere / local-bge / local-fastembed | `rag.embedding`              |
-| 稠密索引   | `DenseIndex`        | pgvector / memory                                    | `rag.vectorStore`            |
-| 分词       | `Tokenizer`         | jieba（应用侧，`cutForSearch`）/ bigram / simple     | `rag.searchStore` 的变体     |
-| 稀疏索引   | `SparseIndex`       | pg-fts（见 §9 A3）/ none                             | `rag.searchStore`            |
-| 图召回     | `GraphExpander`     | none（V1+ KG）                                       | `rag.knowledgeGraph`         |
-| 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                      | `rag.queryRewrite`           |
-| 融合       | `Fusion`            | rrf / linear                                         | `rag.retrieval.fusionMethod` |
-| 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                  | `rag.retrieval.reranker`     |
-| 上下文扩展 | `ContextExpander`   | builtin                                              | —（新增槽位）                |
-| 生成       | `AnswerGenerator`   | LLM（AI SDK）                                        | —（V1 新增）                 |
-| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                      | `observability.*`            |
-| 缓存       | `RagCache`          | noop / memory-lru                                    | —（新增槽位）                |
+| 阶段       | 接口                | 内置实现                                                 | 配置槽                       |
+| ---------- | ------------------- | -------------------------------------------------------- | ---------------------------- |
+| 文档构建   | `RagDocumentSource` | `pg-document-source`                                     | —                            |
+| 分块       | `Chunker`           | `hierarchical` / `fixed`                                 | `rag.chunkStrategy`          |
+| 向量化     | `Embedder`          | qwen / openai / cohere / local-bge / local-fastembed     | `rag.embedding`              |
+| 稠密索引   | `DenseIndex`        | pgvector / memory                                        | `rag.vectorStore`            |
+| 分词       | `Tokenizer`         | jieba（应用侧，`cutForSearch`）/ bigram / simple         | `rag.searchStore` 的变体     |
+| 稀疏索引   | `SparseIndex`       | pg-fts（jieba / bigram / simple 三变体，见 §9 A3）/ none | `rag.searchStore`            |
+| 图召回     | `GraphExpander`     | none（V1+ KG）                                           | `rag.knowledgeGraph`         |
+| 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                          | `rag.queryRewrite`           |
+| 融合       | `Fusion`            | rrf / linear                                             | `rag.retrieval.fusionMethod` |
+| 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                      | `rag.retrieval.reranker`     |
+| 上下文扩展 | `ContextExpander`   | builtin                                                  | —（新增槽位）                |
+| 生成       | `AnswerGenerator`   | LLM（AI SDK）                                            | —（V1 新增）                 |
+| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                          | `observability.*`            |
+| 缓存       | `RagCache`          | noop / memory-lru                                        | —（新增槽位）                |
 
 **摄取的写入策略必须是「对账式」（desired-set diff），不能只做 upsert。**
 
@@ -629,7 +629,7 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 
 **连带影响（必须一起改）：**
 
-- `rag.searchStore.provider` 现在只有 `pg-fts` 一个取值，应扩为 `pg-fts-jieba`（默认）/ `pg-fts-bigram`（备选，零依赖逃生通道）/ `pg-fts-simple` / `none`，否则用户无从选择；
+- ✅ `rag.searchStore.provider` 已由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）/ `pg-fts-bigram`（备选，零依赖逃生通道）/ `pg-fts-simple` / `none`（**P3-3 已落地**，含旧值 fail-fast 与「`none` ⇒ dense-only」的跨字段校验）。三个 `pg-fts-*` 变体共用同一条读写路径，差别只在**应用侧分词口径**，因此换值等于换 `tokenizer_version`、必须全量 REINDEX；
 - `setweight` 的字段权重设计要按「只给标识符加权」重写（现在的 A/A/B/C 权重隐含了「正文可被英文分词命中」的前提）；
 - **文档与实现不一致需一并修正**：设计文档称 `tsvector` 是 generated column「自动同步、不存在窗口期」，但实际迁移里 `search_vector` 是**普通列**（drizzle 的 `customType` 无法表达 `GENERATED ALWAYS AS … STORED`），必须由写入路径或触发器填充。
   注意一个具体的坑：`to_tsvector(text)` 的重载是 STABLE，**不能**用于 generated column；必须写成 `to_tsvector('simple'::regconfig, …)`。
@@ -649,6 +649,13 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 >
 > **两条权限不变量（必须守住）：** ① chunk 身份含 `repository_id`，绝不做跨仓库内容共享；② 权限过滤打在 chunk 上、版本过滤打在 link 上，两层 AND、同一 SQL、`LIMIT` 之前——仍是检索前过滤，不退化为后过滤。
 
+**✅ 已落地（P3-4，迁移 `0006`）**。落地时对上面的写法有两处**有意偏差**，方向都是「索引宁少勿滥」：
+
+- 主键 `(commit_id, chunk_id)` 已能服务 `commit_id = $1`（btree 前缀），因此**不再单列建 `(commit_id)` 索引**；真正需要单列索引的是反方向的 `chunk_id`——对账式 GC 要判断「这个 chunk 还有没有别的 commit 引用」，已建 `knowledge_chunk_links_chunk_idx`。若不建，每次 GC 都会对 links 做顺序扫描。
+- 唯一索引 `(repository_id, chunk_key, content_hash)` 同样能服务 `WHERE repository_id = $1 AND chunk_key = ANY($2)`（前缀扫描），因此**不再补 `(repository_id, chunk_key)` 非唯一索引**（同列前缀 = 纯冗余，只付写放大与空间）。
+- 三条访问路径均经 `EXPLAIN`（`enable_seqscan = off`）实测：按 (repo, chunk_key) 走 `knowledge_chunks_repository_key_hash_idx` 的 Index Scan、按 commit 走 links 主键、按 chunk 走 `knowledge_chunk_links_chunk_idx`。
+- 删除路径已同步：`repo-deletion.ts` 在 `knowledge_chunks` **之前**先删 links（外键顺序注释已更新）；`org-deletion.ts` 无需改——它要求组织下仓库数为 0，而 chunk 按不变量只能被同仓库的 commit 引用，此时 links 必为空。
+
 `knowledge_chunks` 有 `version_id`，且注释里 `chunk_key` 形如 `{version}:{level}:{method}:{path}:{lang}`。若每次导入/提交都索引，**历史版本与活跃版本会共存**：检索必须过滤活跃版本，否则返回重复或过期结果；不过滤则表随版本历史线性增长。
 
 **需要定：**
@@ -660,7 +667,7 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 
 **好消息：** `apps/platform/src/services/repo-deletion.ts` 已按外键顺序先删 `knowledge_chunks`，仓库删除不会因这张表而失败。
 
-**P0-4 定案后需追加一步：** 新增的 `knowledge_chunk_links` 必须排在 `knowledge_chunks` **之前**删除（该文件头的依赖顺序注释明确要求「顺序依据实际外键图，勿随意调整」），否则外键会挡住仓库删除。
+**P0-4 定案后需追加一步（✅ 已做，P3-4）：** 新增的 `knowledge_chunk_links` 必须排在 `knowledge_chunks` **之前**删除（该文件头的依赖顺序注释明确要求「顺序依据实际外键图，勿随意调整」），否则外键会挡住仓库删除。落地时 `deleteRepository` 里对 links 删了两次（按 chunk 子查询一次、按 commit 子查询一次）——正常情况下两个集合一致，这是有意的防御：任一不一致都在这里清干净，而不是让外键把整个仓库删除挡死。
 
 **缺口：** 接口级删除不删行（它产生新 commit，旧 blob 复用），所以被删除接口的 chunks 会残留。这必须靠 §5 的**对账式同步**解决；因此 `chunk_key` 的构成要保证「同一逻辑单元在不同版本间稳定」，同时又能被期望集合精确算出补集。
 
@@ -836,7 +843,7 @@ MCP 挂载需要 DB + authz + keys。两条路：给 `apps/open` 加依赖（进
 | 变更                                       | 位置               | 说明                                                                                                                                                                                |
 | ------------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 新增 `rag.provider`                        | `rag.*` 顶层       | L0 整体替换开关（**P3-7，尚未落地**）。按 P0-6 定案（形态修订为 B），**`rag.*` 的 `provider` 接受「内置枚举值 \| 第三方包」**，后者写成 `provider: package` + `package` + `options` |
-| 扩 `rag.searchStore.provider`              | `rag.searchStore`  | 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）\| `pg-fts-bigram` \| `pg-fts-simple` \| `none`（A3，已定案）                                                                            |
+| 扩 `rag.searchStore.provider`              | `rag.searchStore`  | 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）\| `pg-fts-bigram` \| `pg-fts-simple` \| `none`（A3，已定案）—— **✅ 已落地（P3-3）**                                                    |
 | 新增 `rag.telemetry.*`                     | `rag.telemetry`    | `recordQueryText` 等；导出后端仍走 `observability.*`（§7）                                                                                                                          |
 | 新增 `rag.cache.*`                         | `rag.cache`        | `provider: none \| memory-lru`、`ttl`（D3）                                                                                                                                         |
 | 新增 `rag.eval.thresholds`                 | `rag.eval`         | hit@3 / MRR / P95 / empty_rate 阈值（§8.2）                                                                                                                                         |

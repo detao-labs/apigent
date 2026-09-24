@@ -59,7 +59,7 @@ function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
       chunkStrategy: "hierarchical",
       embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
       vectorStore: { provider: "memory" },
-      searchStore: { provider: "pg-fts" },
+      searchStore: { provider: "pg-fts-jieba" },
       queryRewrite: true,
       queryRewriteCacheTtl: 3600,
       retrieval: {
