@@ -431,11 +431,18 @@
     - 文档同步：`rag-package.md` §9 B1 / B2 补「已落地 + 两处索引偏差 + EXPLAIN 证据」。
     - 验证：`pnpm -r typecheck` / `lint` / `test` 全绿（core 85、rag 138、server 81、auth 4、open 2 = 310 例）。
 
-- [ ] **P3-5 处理 `rag.embedding.provider: claude`**
+- [x] **P3-5 处理 `rag.embedding.provider: claude`**
   - 现状：Anthropic 无 embedding API，该取值跑不通。
   - 交付：删除，或保留但从 schema 层标注 not supported 并 fail-fast 给出可读错误。
+  - **完成记录（2026-09-24）：用户定案「直接删除」—— 删除该取值。**
+    - 删除点（4 处代码）：`types.ts`（删 `ClaudeEmbeddingConfig`、从 `EmbeddingProviderType` 与 `EmbeddingConfig` 联合里去掉 `claude`）、`schema.ts`（删 `EmbeddingConfigSchema` 的 claude 分支）、`config/index.ts`（删类型再导出）、`file-loader.ts`（删 `embApiKeyMap` 里的 `claude: ANTHROPIC_API_KEY`，并留注释说明为什么这里没有 claude）。
+    - **为什么是删而不是「保留 + 标注 not supported」**（用户选择，认同的理由）：保留占位会把失败点推到**运行期**（第一次索引才炸），删除让它在**配置校验期**就失败，且 zod 的报错直接列出剩余可用取值；同时不会让用户以为自己选了一个可行方案。
+    - **未误伤 `llm.provider: claude`**：Anthropic 有 chat 模型，LLM 侧分支、`llmApiKeyMap`、`transport.ts` 的 `claude` case（未接入 → 抛可读错误）都保留不动。加了一条测试专门钉住这一点。
+    - 新增加固（core 85 → 89 例）：① `EmbeddingConfigSchema` 拒绝 `claude`；② 报错信息里列出 5 个可用 embedding provider 且**不含** `claude`；③ `LLMConfigSchema` 仍接受 `claude`（防误伤）；④ `file-loader.test.ts` 端到端：YAML 写 `rag.embedding.provider: claude` → `loadConfig()` 抛错（失败点在校验期，不是运行期）。
+    - 文档同步：`rag-package.md` §9 A2 风险第 3 条（改为已修）、§12 配置变更清单（标 ✅）；`tech-design.md` + `.zh.md` 的 embedding 替代方案三处（技术选型表 2 处 + §5.5.5 替代方案）去掉 Claude 并注明原因；`apigent.config.yaml` 与示例 YAML 的 embedding provider 注释行去掉 `claude`。
+    - 验证：`pnpm -r typecheck` / `lint` / `test` 全绿（core 89、rag 138、server 81、auth 4、open 2 = 314 例）。
 
-- [ ] **P3-6 处理 `rag.vectorStore.indexType`**
+- [x] **P3-6 处理 `rag.vectorStore.indexType`**
   - 作用：选择 pgvector 的近似最近邻（ANN）索引算法。
     - `ivfflat` —— k-means 把向量聚成 `lists` 个倒排桶，查询时只探 `probes` 个最近的桶。**必须先有数据再建索引**（要训练质心），pgvector 官方明确建议先灌数据；参数 `lists`（经验值约为行数/1000）与查询期 `ivfflat.probes`。
     - `hnsw` —— 多层近邻图，查询沿图游走。无训练步骤、**空表即可建索引**、增量插入友好；参数 `m`(默认 16) / `ef_construction`(64) 与查询期 `hnsw.ef_search`(40)。代价是内存占用更高、建索引更慢。
@@ -445,13 +452,29 @@
   - 交付：从配置移除 `indexType`；调优参数（`m` / `ef_construction` / `ef_search`）与「何时 `REINDEX`」走运维 / DBA 文档，不进应用配置。
   - 连带：换 embedding 模型或维度必须重建该索引，与 P0-2 属同一类「DDL 期、不可运行时切换」的问题。同理，`vector_cosine_ops` 这个距离度量也是 DDL 期决策，换它会改变结果排序。
   - 运维提示：对账式删除会在 HNSW 图里留下大量死元组，长期会退化，需要定期 `REINDEX`（或按仓库分区缓解）。
+  - **完成记录（2026-09-24）：**
+    - 删除点：`types.ts`（删 `VectorStoreIndexType` 类型 + `PgvectorConfig.indexType`）、`schema.ts`（pgvector 分支去掉 `indexType`）、`defaults.ts`（默认值改为 `{ provider: "pgvector" }`）、`config/index.ts`（删类型再导出）、`apigent.config.yaml` + 示例 YAML（删该行，改为注释说明「索引是 DDL 期决策 + 指向 §12.2」）。
+    - **删除而不是「标注为不生效」**：`.strict()` 下该键现在是**未知键 → 校验期报错**（新增用例钉住，且断言报错信息里含 `indexType`，用户能看到自己写错的是哪个键）。留一个「写了被忽略」的键正是 P3-6 要消灭的失败模式。
+    - **漂移守卫当场生效**：改完 schema 后第一次跑测试，`keeps the shipped apigent.config.example.yaml loadable`（P3-3 加的那条）立刻失败——示例 YAML 里还留着 `indexType: ivfflat`。这正是那条守卫存在的意义（示例漂移是用户最先撞上的失败），随后两份 YAML 一并修正。
+    - **运维内容落到 §12.2「向量索引运维（不在应用配置里）」**（`rag-package.md` 新增）：索引是什么（hnsw / `vector_cosine_ops` / `vector(1024)` / 索引名）、可调参数分两类（查询期 `hnsw.ef_search` 与建索引期 `m` / `ef_construction`）、四条必须 REINDEX 的时机（换模型或维度 / 对账式删除积累死元组 / 改建索引参数 / 换距离度量）、稀疏侧 `tokenizer_version` 变化同理，以及**为什么这些不该进配置**（配置项应满足「改了 + 重启就生效」）。
+    - 顺带修正的文档漂移：`semantic-search.agent.md` §2.1 写的「索引：ivfflat」与实现不符 → 改为 HNSW 并说明理由；`tech-design.md` + `.zh.md` 配置样例去掉 `indexType`；`CLAUDE.md` 的「consumed slot」例子更新为「该字段已被删除，现在会校验失败」——同一课但结论已变。
+    - 验证：core 89 → 91 例；`pnpm -r typecheck` / `lint` / `test` 全绿（全仓 316 例）。
 
-- [ ] **P3-7 L0 整体替换：`rag.provider` 配置槽 + `RagService` 工厂加载** ← P0-6 承诺、P2-10 发现的缺口（2026-09-22 补记）
+- [x] **P3-7 L0 整体替换：`rag.provider` 配置槽 + `RagService` 工厂加载** ← P0-6 承诺、P2-10 发现的缺口（2026-09-22 补记）
   - 问题：P0-6 的示例里有 `provider: "@acme/apigent-rag-qdrant" # 整体替换（L0）`，但 `RAGConfig` **顶层没有 `provider` 字段** —— 也就是说「换掉整条管线」今天无处声明，只有阶段级替换可用。
   - 交付：① `RAGConfig` 顶层加 `provider`（缺省 `builtin`，或 `{ provider: package, package, options }`），四处同步；② `@apigent/server` 装配时按它选择：内置 = 本包的 `createRagService()`，第三方 = 加载包导出的 `createRagService`（复用 P2-10 的加载器与形状校验）。
   - 验收：YAML 写一个第三方 RAG 包名 → 重启后 `POST /api/search` 走的是那个包；包不存在 / 形状不对 → 启动期可读错误；缺省（不写）行为与今天完全一致。
   - 形态：与 P0-6 定案 B 一致 —— 显式判别，不把 `provider` 拓宽成 `string`（`RAGConfig` 是普通 object，但保持同一套写法以免用户要记两种形态）。
   - 依赖：与 P5-4（scope 解析）/ P6-1（API route）同期接线最自然 —— 那时才第一次真正构造 `RagService`。
+  - **完成记录（2026-09-24）：**
+    - **配置形态（一次纠偏，值得记）**：最初按 `rag.provider: { provider: "builtin" }`（嵌套对象）实现 —— 写完立刻被 P3-3 加的**示例 YAML 漂移守卫**拦下：YAML 里 `provider: builtin` 解析出来是**字符串**，不是对象。这说明「把 L0 判别嵌成一个子对象」在 YAML 里根本不可用（要么 `provider: { provider: builtin }` 这种双重 provider，要么再加一个 `pipeline:` 键）。最终改为**扁平形态**，与 P0-6 文档里的 L0 示例逐字一致：`provider` 是 `rag` 节点自己的键，`package` / `options` 与它同级，且**只存在于 package 分支**。
+    - 连带结构调整：`RAGConfig` 由「一个 interface」变成 `BuiltinRagConfig | PackageRagConfig` 的判别联合（共同字段抽成 `RAGConfigBase`），`schema.ts` 里同样用 `ragConfigBaseFields` spread 到两个分支 —— 于是 `provider: builtin` 分支里写 `package` 会被 `.strict()` 拒绝。`schema.test.ts` 的「zod 推断类型 === 手写类型」编译期断言实测**接受**这种 interface-extends-base 的写法（不像 P3-3 的联合字面量那样被拒）。
+    - 四处同步：`types.ts` / `schema.ts` / `defaults.ts`（`provider: "builtin"`）/ 示例 YAML（含 L0 的注释示例与「错了会在启动期报错」说明）；真实 `apigent.config.yaml` 写 `provider: builtin`。
+    - **加载器（`@apigent/rag/pipeline`）**：`RAG_SERVICE_FACTORY_EXPORT_NAME = "createRagService"`、`loadRagServiceFactory()`（加载 + 导出形状校验，**不调用工厂**，与 `preloadStageProviders` 同一「自检无副作用」原则）、`assertRagServiceShape()`、`createRagServiceFromPackage()`（把「加载 → 调用 → 校验返回实例」收在一次调用里，调用方没有机会漏掉校验）。包名规则复用 `@apigent/core/config` 的 `isNpmPackageName`，与 zod 校验同源；错误风格与阶段加载器一致（不接受路径、形状错时列出实际导出的键、未安装时给出 `pnpm add <包>`）。
+    - **L0 工厂上下文**：`{ options, deps, telemetry?, clock?, createTraceId? }` —— 与阶段工厂同形（`options` + `deps`），但**不传阶段注册表**：L0 包替换的正是「怎么装配阶段」这件事，给它注册表等于让它依赖内置实现的内部结构。
+    - 新增用例：core 8 条（builtin 缺省合法 / package 带 options / 不带 options 合法 / 缺 `package` 被拒 / 包名写路径被拒且提示含 "npm package name" / **builtin 分支写 `package` 被拒** / **直接写包名（形态 A）被拒** / 未知 provider 被拒）；rag 15 条（命名导出 / `default` 导出 / 自检不调用工厂 / 四种路径形态被拒且不触发加载 / 未安装给出可读命令 / 形状错列出实际导出 / 导出为空 / options 透传与默认 `{}` / 异步工厂 / 返回对象缺方法被拒 / 返回非对象被拒）。
+    - ⚠️ **诚实边界**：验收里的「YAML 写第三方包名 → 重启后 `POST /api/search` 走的是那个包」**无法在本任务验证** —— 那条 API route 是 P6-1，且内置分支今天还构造不出可用管线（`pg-document-source` / embedding / pgvector 适配器分别属 P4-1 / P4-3 / P4-4）。本次交付的是这个缺口的两半：**配置槽 + 加载/装配入口**，P6-1 只需按 `config.rag.provider.provider` 二选一（`builtin` → `createRagService(options)`，`package` → `createRagServiceFromPackage(...)`）。
+    - 验证：core 91 → 99 例、rag 138 → 153 例；`pnpm -r typecheck` / `lint` / `test` 全绿（全仓 339 例）；`pnpm db:check` 通过（真实配置含新的 `rag.provider` 仍可加载）。
 
 ---
 
@@ -673,7 +696,7 @@
 | Phase 0 决策冻结           | 6      | 6      | ✅ 完成          |
 | Phase 1 基础重构           | 5      | 5      | ✅ 完成          |
 | Phase 2 包骨架与契约       | 10     | 10     | ✅ 完成          |
-| Phase 3 数据模型与配置对齐 | 7      | 4      | 进行中           |
+| Phase 3 数据模型与配置对齐 | 7      | 7      | ✅ 完成          |
 | Phase 4 摄取               | 8      | 0      | 未开始           |
 | Phase 5 检索               | 7      | 0      | 未开始           |
 | Phase 6 平台接入           | 5      | 0      | 未开始           |
@@ -681,7 +704,7 @@
 | Phase 8 MCP 暴露           | 6      | 0      | 未开始           |
 | Phase 9 插件 SDK 对外发布  | 5      | 0      | 已记录，延后实现 |
 
-**下一个任务：** P3-5 处理 `rag.embedding.provider: claude`
+**下一个任务：** Phase 4 首个任务 P4-1 `pg-document-source`
 
 ---
 
@@ -797,3 +820,6 @@
 | 2026-09-24 | **迁移历史重整（用户要求）**：P3-1 与 P3-2 的两条迁移合并为单条 `0005_rag_chunk_producer_identity_and_search_text.sql`（未上线 + `knowledge_chunks` 0 行）。合并后的 `when` 沿用旧 0006 时间戳 —— 读 drizzle 源码确认 migrator 只按 `created_at` 判定，所以已迁移的库自动跳过、只到 0004 的库与全新库正常执行。**验证**：临时库全新跑链路 `6/6` 且与主库表结构**完全一致**（21 列 / 8 索引 / 8 约束）；`db:check` 通过；再 `generate` 报 `No schema changes`。顺带修 `migrate.ts` 的误导输出（`7/6 migrations applied` → `up to date: journal has 6, database recorded 7 …`）。                                                                                                                                                                                                    |
 | 2026-09-24 | **P3-3 完成**：`rag.searchStore.provider` 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）/ `pg-fts-bigram` / `pg-fts-simple` / `none`，四处同步（+ 真实 `apigent.config.yaml`）；旧值退役且**不做别名**。新增跨字段校验：`sparse-only` + `none` fail-fast，`hybrid` + `none` 允许（退化为 dense-only）。新增「示例 YAML 可加载」漂移守卫测试。诚实边界：运行期 `strategy=dense` 的证明随 P4-5 / P5-1 补；bigram / simple 的 tokenizer 实现属 P4-5。core 73 → 85 例，全仓 310 例全绿。                                                                                                                                                                                                                                                                                                  |
 | 2026-09-24 | **P3-4 完成 + 迁移已执行（8 行记账）**：迁移 `0006_rag_chunk_content_addressing.sql` —— `knowledge_chunks` 去掉 `version_id`、唯一键改 `(repository_id, chunk_key, content_hash)`、新增 `knowledge_chunk_links(commit_id, chunk_id)`（PK + `chunk_idx`）。**drizzle 生成结果无需手工修**，但仍先在事务里预演再落库。**两处相对任务文本的偏差（索引宁少勿滥，均 EXPLAIN 实测）**：不建 links 的 `(commit_id)` 索引（PK 前缀已覆盖）、改补 `(chunk_id)`（GC 反查需要）；不补 `knowledge_chunks(repository_id, chunk_key)`（唯一索引前缀已覆盖）。命名：唯一索引 → `knowledge_chunks_repository_key_hash_idx`。清理顺序同步到 `repo-deletion.ts`（links 先于 chunks），`org-deletion.ts` 经论证无需改。诚实边界：三条验收（活跃 commit 收窄 / 回滚零重索引 / 越权排除）属 Phase 4-5。 |
+| 2026-09-24 | **P3-5 完成（用户定案：直接删除）**：`rag.embedding.provider: claude` 从 4 处代码删除（types / schema / index 再导出 / `embApiKeyMap`），**未误伤 `llm.provider: claude`**（有专测钉住）。加固 4 条用例（schema 拒绝、报错列出可用取值且不含 claude、LLM 侧仍接受、YAML 端到端校验期失败）。文档：`rag-package.md` §9 A2 + §12 标 ✅，`tech-design{,.zh}.md` embedding 替代方案 3 处去掉 Claude。core 85 → 89 例，全仓 314 例全绿。                                                                                                                                                                                                                                                                                                                                                |
+| 2026-09-24 | **P3-6 完成**：删除 `rag.vectorStore.indexType`（4 处代码 + 2 份 YAML），该键现在是未知键、校验期报错（有用例钉住）。新增 `rag-package.md` §12.2「向量索引运维（不在应用配置里）」：索引定义（hnsw / vector_cosine_ops / vector(1024)）、查询期 vs 建索引期参数、四条必须 REINDEX 的时机、以及「为什么这些不该进配置」。顺带修 `semantic-search.agent.md` 的「ivfflat」漂移与 `CLAUDE.md` 的 consumed-slot 例子。**漂移守卫当场生效**：改完 schema 首次跑测试即被示例 YAML 的残留 `indexType` 拦住。core 89 → 91 例。                                                                                                                                                                                                                                                              |
+| 2026-09-24 | **P3-7 完成 → Phase 3 收官（7/7）**：新增 `rag.provider` 配置槽（`builtin` 缺省 \| `package` + `package` + `options`，判别键为 `rag` 节点自己的键、`package`/`options` 与其同级），`RAGConfig` 变成判别联合。**一次纠偏**：嵌套对象形态（`provider: { provider: builtin }`）被示例 YAML 漂移守卫当场拦下 —— YAML 里它就是字符串，扁平形态才可用且与 P0-6 文档逐字一致。rag 侧新增 L0 加载器（`loadRagServiceFactory` / `assertRagServiceShape` / `createRagServiceFromPackage`，与阶段加载器共用包名规则与错误风格，且「加载不调用工厂」）。诚实边界：端到端验收（POST /api/search 走第三方包）随 P6-1。core 91 → 99 例、rag 138 → 153 例，全仓 339 例。                                                                                                                           |

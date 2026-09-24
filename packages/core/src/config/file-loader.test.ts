@@ -116,6 +116,19 @@ describe("loadConfig — .env loading", () => {
     expect(() => loadConfig(dir)).toThrow(/rag/);
   });
 
+  it('rejects embedding provider "claude" coming from YAML (P3-5)', () => {
+    // Anthropic 不提供 embedding API，该取值已从配置里删除。失败点必须在**配置
+    // 校验期**（而不是第一次索引时的运行期），否则用户会以为配上了。
+    process.env.APIGENT_DATABASE_URL = "postgresql://env:env@localhost:5432/apigent_env";
+    process.env.APIGENT_AUTH_SECRET = "shell-secret";
+    fs.writeFileSync(
+      path.join(dir, "apigent.config.yaml"),
+      "rag:\n  embedding:\n    provider: claude\n",
+    );
+
+    expect(() => loadConfig(dir)).toThrow(/rag/);
+  });
+
   it("parses flow-style YAML (inline arrays) via the yaml package", () => {
     process.env.APIGENT_DATABASE_URL = "postgresql://env:env@localhost:5432/apigent_env";
     process.env.APIGENT_AUTH_SECRET = "shell-secret";

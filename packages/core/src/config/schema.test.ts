@@ -6,6 +6,7 @@ import {
   AppsConfigSchema,
   DatabaseConfigSchema,
   EmbeddingConfigSchema,
+  LLMConfigSchema,
   RAGConfigSchema,
   RerankerConfigSchema,
   SearchStoreConfigSchema,
@@ -40,9 +41,10 @@ describe("ApigentConfigSchema", () => {
         },
       },
       rag: {
+        provider: "builtin",
         chunkStrategy: "hierarchical",
         embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
-        vectorStore: { provider: "pgvector", indexType: "hnsw" },
+        vectorStore: { provider: "pgvector" },
         searchStore: { provider: "pg-fts-jieba" },
         queryRewrite: true,
         queryRewriteCacheTtl: 3600,
@@ -218,9 +220,10 @@ describe("RAGConfigSchema — sparse availability vs retrievalMode (P3-3)", () =
   /** 除「稀疏后端 + 检索模式」外的字段用一份最小的合法配置填满。 */
   function ragConfig(provider: SearchStoreConfig["provider"], retrievalMode: RetrievalMode) {
     return {
+      provider: "builtin",
       chunkStrategy: "hierarchical",
       embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
-      vectorStore: { provider: "pgvector", indexType: "hnsw" },
+      vectorStore: { provider: "pgvector" },
       searchStore: { provider },
       queryRewrite: true,
       queryRewriteCacheTtl: 3600,
@@ -257,5 +260,164 @@ describe("RAGConfigSchema — sparse availability vs retrievalMode (P3-3)", () =
     // 这条把上一条钉成「窄规则」：被拒的是组合，不是 sparse-only 本身。
     expect(RAGConfigSchema.safeParse(ragConfig("pg-fts-jieba", "sparse-only")).success).toBe(true);
     expect(RAGConfigSchema.safeParse(ragConfig("pg-fts-bigram", "sparse-only")).success).toBe(true);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// P3-5 — `rag.embedding.provider: claude` 已删除
+// ───────────────────────────────────────────────────────────────────
+//
+// Anthropic 不提供 embedding API。删掉而不是「保留 + 标注」的理由：留着占位会让
+// 用户以为自己选了一个可行的方案，而失败点在**运行期**（第一次索引才炸），
+// 删掉则失败点在**配置校验期**，且错误信息直接列出可用取值。
+
+describe("EmbeddingConfigSchema — claude removed (P3-5)", () => {
+  it("rejects the claude embedding provider", () => {
+    const result = EmbeddingConfigSchema.safeParse({
+      provider: "claude",
+      apiKey: "sk-test",
+      model: "claude-embed",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("lists the remaining embedding providers in the error, so the fix is obvious", () => {
+    const result = EmbeddingConfigSchema.safeParse({ provider: "claude", apiKey: "x", model: "y" });
+    const message = result.success ? "" : JSON.stringify(result.error.issues);
+
+    for (const provider of ["qwen", "openai", "cohere", "local-bge", "local-fastembed"]) {
+      expect(message).toContain(provider);
+    }
+    expect(message).not.toContain("'claude'");
+  });
+
+  it("keeps claude available for the LLM (the removal is embedding-only)", () => {
+    // 这条防止误伤：Anthropic 有 chat 模型，`llm.provider: claude` 仍然合法
+    // （未接入是另一回事，由 createLanguageModel 抛可读错误）。
+    const result = LLMConfigSchema.safeParse({
+      provider: "claude",
+      apiKey: "sk-test",
+      models: {
+        default: "claude-sonnet-5",
+        business_context: "claude-sonnet-5",
+        query_rewrite: "claude-haiku-4-5-20251001",
+        rag_answer: "claude-sonnet-5",
+        editing: "claude-sonnet-5",
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// P3-6 — `rag.vectorStore.indexType` 已删除
+// ───────────────────────────────────────────────────────────────────
+//
+// ANN 索引是 DDL 期决策（迁移建 HNSW），不是运行时开关：换算法要重建索引、重灌
+// 数据，改 YAML + 重启不可能生效。旧字段没有任何代码读取，默认值还与迁移不一致
+// —— 「写了不生效」比「没有这个槽位」更糟，所以删除并让它成为**未知键**（校验期
+// 直接报错），而不是留着一个被忽略的键。
+
+describe("VectorStoreConfigSchema — indexType removed (P3-6)", () => {
+  it("accepts pgvector without any index option", () => {
+    expect(VectorStoreConfigSchema.safeParse({ provider: "pgvector" }).success).toBe(true);
+  });
+
+  it("rejects the removed indexType key instead of silently ignoring it", () => {
+    const result = VectorStoreConfigSchema.safeParse({
+      provider: "pgvector",
+      indexType: "ivfflat",
+    });
+
+    expect(result.success).toBe(false);
+    const message = result.success ? "" : JSON.stringify(result.error.issues);
+    expect(message).toContain("indexType");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// P3-7 — L0 整体替换：`rag.provider`
+// ───────────────────────────────────────────────────────────────────
+//
+// 形态（P0-6 定案 B）：`provider` 是 `rag` 节点自己的键，`package` / `options` 与它
+// **同级**，且只存在于 `provider: package` 分支里。这一段把「显式判别换来了什么」
+// 钉死：内置分支里写 `package` 会报错，直接写包名（形态 A）也不接受。
+
+describe("RAGConfigSchema — L0 provider (P3-7)", () => {
+  /** 除 L0 判别键之外的合法 rag 配置。 */
+  const baseRag = {
+    chunkStrategy: "hierarchical",
+    embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
+    vectorStore: { provider: "pgvector" },
+    searchStore: { provider: "pg-fts-jieba" },
+    queryRewrite: true,
+    queryRewriteCacheTtl: 3600,
+    retrieval: {
+      retrievalMode: "hybrid",
+      fusionMethod: "rrf",
+      coarseRankTopK: 20,
+      fineRankTopK: 10,
+      reranker: { provider: "qwen", apiKey: "sk-test", model: "qwen3-rerank" },
+    },
+    knowledgeGraph: { enabled: false },
+  };
+
+  it("defaults to the built-in pipeline when provider is builtin", () => {
+    expect(RAGConfigSchema.safeParse({ provider: "builtin", ...baseRag }).success).toBe(true);
+  });
+
+  it("accepts a package with options", () => {
+    const result = RAGConfigSchema.safeParse({
+      provider: "package",
+      package: "@acme/apigent-rag-qdrant",
+      options: { endpoint: "https://rag.example.test", collection: "apigent" },
+      ...baseRag,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a package without options", () => {
+    const result = RAGConfigSchema.safeParse({
+      provider: "package",
+      package: "rag-impl",
+      ...baseRag,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects provider: package without a package name", () => {
+    expect(RAGConfigSchema.safeParse({ provider: "package", ...baseRag }).success).toBe(false);
+  });
+
+  it("rejects a file path as the L0 package", () => {
+    const result = RAGConfigSchema.safeParse({
+      provider: "package",
+      package: "./my-rag-service.ts",
+      ...baseRag,
+    });
+
+    expect(result.success).toBe(false);
+    const message = result.success ? "" : JSON.stringify(result.error.issues);
+    expect(message).toContain("npm package name");
+  });
+
+  it("rejects package/options keys on the builtin branch (that is what strict buys)", () => {
+    expect(
+      RAGConfigSchema.safeParse({ provider: "builtin", package: "@acme/rag", ...baseRag }).success,
+    ).toBe(false);
+  });
+
+  it("rejects writing the package name directly as the provider value", () => {
+    // 形态 A（`provider: "@acme/x"`）在 P0-6 被否掉：它会让 provider 退化成 string。
+    // 这里把取舍钉住 —— 想要绝对路径式的「只改一行」，请接受多写 package 键。
+    expect(RAGConfigSchema.safeParse({ provider: "@acme/rag", ...baseRag }).success).toBe(false);
+  });
+
+  it("rejects an unknown provider value", () => {
+    expect(RAGConfigSchema.safeParse({ provider: "custom", ...baseRag }).success).toBe(false);
   });
 });

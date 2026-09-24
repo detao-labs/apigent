@@ -708,7 +708,7 @@ Each swappable component is defined by a **TypeScript interface** and shipped wi
 | **Async Tasks**     | Postgres queue (V0) / BullMQ + Redis (scale)      | `QueueProvider`         | OpenAPI import, LLM inference, batch processing — swap to RabbitMQ/SQS via config                                               |
 | **Auth**            | Credentials + signed cookie (NextAuth v5 planned) | `AuthProvider`          | Email + password with stateless signed httpOnly cookies in V0; Auth.js v5 adds OAuth while RBAC keeps taking a `userId` (5.4.9) |
 | **LLM**             | Qwen API (Alibaba Cloud Model Studio)             | `LLMProvider`           | Structured output, function calling; swap to Claude/OpenAI/Gemini/local models                                                  |
-| **Embedding**       | Qwen Embedding (text-embedding-v4)                | `EmbeddingProvider`     | Semantic search embeddings; swap to Claude/OpenAI/Cohere/local embedding models                                                 |
+| **Embedding**       | Qwen Embedding (text-embedding-v4)                | `EmbeddingProvider`     | Semantic search embeddings; swap to OpenAI/Cohere/local embedding models (no Claude — Anthropic ships no embedding API)         |
 | **MCP**             | @modelcontextprotocol/sdk                         | —                       | Standard MCP implementation, Streamable HTTP transport                                                                          |
 | **Storage**         | Local filesystem                                  | `StorageProvider`       | OpenAPI file storage; swap to S3/MinIO/Google Cloud Storage                                                                     |
 | **Diff**            | diff (or custom renderer)                         | —                       | Side-by-side comparison for version history and AI edits                                                                        |
@@ -1154,7 +1154,7 @@ Apigent is an **open-source, self-hosted** platform. Different teams have differ
 | ---------------------- | ------------------- | ------------------------------------- | -------------------------------------------------------------------------- |
 | **Vector Store**       | `VectorStore`       | pgvector                              | Milvus, Qdrant, Weaviate, Pinecone, Chroma                                 |
 | **LLM Provider**       | `LLMProvider`       | Qwen API (Alibaba Cloud Model Studio) | Claude, OpenAI, Gemini, Ollama (local), vLLM                               |
-| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | Claude Embedding, OpenAI Embedding, Cohere, BGE (local)                    |
+| **Embedding Provider** | `EmbeddingProvider` | Qwen Embedding (text-embedding-v4)    | OpenAI Embedding, Cohere, BGE (local); no Claude — no embedding API exists |
 | **Storage Provider**   | `StorageProvider`   | Local filesystem                      | AWS S3, MinIO, Google Cloud Storage, Azure Blob                            |
 | **Queue Provider**     | `QueueProvider`     | Postgres queue (`PgQueueProvider`)    | BullMQ + Redis, RabbitMQ, AWS SQS                                          |
 | **Auth Provider**      | `AuthProvider`      | Credentials + signed cookie           | OAuth / OIDC, LDAP, SAML, Authentik (OAuth via Auth.js v5 planned - 5.4.9) |
@@ -1359,7 +1359,8 @@ This interface is separate from `LLMProvider` because:
 - Decoupled interfaces allow independent swap
 
 **Default:** `QwenEmbeddingProvider` using Alibaba Cloud Model Studio's `text-embedding-v4`.  
-**Alternatives:** `ClaudeEmbeddingProvider`, `OpenAIEmbeddingProvider`, `CohereEmbeddingProvider`, `LocalEmbeddingProvider` (wraps FastEmbed/Transformers.js).
+**Alternatives:** `OpenAIEmbeddingProvider`, `CohereEmbeddingProvider`, `LocalEmbeddingProvider` (wraps FastEmbed/Transformers.js).
+Anthropic is deliberately absent: it publishes no embedding API, so an `embedding.provider: claude` value would only fail at runtime (see rag-package.md §9 A2 / P3-5).
 
 ### 5.5.6 Storage Provider Interface
 
@@ -1447,7 +1448,6 @@ rag:
     model: text-embedding-v4
   vectorStore:
     provider: pgvector
-    indexType: ivfflat
   searchStore:
     provider: pg-fts-jieba
   queryRewrite: true

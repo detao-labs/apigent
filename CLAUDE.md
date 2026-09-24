@@ -164,7 +164,7 @@ The config system is the first implemented module. It has three layers:
 Two more only when they apply:
 
 - **secret-backed slot** → also wire it in `packages/core/src/config/file-loader.ts` `injectSecrets()` (env var name must follow the convention below; **never** put the secret in `defaults.ts` or the YAML).
-- **consumed slot** → also update whatever reads it. A slot nobody reads is worse than no slot: `rag.vectorStore.indexType` shipped with a type, a schema entry, a default and documented YAML — but **no code reads it at all**, so changing it in YAML does nothing (and the default even disagreed with the migration's actual index). Grep the field name before calling the work done.
+- **consumed slot** → also update whatever reads it. A slot nobody reads is worse than no slot: `rag.vectorStore.indexType` shipped with a type, a schema entry, a default and documented YAML — but **no code reads it at all**, so changing it in YAML did nothing (the default even disagreed with the migration's actual index). It has since been **deleted** (P3-6): the ANN index is a DDL-time decision, so the key now fails validation as an unknown key instead of being silently ignored. Grep the field name before calling the work done.
 
 Verify with `pnpm --filter @apigent/core test` (there are config schema/loader tests) — the schema tests are the fastest way to catch a missed entry.
 

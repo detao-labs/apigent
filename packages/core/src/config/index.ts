@@ -13,7 +13,6 @@ export type {
   ExternalProviderConfig,
   // Vector Store
   VectorStoreProvider,
-  VectorStoreIndexType,
   PgvectorConfig,
   MilvusConfig,
   QdrantConfig,
@@ -34,7 +33,6 @@ export type {
   // Embedding
   EmbeddingProviderType,
   QwenEmbeddingConfig,
-  ClaudeEmbeddingConfig,
   OpenAIEmbeddingConfig,
   CohereEmbeddingConfig,
   LocalBGEConfig,

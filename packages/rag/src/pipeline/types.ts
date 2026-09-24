@@ -14,7 +14,13 @@
 // 注册表把「名字 → 工厂」收成一处，`createRagService` 在构造期解析并 fail-fast。
 // ═══════════════════════════════════════════════════════════════════
 
-import type { DenseIndex, Embedder, RagDocumentSource, RagTelemetry } from "../contracts";
+import type {
+  DenseIndex,
+  Embedder,
+  RagDocumentSource,
+  RagService,
+  RagTelemetry,
+} from "../contracts";
 
 /**
  * 可替换阶段的名字。
@@ -116,6 +122,41 @@ export interface RagServiceOptions {
   /** 装配用依赖（传给工厂） */
   deps?: RagStageDeps;
 }
+
+// ───────────────────────────────────────────────────────────────────
+// L0 —— 整体替换（P0-6 / P3-7）
+// ───────────────────────────────────────────────────────────────────
+//
+// 「换掉整条管线」与「换某一个阶段」是两件事，接口也分开：L0 的包**不认识**阶段
+// 注册表与 provider 选择（那些是内置管线自己的装配细节），它只需要自己的配置 +
+// 宿主注入的依赖与观测端口。
+//
+// 与阶段工厂（`RagStageFactoryContext`）保持同一形态：`options` + `deps` 两个键，
+// 这样包作者只需要记一套心智模型。
+
+/**
+ * L0 工厂上下文 —— 第三方包实现整条 `RagService` 时拿到的入参。
+ */
+export interface RagServiceFactoryContext {
+  /** 该包自己的配置（YAML `rag.provider.options`）：宿主只透传，形状由包自己校验 */
+  options: Record<string, unknown>;
+  /** 共享依赖（DB 句柄、HTTP 客户端…），与阶段工厂同一个袋子 */
+  deps: RagStageDeps;
+  /** 观测端口；缺省由宿主给 noop，包不得假设它一定存在 */
+  telemetry?: RagTelemetry;
+  /** 注入时钟（测试与评测需要可复现的耗时） */
+  clock?: () => number;
+  /** traceId 生成器；宿主应注入读日志上下文的实现，让日志与 trace 同源（P1-3） */
+  createTraceId?: () => string;
+}
+
+/**
+ * L0 工厂：一个包导出它（`createRagService` 命名导出或 `default`），宿主在启动期
+ * 调用一次拿到整条管线的实例。
+ *
+ * 允许返回 Promise：包可能需要建连接池、加载模型。
+ */
+export type RagServiceFactory = (ctx: RagServiceFactoryContext) => RagService | Promise<RagService>;
 
 /**
  * 阶段注册表。

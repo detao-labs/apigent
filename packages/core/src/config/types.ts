@@ -35,8 +35,6 @@ export interface DatabaseConfig {
 export type VectorStoreProvider =
   "pgvector" | "milvus" | "qdrant" | "weaviate" | "pinecone" | "chroma" | "memory";
 
-export type VectorStoreIndexType = "ivfflat" | "hnsw";
-
 /**
  * 第三方 provider —— 实现由 npm 包提供（P0-6 定案）。
  *
@@ -63,8 +61,15 @@ export interface MemoryVectorStoreConfig {
 
 export interface PgvectorConfig {
   provider: "pgvector";
-  /** Uses the same database connection as DatabaseConfig */
-  indexType: VectorStoreIndexType;
+  /**
+   * Uses the same database connection as DatabaseConfig。
+   *
+   * **没有索引算法这一项**（P3-6 删除）：ANN 索引是 **DDL 期决策**，不是运行时开关 ——
+   * 迁移里建的是 HNSW（`vector_cosine_ops`），换算法要重建索引、要重灌数据，
+   * 不可能靠改 YAML + 重启生效。以前这里有个 `indexType: "ivfflat" | "hnsw"`，
+   * 但**没有任何代码读它**，默认值还与迁移不一致，属于「配置骗人」：写了不生效，
+   * 还让人以为可以切。调优参数与 REINDEX 时机见 docs/modules/rag-package.md §12.2。
+   */
 }
 
 export interface MilvusConfig {
@@ -167,17 +172,17 @@ export type LLMConfig =
 // 4. Embedding Provider
 // ───────────────────────────────────────────────────────────────────
 
-export type EmbeddingProviderType =
-  "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed";
+/**
+ * Embedding provider —— **没有 `claude`**（P3-5 移除）。
+ *
+ * Anthropic 不提供 embedding API，这个取值只会让用户配完在运行期撞墙。真到
+ * Anthropic 出 embedding 接口那天，按新 provider 加回来：一个 interface + 一个
+ * schema 分支 + 一条 `EmbeddingConfigSchema` 用例，不要靠「先留着占位」。
+ */
+export type EmbeddingProviderType = "qwen" | "openai" | "cohere" | "local-bge" | "local-fastembed";
 
 export interface QwenEmbeddingConfig {
   provider: "qwen";
-  apiKey: string;
-  model: string;
-}
-
-export interface ClaudeEmbeddingConfig {
-  provider: "claude";
   apiKey: string;
   model: string;
 }
@@ -208,7 +213,6 @@ export interface LocalFastEmbedConfig {
 
 export type EmbeddingConfig =
   | QwenEmbeddingConfig
-  | ClaudeEmbeddingConfig
   | OpenAIEmbeddingConfig
   | CohereEmbeddingConfig
   | LocalBGEConfig
@@ -348,7 +352,8 @@ export interface RAGRetrievalConfig {
   reranker: RerankerConfig;
 }
 
-export interface RAGConfig {
+/** `rag.*` 的公共字段 —— L0 的两个分支（内置 / 第三方包）都带这一整套。 */
+export interface RAGConfigBase {
   /** Chunk strategy for document splitting */
   chunkStrategy: ChunkStrategy;
   /** Embedding model — text → vector (shared by ingestion & retrieval) */
@@ -366,6 +371,38 @@ export interface RAGConfig {
   /** Knowledge Graph enhancement (V1+, default disabled) */
   knowledgeGraph: KnowledgeGraphConfig;
 }
+
+/**
+ * L0 —— 整条管线用本仓库内置的 `createRagService()`（缺省）。
+ *
+ * **`provider` 是 `rag` 节点自己的键**，不是嵌在某个子对象里：与阶段级的写法一致
+ * （`embedding.provider` / `searchStore.provider` / `retrieval.reranker.provider`），
+ * 用户在 `rag` 这一层看到的是同一套形态，只是换的东西大一号（P0-6 / rag-package.md §3）。
+ */
+export interface BuiltinRagConfig extends RAGConfigBase {
+  provider: "builtin";
+}
+
+/**
+ * L0 —— 整条管线来自一个 npm 包（包导出 `createRagService` 或 `default`）。
+ *
+ * `package` / `options` 与 `provider` **同级**（P0-6 定案 B 的显式判别），于是
+ * `builtin` 分支里根本不存在这两个键 —— 写错会被 `.strict()` 在配置校验期抓住，
+ * 而不是被静默忽略。
+ */
+export interface PackageRagConfig extends RAGConfigBase {
+  provider: "package";
+  /** npm 包名；必须是已安装的依赖，**不接受文件路径** */
+  package: string;
+  /** 该包自己的配置；宿主只透传，形状由包自己校验 */
+  options?: Record<string, unknown>;
+}
+
+/**
+ * L0 判别在这里：`provider: builtin` 用内置管线，`provider: package` 换整条管线。
+ * 换方案 = 改 YAML + 重启（P0-6 的用户体验要求）。
+ */
+export type RAGConfig = BuiltinRagConfig | PackageRagConfig;
 
 // ───────────────────────────────────────────────────────────────────
 // 6. Storage Provider

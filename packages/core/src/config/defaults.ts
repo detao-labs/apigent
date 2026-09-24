@@ -76,9 +76,10 @@ export const DEFAULT_OLLAMA_MODELS: LLMFlowModelMap = {
 // ───────────────────────────────────────────────────────────────────
 
 export const DEFAULT_RAG_CONFIG: RAGConfig = {
+  provider: "builtin",
   chunkStrategy: "hierarchical",
   embedding: { provider: "qwen", apiKey: "", model: "text-embedding-v4" },
-  vectorStore: { provider: "pgvector", indexType: "ivfflat" },
+  vectorStore: { provider: "pgvector" },
   searchStore: { provider: "pg-fts-jieba" },
   queryRewrite: true,
   queryRewriteCacheTtl: 3600,

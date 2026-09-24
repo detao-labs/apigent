@@ -123,8 +123,9 @@ CLAUDE.md 已明确：客户端组件不能 value-import 任何（传递地）�
 ```yaml
 # apigent.config.yaml
 rag:
-  provider: package # 内置枚举值，或第三方包（此处为「整体替换」形态，见 P3-7，尚未落地）
+  provider: package # "builtin"（缺省，用本仓库管线）| "package"（整体替换）
   package: "@acme/apigent-rag-qdrant" # `@acme/…` 是占位符 —— 换成你自己发布的 scope
+  options: { endpoint: "https://rag.example.com" } # 该包自己的配置，宿主只透传
 ```
 
 ```ts
@@ -135,6 +136,13 @@ interface RagService {
   health(): Promise<RagHealth>;
 }
 ```
+
+包导出 `createRagService`（或 `default`），签名 `(ctx) => RagService | Promise<RagService>`，其中
+`ctx = { options, deps, telemetry?, clock?, createTraceId? }` —— 与阶段工厂同形（`options` + `deps`），
+包作者只需记一套。**✅ 配置槽与加载器已落地（P3-7）**：`rag.provider` 进 `RAGConfig`（缺省 `builtin`），
+加载器是 `loadRagServiceFactory()` / `createRagServiceFromPackage()`（`@apigent/rag/pipeline`）。
+`provider: builtin` 分支里没有 `package` / `options` 两个键（`.strict()` 会拒绝），直接写包名
+（`provider: "@acme/x"`，P0-6 的形态 A）也不接受。
 
 只要实现这 3 个方法，平台页面、agent 运行时、MCP、评测全部照常工作——因为它们是**同一套契约**的四个薄适配器（§6）。
 
@@ -188,6 +196,8 @@ export default {
 实现上是**阶段注册表 + fail-fast**：每个阶段一张 `name → factory` 表，内置实现由 `@apigent/rag` 注册，包名实现在启动期动态 import 后注册；配置里写了加载不到的名字，在**启动期**就抛错（沿用容器既有契约，不做静默回退）。
 
 **第三方 provider 包的导出约定**（P2-10 落地）：按阶段导出命名工厂 `createDocumentSource` / `createEmbedder` / `createDenseIndex`，或一个 `default` 工厂函数；工厂签名是 `(ctx: { options, deps }) => 阶段实现`，`deps` 里放 DB 句柄之类由宿主注入的东西。加载器会校验形状，形状不对时错误信息会列出「期望的导出名 + 实际导出的键」。
+
+**L0 包的导出约定（P3-7 落地）**：导出 `createRagService`（或 `default`），签名 `(ctx: { options, deps, telemetry?, clock?, createTraceId? }) => RagService | Promise<RagService>`。两个加载器**共用同一套包名规则与错误风格**（只接受 npm 包名、不接受路径；形状不对时列出实际导出的键），用户只需记一套。L0 比阶段多一步校验：**调用工厂后还要校验返回的实例形状**（`assertRagServiceShape`，检查 `index` / `retrieve` / `health` 三个方法）—— 阶段工厂的产物由管线自己用，而 L0 包的产物直接就是 `RagService`，形状不对会一路拖到第一次检索才炸。`createRagServiceFromPackage()` 把「加载 → 调用 → 校验」收在一次调用里，调用方没有机会漏掉那一步。
 
 启动期自检入口是 `preloadStageProviders(registry, providers)`：它只做**加载 + 形状校验**并把工厂注册进注册表，**不实例化**（连不上数据库不该让自检失败），返回每个 provider 的来源（内置 / 包）供启动日志打印。真正的实例化发生在 `createRagService()` 的装配期。
 
@@ -590,7 +600,7 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 
 1. 换 1536 / 3072 维模型 → 列定义与索引都要改，大表上是重活；
 2. 更隐蔽的：用新模型重索引后，**新旧向量混在同一张表里不可比**，检索结果静默变差，没有任何字段能识别和排查；
-3. 配置里 `EmbeddingProviderType` 含 `claude`，但 **Anthropic 没有 embedding API** —— 这个取值要么删除，要么标注 not supported，否则用户配了就报错。
+3. ~~配置里 `EmbeddingProviderType` 含 `claude`~~ → **✅ 已修（P3-5）：该取值已从配置删除**（Anthropic 没有 embedding API）。为什么是删而不是「保留 + 标注 not supported」：保留占位会把失败点推到运行期（第一次索引才炸），删除则让它在配置校验期就失败，且错误信息直接列出可用取值。
 
 **提前处理（迁移，现在便宜）：**
 
@@ -840,16 +850,16 @@ MCP 挂载需要 DB + authz + keys。两条路：给 `apps/open` 加依赖（进
 
 > `ApigentConfigSchema` 是 `.strict()` 的，下列每一项都要同步改 4 处（types / schema / defaults / example yaml），见 F4。
 
-| 变更                                       | 位置               | 说明                                                                                                                                                                                |
-| ------------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 新增 `rag.provider`                        | `rag.*` 顶层       | L0 整体替换开关（**P3-7，尚未落地**）。按 P0-6 定案（形态修订为 B），**`rag.*` 的 `provider` 接受「内置枚举值 \| 第三方包」**，后者写成 `provider: package` + `package` + `options` |
-| 扩 `rag.searchStore.provider`              | `rag.searchStore`  | 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）\| `pg-fts-bigram` \| `pg-fts-simple` \| `none`（A3，已定案）—— **✅ 已落地（P3-3）**                                                    |
-| 新增 `rag.telemetry.*`                     | `rag.telemetry`    | `recordQueryText` 等；导出后端仍走 `observability.*`（§7）                                                                                                                          |
-| 新增 `rag.cache.*`                         | `rag.cache`        | `provider: none \| memory-lru`、`ttl`（D3）                                                                                                                                         |
-| 新增 `rag.eval.thresholds`                 | `rag.eval`         | hit@3 / MRR / P95 / empty_rate 阈值（§8.2）                                                                                                                                         |
-| 调整 `rag.vectorStore.indexType`           | `rag.vectorStore`  | 删掉或明确标注「DDL 期决策、YAML 改了不生效」——当前 YAML 写 `ivfflat`，迁移实际建的是 HNSW，两者不一致                                                                              |
-| 删除/标注 `rag.embedding.provider: claude` | `rag.embedding`    | Anthropic 无 embedding API（A2）                                                                                                                                                    |
-| 新增 `embedding_model` 等列                | `knowledge_chunks` | ✅ 已落地（迁移 `0005`，P3-1）：`embedding_model` / `embedding_dim` / `embedding_updated_at` / `tokenizer_version`，外加「向量身份必须成套」CHECK 约束（A2 / A3）                   |
+| 变更                                      | 位置               | 说明                                                                                                                                                                                                                   |
+| ----------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新增 `rag.provider`                       | `rag` 顶层         | L0 整体替换开关 —— **✅ 已落地（P3-7）**：`provider: builtin`（缺省）\| `provider: package` + `package` + `options`（P0-6 定案 B）。判别键是 `rag` 节点自己的键，`package` / `options` 与它同级、只存在于 package 分支 |
+| 扩 `rag.searchStore.provider`             | `rag.searchStore`  | 由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）\| `pg-fts-bigram` \| `pg-fts-simple` \| `none`（A3，已定案）—— **✅ 已落地（P3-3）**                                                                                       |
+| 新增 `rag.telemetry.*`                    | `rag.telemetry`    | `recordQueryText` 等；导出后端仍走 `observability.*`（§7）                                                                                                                                                             |
+| 新增 `rag.cache.*`                        | `rag.cache`        | `provider: none \| memory-lru`、`ttl`（D3）                                                                                                                                                                            |
+| 新增 `rag.eval.thresholds`                | `rag.eval`         | hit@3 / MRR / P95 / empty_rate 阈值（§8.2）                                                                                                                                                                            |
+| ~~调整~~ 删除 `rag.vectorStore.indexType` | `rag.vectorStore`  | **✅ 已删除（P3-6）**：ANN 索引是 DDL 期决策（迁移建 HNSW + `vector_cosine_ops`），YAML 改了不生效。删除后该键是**未知键**（校验期报错），不再被静默忽略；调优见 §12.2                                                 |
+| 删除 `rag.embedding.provider: claude`     | `rag.embedding`    | Anthropic 无 embedding API（A2）—— **✅ 已删除（P3-5）**                                                                                                                                                               |
+| 新增 `embedding_model` 等列               | `knowledge_chunks` | ✅ 已落地（迁移 `0005`，P3-1）：`embedding_model` / `embedding_dim` / `embedding_updated_at` / `tokenizer_version`，外加「向量身份必须成套」CHECK 约束（A2 / A3）                                                      |
 
 ### 12.1 部署前置条件（数据库）
 
@@ -861,6 +871,36 @@ RAG 依赖两处数据库侧的准备，**都不在应用启动时执行**：
 | `search_text` / `search_vector` 的形态 | 迁移 `0005`：`search_vector` 是由 `search_text` 派生的生成列（`to_tsvector('simple'::regconfig, …) STORED`） | 无需额外动作；但**分词器口径变化**（`tokenizer_version`）或**生成表达式变化**都必须 `REINDEX` 并同步 `tokenizer_version`（P4-5 的运维项）。                                   |
 
 执行方式：仓库根目录 `pnpm db:migrate` —— 跑完自检「已应用迁移数 ≥ journal 条目数」，不足即非零退出（`drizzle-kit migrate` 会吞异常，所以用 `src/db/migrate.ts` 包了一层）。
+
+### 12.2 向量索引运维（**不在应用配置里**）
+
+这一节是 P3-6 的产物：ANN 索引的算法、参数与重建时机**都不是运行时开关**，所以它们既不在 `apigent.config.yaml`，也不会有配置项被「读了但不生效」。
+
+**索引是什么，由迁移决定（改它就是改 DDL）**
+
+| 项       | 取值                                  | 为什么                                                             |
+| -------- | ------------------------------------- | ------------------------------------------------------------------ |
+| 算法     | `hnsw`                                | 空表可建、增量插入友好；IVFFlat 要先有数据训练质心，空表上建会退化 |
+| 距离度量 | `vector_cosine_ops`                   | 查询与写入必须一致；换它 = 排序结果口径变了                        |
+| 维度     | `vector(1024)`                        | P0-2 定案：一个部署只有一个活跃 embedding 模型                     |
+| 索引名   | `knowledge_chunks_embedding_hnsw_idx` | 迁移 `0000` 建，`0006` 未动                                        |
+
+**可调参数（都在查询期或建索引期，不在 YAML）**
+
+- `hnsw.ef_search`（默认 40）：**查询期**参数，`SET LOCAL hnsw.ef_search = N`。调大 → 召回率↑、延迟↑。可以在检索 SQL 里按 `mode`（fast / deep）给不同值，这是**请求级**决定，不是部署级配置。
+- `m`（默认 16）/ `ef_construction`（默认 64）：**建索引期**参数。改它们必须 `DROP INDEX` + 重建。
+- `ivfflat.probes` / `lists`：仅在换回 IVFFlat 时才相关（当前不用）。
+
+**什么时候必须重建索引（`REINDEX INDEX knowledge_chunks_embedding_hnsw_idx`）**
+
+1. **换 embedding 模型或维度**（P0-2）：旧向量与新向量不可比，重建是「全量重索引」的一部分；
+2. **对账式删除积累了大量死元组**：HNSW 图不会自动收缩，长期运行后召回与延迟都会退化 —— 这是这套设计**已知的运行成本**，按仓库规模定期执行（先在预发量级上测，别拍脑袋定周期）；
+3. **改 `m` / `ef_construction`**；
+4. **换距离度量**（同时要重建列与所有向量）。
+
+**稀疏侧同理**：`tokenizer_version` 变化（jieba 库版本 / 词典 / 切分模式 / 归一化实现）或 `search_text` 生成表达式变化 → 必须 `REINDEX` 并同步更新 `tokenizer_version`（P4-5 落地写入路径时执行）。
+
+> 为什么这些不放进配置：配置项应当满足「改了 + 重启就生效」。上面每一项都不满足 —— 要么是查询期参数（应当随请求走），要么需要重建索引。放进配置只会制造「我改了但没生效」的静默故障，这正是 P3-6 删掉 `indexType` 的理由。
 
 ---
 

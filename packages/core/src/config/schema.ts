@@ -60,7 +60,6 @@ export const VectorStoreConfigSchema = z.discriminatedUnion("provider", [
   z
     .object({
       provider: z.literal("pgvector"),
-      indexType: z.enum(["ivfflat", "hnsw"]),
     })
     .strict(),
   z
@@ -173,13 +172,6 @@ export const EmbeddingConfigSchema = z.discriminatedUnion("provider", [
     .strict(),
   z
     .object({
-      provider: z.literal("claude"),
-      apiKey: z.string(),
-      model: z.string(),
-    })
-    .strict(),
-  z
-    .object({
       provider: z.literal("openai"),
       apiKey: z.string(),
       model: z.string(),
@@ -281,22 +273,45 @@ export const RAGRetrievalConfigSchema = z
   })
   .strict();
 
+/**
+ * `rag.*` 的公共字段 —— L0 的两个分支都带这一整套（与 types.ts 的 `RAGConfigBase` 对应）。
+ *
+ * 抽成对象再 spread，是为了让「L0 判别」与「rag 的字段」分开：判别键是 `provider`，
+ * 而 `package` / `options` 只出现在 package 分支里（`.strict()` 因此仍然有效）。
+ */
+const ragConfigBaseFields = {
+  chunkStrategy: z.enum(["hierarchical", "fixed"]),
+  embedding: EmbeddingConfigSchema,
+  vectorStore: VectorStoreConfigSchema,
+  searchStore: SearchStoreConfigSchema,
+  queryRewrite: z.boolean(),
+  queryRewriteCacheTtl: z.number().int(),
+  retrieval: RAGRetrievalConfigSchema,
+  knowledgeGraph: z
+    .object({
+      enabled: z.boolean(),
+    })
+    .strict(),
+};
+
+// L0 —— `rag.provider`：内置管线（缺省）或整条替换成一个 npm 包。
+// `package` 分支复用 `ExternalProviderConfigSchema` 的**形状**（而不是重写一遍包名
+// 规则）：包名正则与提示文案只有一处实现，zod 与加载器不会各判各的。
 export const RAGConfigSchema = z
-  .object({
-    chunkStrategy: z.enum(["hierarchical", "fixed"]),
-    embedding: EmbeddingConfigSchema,
-    vectorStore: VectorStoreConfigSchema,
-    searchStore: SearchStoreConfigSchema,
-    queryRewrite: z.boolean(),
-    queryRewriteCacheTtl: z.number().int(),
-    retrieval: RAGRetrievalConfigSchema,
-    knowledgeGraph: z
+  .discriminatedUnion("provider", [
+    z
       .object({
-        enabled: z.boolean(),
+        provider: z.literal("builtin"),
+        ...ragConfigBaseFields,
       })
       .strict(),
-  })
-  .strict()
+    z
+      .object({
+        ...ExternalProviderConfigSchema.shape,
+        ...ragConfigBaseFields,
+      })
+      .strict(),
+  ])
   // 跨字段校验（P3-3）：稀疏路关掉之后，仍然**要求**稀疏结果才能出结果的模式是
   // 无法满足的配置 —— 那样检索会返回空集且不报错，属于最难查的一类故障。
   // 反过来 `hybrid` + `none` 是**允许**的：它退化为 dense-only，这是用户显式选择

@@ -24,9 +24,11 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { isNpmPackageName } from "@apigent/core/config";
-import { RagConfigError } from "../contracts";
+import { RagConfigError, type RagService } from "../contracts";
 import type {
   RagProviderSelection,
+  RagServiceFactory,
+  RagServiceFactoryContext,
   RagStageFactoryMap,
   RagStageKind,
   RagStageRegistry,
@@ -44,6 +46,14 @@ export const STAGE_FACTORY_EXPORT_NAMES: Record<RagStageKind, string> = {
   embedder: "createEmbedder",
   denseIndex: "createDenseIndex",
 };
+
+/**
+ * L0 包应当导出的名字（`default` 导出同样接受）。
+ *
+ * 与阶段工厂分开命名不是洁癖：同一个包里可以既有 L0 的 `createRagService`、又有
+ * 若干阶段工厂，导出名不冲突，宿主也不会把两者弄混。
+ */
+export const RAG_SERVICE_FACTORY_EXPORT_NAME = "createRagService";
 
 /** 注入点：测试用假加载器，生产用动态 `import()`。 */
 export type RagStageModuleLoader = (specifier: string) => Promise<unknown>;
@@ -128,6 +138,118 @@ export async function preloadStageProviders(
   }
 
   return result;
+}
+
+// ───────────────────────────────────────────────────────────────────
+// L0 —— 整体替换的加载与形状校验（P3-7）
+// ───────────────────────────────────────────────────────────────────
+//
+// 与阶段加载器**同源规则、分开函数**：包名规则、错误风格、`default` 导出的接受
+// 程度都一致（用户只需记一套），但 L0 多一步「调用工厂后校验返回的实例形状」——
+// 阶段工厂的产物由管线自己使用，而 L0 包的产物直接就是 `RagService`，形状不对
+// 会一路拖到第一次检索才炸。
+
+/**
+ * 加载一个 L0 包的工厂：`createRagService` 命名导出，或 `default` 导出。
+ *
+ * 只做「加载 + 导出形状校验」，**不调用**它 —— 与 `preloadStageProviders` 同一
+ * 原则：启动期自检不该产生副作用（建连接池、拉模型都要等真正装配时）。
+ */
+export async function loadRagServiceFactory(
+  packageName: string,
+  options: LoadStageFactoryOptions = {},
+): Promise<RagServiceFactory> {
+  // 包名规则来自 `@apigent/core/config`，与 zod 校验同源（理由见文件头）。
+  if (!isNpmPackageName(packageName)) {
+    throw new RagConfigError(
+      `rag: L0 provider "${packageName}" is not a valid npm package name. ` +
+        "File paths are not supported: config files get copied and passed around, which would " +
+        "turn them into an arbitrary-code-execution entry point; a package name requires the " +
+        "package to be installed as a dependency.",
+    );
+  }
+
+  const loadModule = options.loadModule ?? ((specifier: string) => import(specifier));
+  let loaded: unknown;
+  try {
+    loaded = await loadModule(packageName);
+  } catch (error) {
+    throw new RagConfigError(
+      `rag: failed to load L0 provider package "${packageName}". Two possibilities: ` +
+        `(1) it is not installed (run \`pnpm add ${packageName}\`), or (2) its entry point throws ` +
+        "on import. " +
+        `Underlying error: ${messageOf(error)}`,
+      { cause: error },
+    );
+  }
+
+  if (loaded === null || (typeof loaded !== "object" && typeof loaded !== "function")) {
+    throw new RagConfigError(`rag: L0 provider package "${packageName}" exported nothing`);
+  }
+
+  const module = loaded as Record<string, unknown>;
+  const named = module[RAG_SERVICE_FACTORY_EXPORT_NAME];
+  if (typeof named === "function") return named as RagServiceFactory;
+
+  // `default` 导出也接受，理由同 STAGE_FACTORY_EXPORT_NAMES（只提供一个实现时
+  // `export default` 是最自然的写法）。
+  if (typeof module.default === "function") return module.default as RagServiceFactory;
+
+  throw new RagConfigError(
+    `rag: L0 provider package "${packageName}" has the wrong export shape: expected a named ` +
+      `export \`${RAG_SERVICE_FACTORY_EXPORT_NAME}\` or a \`default\` factory function, ` +
+      `but found [${exportedNames(module)}]`,
+  );
+}
+
+/**
+ * 校验工厂返回的东西确实是 `RagService`。
+ *
+ * 三个方法（`index` / `retrieve` / `health`）是契约的全部（P0-5：没有 answer），
+ * 所以这次检查也就是完整的接口检查。
+ */
+export function assertRagServiceShape(candidate: unknown, source: string): RagService {
+  if (candidate === null || typeof candidate !== "object") {
+    throw new RagConfigError(
+      `rag: L0 provider "${source}" returned ${describeValue(candidate)}, expected an object ` +
+        "implementing RagService (index / retrieve / health)",
+    );
+  }
+
+  const service = candidate as Record<string, unknown>;
+  const missing = (["index", "retrieve", "health"] as const).filter(
+    (method) => typeof service[method] !== "function",
+  );
+  if (missing.length > 0) {
+    throw new RagConfigError(
+      `rag: L0 provider "${source}" returned an object without ${missing.join(", ")}; ` +
+        "expected an object implementing RagService (index / retrieve / health)",
+    );
+  }
+
+  return candidate as RagService;
+}
+
+/**
+ * 装配一个 L0 包：加载工厂 → 调用 → 校验实例形状。
+ *
+ * 一次调用完成三件事，是为了让调用方**没有机会漏掉**形状校验 —— 拆开写的 API
+ * 迟早有人只调 `loadRagServiceFactory` 然后直接用返回值。
+ */
+export async function createRagServiceFromPackage(
+  provider: { package: string; options?: Record<string, unknown> },
+  context: Omit<RagServiceFactoryContext, "options">,
+  options: LoadStageFactoryOptions = {},
+): Promise<RagService> {
+  const factory = await loadRagServiceFactory(provider.package, options);
+  const service = await factory({ ...context, options: provider.options ?? {} });
+  return assertRagServiceShape(service, provider.package);
+}
+
+function describeValue(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "an array";
+  return typeof value === "object" ? "an object" : `${typeof value} (${String(value)})`;
 }
 
 // ───────────────────────────────────────────────────────────────────

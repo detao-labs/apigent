@@ -39,9 +39,10 @@ describe("Config Types", () => {
 
   it("RAGConfig — should accept hybrid retrieval with reranker", () => {
     const rag: RAGConfig = {
+      provider: "builtin",
       chunkStrategy: "hierarchical",
       embedding: { provider: "qwen", apiKey: "sk-test-key", model: "text-embedding-v4" },
-      vectorStore: { provider: "pgvector", indexType: "ivfflat" },
+      vectorStore: { provider: "pgvector" },
       searchStore: { provider: "pg-fts-jieba" },
       queryRewrite: true,
       queryRewriteCacheTtl: 3600,

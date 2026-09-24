@@ -200,7 +200,7 @@ pgvector 查询：
 
 **Embedding 模型：** `text-embedding-v4`（阿里云百炼，默认）  
 **向量维度：** 1024  
-**索引：** ivfflat（PG）或 Milvus 自管理索引  
+**索引：** HNSW + `vector_cosine_ops`（PG；**迁移里建的就是它**，不是 ivfflat——ivfflat 要先有数据才能训练质心，空表上建会退化，而我们的写入是增量 + 对账式删除。算法是 DDL 期决策，不从 YAML 配，见 rag-package.md §12.2）或 Milvus 自管理索引  
 **相似度：** Cosine
 
 ## 2.2 BM25 Search（Sparse 词汇检索）

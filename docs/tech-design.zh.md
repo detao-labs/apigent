@@ -695,23 +695,23 @@ Apigent 的 MCP Gateway 使用 **Streamable HTTP**（2025 规范），而非旧�
 
 每个可替换组件由 **TypeScript 接口**定义，并附带**默认实现**。用户可通过实现接口并在配置中注册来替换任何组件。详见 [5.5 可扩展架构](#55-可扩展架构)。
 
-| 层               | 默认实现                                    | 抽象接口            | 选型理由                                                                             |
-| ---------------- | ------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------ |
-| **Webapp 前端**  | Next.js App Router、React、TypeScript       | —                   | SSR、Streaming、Server Components、丰富生态                                          |
-| **Webapp 样式**  | Tailwind CSS                                | —                   | 原子化 CSS，快速 UI 开发                                                             |
-| **Platform API** | Next.js 路由处理器 + `@apigent/server`      | —                   | 与 Platform Webapp 同进程：没有 HTTP 跳转，V0 只有一个部署目标；服务层保持与框架无关 |
-| **Open Gateway** | Hono（TypeScript）                          | —                   | 面向机器流量（MCP）的独立进程；多运行时、Web 标准 `Request`/`Response`               |
-| **类型桥梁**     | Zod Schema + `zod-openapi`                  | —                   | 路由处理器用 Zod 校验；OpenAPI 3.1 文档由同一份 Schema 离线生成                      |
-| **数据库**       | PostgreSQL                                  | `DatabaseAdapter`   | V0 关系型存储；仅支持 PostgreSQL（Drizzle pg-core Schema）                           |
-| **向量存储**     | pgvector                                    | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                         |
-| **ORM**          | Drizzle                                     | `DatabaseAdapter`   | SQL 优先、类型安全；V0 使用 PostgreSQL（pg-core）——其他方言规划中，暂未支持          |
-| **异步任务**     | Postgres 队列（V0）/ BullMQ + Redis（扩容） | `QueueProvider`     | OpenAPI 导入、LLM 推理、批处理——可通过配置切换 RabbitMQ/SQS                          |
-| **认证**         | Credentials + HMAC 签名 Cookie              | `AuthProvider`      | V0 用邮箱 + 密码 + 无状态签名 httpOnly Cookie；接口是后续接 OAuth/OIDC/LDAP 的扩展点 |
-| **LLM**          | Qwen API（阿里云百炼）                      | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型              |
-| **Embedding**    | Qwen Embedding（text-embedding-v4）         | `EmbeddingProvider` | 语义搜索向量化；可换 Claude/OpenAI/Cohere/本地 Embedding 模型                        |
-| **MCP**          | @modelcontextprotocol/sdk                   | —                   | 标准 MCP 实现，Streamable HTTP 传输                                                  |
-| **存储**         | 本地文件系统                                | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                                 |
-| **Diff**         | diff（或自研渲染器）                        | —                   | 版本对比和 AI 编辑建议展示                                                           |
+| 层               | 默认实现                                    | 抽象接口            | 选型理由                                                                                            |
+| ---------------- | ------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
+| **Webapp 前端**  | Next.js App Router、React、TypeScript       | —                   | SSR、Streaming、Server Components、丰富生态                                                         |
+| **Webapp 样式**  | Tailwind CSS                                | —                   | 原子化 CSS，快速 UI 开发                                                                            |
+| **Platform API** | Next.js 路由处理器 + `@apigent/server`      | —                   | 与 Platform Webapp 同进程：没有 HTTP 跳转，V0 只有一个部署目标；服务层保持与框架无关                |
+| **Open Gateway** | Hono（TypeScript）                          | —                   | 面向机器流量（MCP）的独立进程；多运行时、Web 标准 `Request`/`Response`                              |
+| **类型桥梁**     | Zod Schema + `zod-openapi`                  | —                   | 路由处理器用 Zod 校验；OpenAPI 3.1 文档由同一份 Schema 离线生成                                     |
+| **数据库**       | PostgreSQL                                  | `DatabaseAdapter`   | V0 关系型存储；仅支持 PostgreSQL（Drizzle pg-core Schema）                                          |
+| **向量存储**     | pgvector                                    | `VectorStore`       | V0 阶段 PG 内向量检索；规模增长后可换 Milvus/Qdrant/Weaviate                                        |
+| **ORM**          | Drizzle                                     | `DatabaseAdapter`   | SQL 优先、类型安全；V0 使用 PostgreSQL（pg-core）——其他方言规划中，暂未支持                         |
+| **异步任务**     | Postgres 队列（V0）/ BullMQ + Redis（扩容） | `QueueProvider`     | OpenAPI 导入、LLM 推理、批处理——可通过配置切换 RabbitMQ/SQS                                         |
+| **认证**         | Credentials + HMAC 签名 Cookie              | `AuthProvider`      | V0 用邮箱 + 密码 + 无状态签名 httpOnly Cookie；接口是后续接 OAuth/OIDC/LDAP 的扩展点                |
+| **LLM**          | Qwen API（阿里云百炼）                      | `LLMProvider`       | Structured Output、Function Calling；可换 Claude/OpenAI/Gemini/本地模型                             |
+| **Embedding**    | Qwen Embedding（text-embedding-v4）         | `EmbeddingProvider` | 语义搜索向量化；可换 OpenAI/Cohere/本地 Embedding 模型（无 Claude——Anthropic 不提供 embedding API） |
+| **MCP**          | @modelcontextprotocol/sdk                   | —                   | 标准 MCP 实现，Streamable HTTP 传输                                                                 |
+| **存储**         | 本地文件系统                                | `StorageProvider`   | OpenAPI 文件存储；可换 S3/MinIO/Google Cloud Storage                                                |
+| **Diff**         | diff（或自研渲染器）                        | —                   | 版本对比和 AI 编辑建议展示                                                                          |
 
 > **实现状态：** LLM 调用已可用——产品代码（业务上下文生成、Agent 运行时）走 `@apigent/core/ai`（基于 Vercel AI SDK 的 `createLanguageModel(flow)`）；`@apigent/server/ai` 为兼容 re-export。容器只注册了 `memory` 向量库、`local` 存储与 Postgres 队列；pgvector、BullMQ 以及 MCP Gateway 只在 config/types 中定义，尚无工厂实现——`getVectorStore()`（非 `memory`）、`getQueue()`（非 `postgres`/`memory`）都会以 `not implemented` 快速失败（参见 `packages/core/src/di/container.test.ts`）。
 >
@@ -1149,14 +1149,14 @@ Apigent 是一个**开源、自托管**的平台。不同团队有不同的基�
 
 ### 5.5.2 可替换组件
 
-| 组件                 | 接口                | 默认实现                            | 常见替代方案                                                       |
-| -------------------- | ------------------- | ----------------------------------- | ------------------------------------------------------------------ |
-| **向量存储**         | `VectorStore`       | pgvector                            | Milvus、Qdrant、Weaviate、Pinecone、Chroma                         |
-| **LLM 提供商**       | `LLMProvider`       | Qwen API（阿里云百炼）              | Claude、OpenAI、Gemini、Ollama（本地）、vLLM                       |
-| **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | Claude Embedding、OpenAI Embedding、Cohere、BGE（本地）            |
-| **存储提供商**       | `StorageProvider`   | 本地文件系统                        | AWS S3、MinIO、Google Cloud Storage、Azure Blob                    |
-| **队列提供商**       | `QueueProvider`     | Postgres 队列（`PgQueueProvider`）  | BullMQ + Redis、RabbitMQ、AWS SQS                                  |
-| **认证提供商**       | `AuthProvider`      | Credentials + HMAC 签名 Cookie      | 自定义 OAuth/OIDC、LDAP、SAML、Authentik（配置槽已预留，尚未实现） |
+| 组件                 | 接口                | 默认实现                            | 常见替代方案                                                             |
+| -------------------- | ------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
+| **向量存储**         | `VectorStore`       | pgvector                            | Milvus、Qdrant、Weaviate、Pinecone、Chroma                               |
+| **LLM 提供商**       | `LLMProvider`       | Qwen API（阿里云百炼）              | Claude、OpenAI、Gemini、Ollama（本地）、vLLM                             |
+| **Embedding 提供商** | `EmbeddingProvider` | Qwen Embedding（text-embedding-v4） | OpenAI Embedding、Cohere、BGE（本地）；无 Claude（不存在 embedding API） |
+| **存储提供商**       | `StorageProvider`   | 本地文件系统                        | AWS S3、MinIO、Google Cloud Storage、Azure Blob                          |
+| **队列提供商**       | `QueueProvider`     | Postgres 队列（`PgQueueProvider`）  | BullMQ + Redis、RabbitMQ、AWS SQS                                        |
+| **认证提供商**       | `AuthProvider`      | Credentials + HMAC 签名 Cookie      | 自定义 OAuth/OIDC、LDAP、SAML、Authentik（配置槽已预留，尚未实现）       |
 
 ### 5.5.3 Vector Store 接口
 
@@ -1358,7 +1358,8 @@ export interface EmbeddingProvider {
 - 解耦接口允许独立替换
 
 **默认实现：** `QwenEmbeddingProvider` 使用阿里云百炼 `text-embedding-v4`。  
-**替代方案：** `ClaudeEmbeddingProvider`、`OpenAIEmbeddingProvider`、`CohereEmbeddingProvider`、`LocalEmbeddingProvider`（封装 FastEmbed/Transformers.js）。
+**替代方案：** `OpenAIEmbeddingProvider`、`CohereEmbeddingProvider`、`LocalEmbeddingProvider`（封装 FastEmbed/Transformers.js）。
+有意不含 Anthropic：它没有对外提供 embedding API，放一个 `embedding.provider: claude` 只会把失败推到运行期（见 rag-package.md §9 A2 / P3-5）。
 
 ### 5.5.6 Storage Provider 接口
 
@@ -1446,7 +1447,6 @@ rag:
     model: text-embedding-v4
   vectorStore:
     provider: pgvector
-    indexType: ivfflat
   searchStore:
     provider: pg-fts-jieba
   queryRewrite: true

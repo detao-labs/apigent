@@ -44,19 +44,24 @@ llm:
 # 3. RAG — retrieval & ranking pipeline
 # ───────────────────────────────────────────────────────────────────
 rag:
+  # 3.0 Whole-pipeline replacement (L0) — "builtin" | a package exporting createRagService
+  provider: builtin
+
   # 3.1 Chunking — document splitting strategy
   chunkStrategy: hierarchical # "hierarchical" | "fixed" — 🟡 config slot defined, chunking pipeline not wired yet
 
   # 3.2 Vectorization & storage — dense / sparse backends
   embedding:
-    # "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed" — ⏳ not implemented yet
+    # "qwen" | "openai" | "cohere" | "local-bge" | "local-fastembed" — ⏳ not implemented yet
+    # no "claude": Anthropic ships no embedding API (removed in P3-5)
     provider: qwen
     model: text-embedding-v4 # 🟡 effective once an embedding provider is implemented
 
   vectorStore:
     # "memory" ✅ (local dev / tests) | "pgvector" | "milvus" | "chroma" ⏳ not implemented yet
     provider: pgvector
-    indexType: ivfflat # "ivfflat" | "hnsw"
+    # no index option: the ANN index is a DDL-time decision (HNSW in the schema);
+    # see docs/modules/rag-package.md §12.2 for tunables and REINDEX guidance
 
   searchStore:
     # "pg-fts-jieba" (default) | "pg-fts-bigram" | "pg-fts-simple" | "none"

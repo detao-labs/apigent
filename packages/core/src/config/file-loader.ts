@@ -125,9 +125,10 @@ function injectSecrets(config: ApigentConfig): ApigentConfig {
   }
 
   // Embedding — API keys
+  // 注意这里**没有 claude**：Anthropic 不提供 embedding API，该 embedding provider
+  // 已在 P3-5 从配置里删除（LLM 侧的 claude 不受影响，见上面的 llmApiKeyMap）。
   const embApiKeyMap: Record<string, string> = {
     qwen: "DASHSCOPE_API_KEY",
-    claude: "ANTHROPIC_API_KEY",
     openai: "OPENAI_API_KEY",
   };
   const embEnvKey = embApiKeyMap[config.rag.embedding.provider];

@@ -65,19 +65,39 @@ llm:
 # 3. RAG — retrieval & ranking pipeline
 # ───────────────────────────────────────────────────────────────────
 rag:
+  # 3.0 Whole-pipeline replacement (L0) — P0-6 / P3-7
+  #
+  # "builtin" (default) uses this repo's own pipeline. To swap the *entire* pipeline
+  # for a third-party one (Dify / self-hosted / hosted service), point it at an
+  # installed npm package that exports `createRagService` (or a default factory):
+  # it receives { options, deps, telemetry?, clock?, createTraceId? } and must return
+  # an object with index / retrieve / health. `@acme/…` is a placeholder scope.
+  #
+  #   provider: package
+  #   package: "@acme/apigent-rag-qdrant"
+  #   options: { endpoint: "https://rag.example.com" }
+  #
+  # A wrong/missing package fails at startup with a readable error, before any
+  # request is served. Per-stage replacement (L1/L2) is configured further below.
+  provider: builtin
+
   # 3.1 Chunking — document splitting strategy
   chunkStrategy: hierarchical # "hierarchical" | "fixed" — 🟡 config slot defined, chunking pipeline not wired yet
 
   # 3.2 Vectorization & storage — dense / sparse backends
   embedding:
-    # "qwen" | "claude" | "openai" | "cohere" | "local-bge" | "local-fastembed" — ⏳ not implemented yet
+    # "qwen" | "openai" | "cohere" | "local-bge" | "local-fastembed" — ⏳ not implemented yet
+    # no "claude": Anthropic ships no embedding API (removed in P3-5)
     provider: qwen
     model: text-embedding-v4 # 🟡 effective once an embedding provider is implemented
 
   vectorStore:
     # "memory" ✅ (local dev / tests) | "pgvector" | "milvus" | "chroma" ⏳ not implemented yet
     provider: pgvector
-    indexType: ivfflat # "ivfflat" | "hnsw"
+    # No index option here on purpose: the ANN index (HNSW, vector_cosine_ops) is a
+    # DDL-time decision baked into migration 0006's schema — changing it needs a
+    # REINDEX + re-ingest, so it cannot be a YAML switch. Tunables (hnsw.ef_search,
+    # m / ef_construction, when to REINDEX) live in docs/modules/rag-package.md §12.2.
 
     # --- Milvus (standalone service, ⏳ not implemented yet) ---
     # provider: milvus

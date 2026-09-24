@@ -56,6 +56,7 @@ function makeConfig(overrides: Partial<ApigentConfig> = {}): ApigentConfig {
       },
     },
     rag: {
+      provider: "builtin",
       chunkStrategy: "hierarchical",
       embedding: { provider: "qwen", apiKey: "sk-test", model: "text-embedding-v4" },
       vectorStore: { provider: "memory" },
@@ -103,7 +104,7 @@ describe("Container", () => {
 
   it("fails fast for vector store providers without an implementation", () => {
     const config = makeConfig();
-    config.rag.vectorStore = { provider: "pgvector", indexType: "hnsw" };
+    config.rag.vectorStore = { provider: "pgvector" };
     const container = new Container(config);
     expect(() => container.getVectorStore()).toThrow(/not implemented/);
   });
@@ -111,7 +112,7 @@ describe("Container", () => {
   describe("provider registration", () => {
     it("resolves a vector store registered under a new name", () => {
       const config = makeConfig();
-      config.rag.vectorStore = { provider: "pgvector", indexType: "hnsw" };
+      config.rag.vectorStore = { provider: "pgvector" };
       const container = new Container(config);
       const fake = new FakeVectorStore();
       container.registerVectorStoreFactory("pgvector", () => fake);
