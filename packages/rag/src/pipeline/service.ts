@@ -60,6 +60,9 @@ export function createRagService(options: RagServiceOptions): RagService {
   const clock = options.clock ?? Date.now;
   const createTraceId = options.createTraceId ?? (() => randomUUID());
   const telemetry = failOpenTelemetry(options.telemetry ?? NOOP_TELEMETRY);
+  // 分块器由宿主要求注入（不做「缺省 = 不分块」的兜底）：管线只认识端口，内置实现
+  // 由注册方给（先例见 eslint.config.mjs 的 ragPipelineImportRestrictions）。
+  const chunker = options.chunker;
   const deps = options.deps ?? {};
 
   // ── 装配（= P0-6 的启动期自检落点）────────────────────────────────
@@ -103,34 +106,42 @@ export function createRagService(options: RagServiceOptions): RagService {
 
     try {
       const docs = await documentSource.load(req, { repositoryIds: [req.repositoryId] });
-      span.setAttribute("resultCount", docs.length);
+      // 文档 → chunk（P4-2）：超长文档在这里被切成多块，并由 chunker 给出对账用的
+      // `chunkKey`（`document.id`，切分后带 `#n` 后缀）。没有 chunker 注入时用
+      // `hierarchicalChunker()` —— 它是 `rag.chunkStrategy` 的缺省值。
+      const chunks = chunker.chunk(docs);
+      span.setAttribute("resultCount", chunks.length);
 
       const embedStartedAt = clock();
-      const embedded = await embedDocuments(docs.map((doc) => doc.text));
+      const embedded = await embedDocuments(chunks.map((chunk) => chunk.document.text));
       stageMs["index.embed"] = clock() - embedStartedAt;
       const vectors = embedded.vectors;
       tokens = embedded.tokens ?? 0;
 
-      if (vectors.length !== docs.length) {
+      if (vectors.length !== chunks.length) {
         // 向量与文档错位是**致命的静默错误**：会把 A 的向量写到 B 的内容上，
         // 检索结果看起来正常但全是错的。所以这里必须 fail-fast。
         throw new RagIngestError(
-          `embedder returned ${vectors.length} vectors for ${docs.length} documents`,
+          `embedder returned ${vectors.length} vectors for ${chunks.length} chunks`,
         );
       }
 
-      const records: DenseChunkRecord[] = docs.map((doc, i) => ({
-        chunkKey: doc.id,
+      const records: DenseChunkRecord[] = chunks.map((chunk, i) => ({
+        chunkKey: chunk.chunkKey,
         repositoryId: req.repositoryId,
-        organizationId: doc.organizationId,
+        organizationId: chunk.document.organizationId,
         // `commitId` 缺省时不写 link —— 该 chunk 在按 commit 收窄的检索里**查不到**
         // （fail-closed）。「缺省 = 主版本 head」需要读 DB，是 P4-7 的职责。
         commitIds: req.commitId ? [req.commitId] : [],
-        level: doc.level,
-        lang: doc.lang,
-        text: doc.text,
-        fields: doc.fields,
-        metadata: doc.metadata,
+        level: chunk.document.level,
+        lang: chunk.document.lang,
+        text: chunk.document.text,
+        fields: chunk.document.fields,
+        metadata: {
+          ...chunk.document.metadata,
+          // 切分信息进 metadata（不进 chunk_key）：排障时要能回答「这条为什么只有半截」
+          ...(chunk.parts > 1 ? { part: chunk.part, parts: chunk.parts } : {}),
+        },
         vector: vectors[i],
         embeddingModel: embedder.identity.model,
       }));

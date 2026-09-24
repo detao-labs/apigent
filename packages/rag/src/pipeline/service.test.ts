@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  type Chunker,
   RagConfigError,
   RagDependencyError,
   RagIngestError,
@@ -16,6 +17,7 @@ import {
   type RagDocument,
 } from "../contracts";
 import {
+  FIXTURE_ORG_MAIN,
   fixtureDocumentSource,
   FIXTURE_REPO_CHECKOUT,
   FIXTURE_REPO_LEGACY,
@@ -24,6 +26,7 @@ import { hashEmbedder } from "../testing/hash-embedder";
 import { memoryIndex } from "../testing/memory-index";
 import { RecordingTelemetry } from "../testing/recording-telemetry";
 import { createStageRegistry } from "./registry";
+import { hierarchicalChunker } from "../stages/chunker";
 import { createRagService } from "./service";
 import type { RagPipelineConfig, RagProviderSelection } from "./types";
 
@@ -47,6 +50,7 @@ function buildService(
     clock?: () => number;
     config?: Partial<RagPipelineConfig>;
     providers?: Partial<RagProviderSelection>;
+    chunker?: Chunker;
   } = {},
 ): Harness {
   const registry = createStageRegistry();
@@ -60,6 +64,7 @@ function buildService(
   registry.register("denseIndex", "memory", () => denseIndex);
 
   const service = createRagService({
+    chunker: options.chunker ?? hierarchicalChunker(),
     registry,
     providers: {
       documentSource: { name: "fixture" },
@@ -93,6 +98,7 @@ describe("createRagService — assembly-time self-check", () => {
 
     expect(() =>
       createRagService({
+        chunker: hierarchicalChunker(),
         registry,
         providers: {
           documentSource: { name: "fixture" },
@@ -121,6 +127,7 @@ describe("createRagService — assembly-time self-check", () => {
     });
 
     createRagService({
+      chunker: hierarchicalChunker(),
       registry,
       providers: {
         documentSource: { name: "fixture" },
@@ -426,5 +433,71 @@ describe("createRagService — span names", () => {
     await service.retrieve({ query: "退款", scope: SCOPE });
 
     expect(telemetry.spanNames().every((name) => allowed.has(name))).toBe(true);
+  });
+});
+
+describe("createRagService — chunking (P4-2)", () => {
+  const bigDocument: RagDocument = {
+    id: "schema:POST:/orders:request",
+    level: "schema",
+    lang: "zh",
+    organizationId: FIXTURE_ORG_MAIN,
+    text: `Request schema: POST /orders\nBody schema:\n${"z".repeat(5_000)}`,
+  };
+
+  it("超长文档被切成多块后逐块写入（span 的 resultCount 是块数，不是文档数）", async () => {
+    const { service, telemetry } = buildService({
+      documentSource: fixtureDocumentSource({
+        documentsByRepository: { [REPO]: [bigDocument] },
+      }),
+      chunker: hierarchicalChunker({ maxChars: 800 }),
+    });
+
+    const report = await service.index({ repositoryId: REPO, commitId: HEAD });
+    const indexSpan = telemetry.spans.find((span) => span.name === "rag.index");
+
+    expect(report.chunksWritten).toBeGreaterThan(1);
+    expect(indexSpan?.attributes.resultCount).toBe(report.chunksWritten);
+  });
+
+  it("同一份输入重复索引仍然幂等：块数与 chunkKey 集合不变", async () => {
+    const { service } = buildService({
+      documentSource: fixtureDocumentSource({
+        documentsByRepository: { [REPO]: [bigDocument] },
+      }),
+      chunker: hierarchicalChunker({ maxChars: 800 }),
+    });
+
+    const first = await service.index({ repositoryId: REPO, commitId: HEAD });
+    const second = await service.index({ repositoryId: REPO, commitId: HEAD });
+
+    expect(second.chunksWritten).toBe(first.chunksWritten);
+  });
+
+  it("未超长的文档行为与接线前一致（key = 文档 id，文本不变）", async () => {
+    const smallDocument: RagDocument = {
+      id: "endpoint:GET:/shipments/{id}",
+      level: "endpoint",
+      lang: "zh",
+      organizationId: FIXTURE_ORG_MAIN,
+      text: "发货单查询接口：按发货单号查询物流轨迹与签收状态。",
+      fields: { method: "GET", path: "/shipments/{id}" },
+    };
+    const { service, denseIndex } = buildService({
+      documentSource: fixtureDocumentSource({
+        documentsByRepository: { [REPO]: [smallDocument] },
+      }),
+    });
+
+    await service.index({ repositoryId: REPO, commitId: HEAD });
+    const hits = await denseIndex.search({
+      vector: (await hashEmbedder().embed([smallDocument.text])).vectors[0] ?? [],
+      scope: SCOPE,
+      limit: 5,
+      embeddingModel: hashEmbedder().identity.model,
+    });
+
+    expect(hits.map((hit) => hit.chunkKey)).toEqual(["endpoint:GET:/shipments/{id}"]);
+    expect(hits[0]?.text).toBe(smallDocument.text);
   });
 });

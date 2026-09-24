@@ -15,6 +15,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import type {
+  Chunker,
   DenseIndex,
   Embedder,
   RagDocumentSource,
@@ -110,6 +111,17 @@ export interface RagServiceOptions {
    * **一处**，不散落到每个阶段。
    */
   telemetry?: RagTelemetry;
+  /**
+   * 分块实现（P4-2）。**必填**：宿主按配置注入
+   * `chunkerForStrategy(config.rag.chunkStrategy)`。
+   *
+   * 为什么不给「缺省 = 不分块」的兜底：那等于让分块在忘记注入时**静默消失**，
+   * 超长文档会被 embedding 静默截断 —— 正是 P4-2 要消灭的失败模式。
+   *
+   * 为什么不进注册表：`rag.chunkStrategy` 是一个枚举（没有 `package` / `options`
+   * 的位置），硬塞进 provider 机制只会造出第二种配置形态。
+   */
+  chunker: Chunker;
   /** 注入时钟（测试断言精确耗时 / 阶段耗时） */
   clock?: () => number;
   /**

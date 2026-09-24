@@ -13,3 +13,10 @@
 export { normalizeIdentifiers } from "./identifiers";
 export { jiebaTokenizer, JIEBA_LIB_VERSION_FALLBACK } from "./jieba-tokenizer";
 export type { JiebaDictionary, JiebaTokenizerOptions } from "./jieba-tokenizer";
+export {
+  chunkerForStrategy,
+  fixedChunker,
+  hierarchicalChunker,
+  DEFAULT_MAX_CHARS,
+} from "./chunker";
+export type { ChunkStrategyName } from "./chunker";

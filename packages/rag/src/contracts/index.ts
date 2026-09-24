@@ -34,6 +34,7 @@ export type {
 } from "./types";
 export { RagError, RagConfigError, RagIngestError, RagDependencyError } from "./errors";
 export type { RagErrorCode } from "./errors";
+export type { SqlExecutor } from "./ports";
 export type {
   EmbeddingIdentity,
   EmbedResult,
@@ -44,6 +45,8 @@ export type {
   DenseUnlinkSelector,
   DenseIndex,
   Tokenizer,
+  RagChunk,
+  Chunker,
 } from "./stages";
 export { RAG_SPAN_NAMES, RAG_METRIC_NAMES } from "./telemetry";
 export type {

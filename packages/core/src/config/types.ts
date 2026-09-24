@@ -344,6 +344,20 @@ export interface RAGRetrievalConfig {
   retrievalMode: RetrievalMode;
   /** Fusion method for combining dense + sparse results */
   fusionMethod: FusionMethod;
+  /**
+   * 稠密路的**最低余弦相似度**（P4-4 新增）。**不写 = 不设阈值**（关闭）。
+   *
+   * 为什么需要它：没有阈值时稠密路永远返回 top-K，哪怕库里没有任何相关内容 —— 于是
+   * `empty_rate`（「这个问题库里没有答案」的度量）几乎恒为 0，评测指标失去意义。
+   *
+   * 为什么默认关闭：合适的值只能由 golden set 定（Phase 7）。今天拍一个数字等于
+   * 悄悄掐掉召回，而「结果少了几条」比「多返回几条低分」更难发现。
+   *
+   * 语义：`1 - (embedding <=> query) >= minScore`（`vector_cosine_ops` 的 `<=>` 是
+   * 余弦距离），**作为查询内的 SQL 条件在 ORDER BY / LIMIT 之前生效** —— 不能做成
+   * 「先取回再过滤」，那会导致「明明有更多候选却返回 0 条」。
+   */
+  minScore?: number;
   /** How many results to keep after coarse ranking, before fine reranking */
   coarseRankTopK: number;
   /** How many results to return after fine reranking */

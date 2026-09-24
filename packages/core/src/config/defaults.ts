@@ -86,6 +86,9 @@ export const DEFAULT_RAG_CONFIG: RAGConfig = {
   retrieval: {
     retrievalMode: "hybrid",
     fusionMethod: "rrf",
+    // minScore 有意不设默认值（不写 = 不设阈值）：合适的最低相似度只能由 golden set
+    // 定（Phase 7）。给一个拍脑袋的数字会让召回悄悄变少，而「少了几条」比「多几条
+    // 低分」更难被发现。类型上是可选字段，schema 也允许缺省。
     coarseRankTopK: 20,
     fineRankTopK: 10,
     reranker: { provider: "qwen", apiKey: "", model: "qwen3-rerank" },

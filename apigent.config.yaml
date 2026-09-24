@@ -77,6 +77,7 @@ rag:
     # 🟡 retrieval pipeline not implemented yet
     retrievalMode: hybrid # "hybrid" | "dense-only" | "sparse-only" | "kg-only"
     fusionMethod: rrf # "rrf" | "linear"
+    # minScore 有意不设：合适的最低相似度等 Phase 7 的 golden set 定（见 P4-4 记录）
     coarseRankTopK: 20
     fineRankTopK: 10
     reranker:

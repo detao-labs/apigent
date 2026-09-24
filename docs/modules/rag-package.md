@@ -67,14 +67,15 @@ packages/rag/
     eval/               # 评测 harness + 指标计算
 ```
 
-| Subpath                   | 内容                                                                                                             | 客户端可 import？            |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `@apigent/rag`            | `createRagService(config, deps)`、阶段注册表、telemetry 实现；契约**只做类型转发**（值走 `/contracts`，见 P2-8） | ❌ 会触及 db/pg、node:crypto |
-| `@apigent/rag/contracts`  | 查询/结果/scope/trace 类型，错误类，枚举常量                                                                     | ✅ 零重依赖                  |
-| `@apigent/rag/tools`      | 工具名 / description / zod inputSchema                                                                           | ✅ 仅依赖 zod                |
-| `@apigent/rag/testing`    | 测试替身                                                                                                         | ✅ 但只应出现在测试          |
-| `@apigent/rag/eval`       | 评测入口                                                                                                         | ❌ 服务端/脚本               |
-| `@apigent/rag/adapters/*` | 具体实现                                                                                                         | ❌                           |
+| Subpath                  | 内容                                                                                                             | 客户端可 import？            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@apigent/rag`           | `createRagService(config, deps)`、阶段注册表、telemetry 实现；契约**只做类型转发**（值走 `/contracts`，见 P2-8） | ❌ 会触及 db/pg、node:crypto |
+| `@apigent/rag/contracts` | 查询/结果/scope/trace 类型，错误类，枚举常量，**宿主注入的端口**（`SqlExecutor`，见 `ports.ts`）                 | ✅ 零重依赖                  |
+| `@apigent/rag/tools`     | 工具名 / description / zod inputSchema                                                                           | ✅ 仅依赖 zod                |
+| `@apigent/rag/stages`    | 纯计算阶段的内置实现（jieba 分词、标识符归一化）                                                                 | ❌ 触及原生模块              |
+| `@apigent/rag/adapters`  | 需要宿主注入资源的实现（`pg-document-source` 等）+ 文本渲染规则                                                  | ❌ 服务端                    |
+| `@apigent/rag/testing`   | 测试替身                                                                                                         | ✅ 但只应出现在测试          |
+| `@apigent/rag/eval`      | 评测入口（尚未落地，Phase 7）                                                                                    | ❌ 服务端/脚本               |
 
 **阶段端口放 `contracts/`**（`stages.ts`），不放实现模块：P0-6 要求第三方 provider 包能把「接口所在包」声明为 peerDependency，若端口藏在 `src/stages/` 里，第三方就得依赖内部路径。端口按需增量添加 —— 当前只有 `Embedder` / `DenseIndex`（P2-5 的测试替身需要它们），其余随各自任务补齐。
 
@@ -363,26 +364,32 @@ interface RagDocument {
 
 内置实现 `pg-document-source` 从 `endpoints` + `endpoint_responses` + `business_contexts` + `components` 组装文档。**它是「API 知识 → 可检索文本」的唯一权威定义**，改这里等于改检索质量；把它做成一个阶段而不是散落在 SQL 里，是为了让评测能直接对「文档构建」做 A/B。
 
+**✅ 已落地（P4-1）**，三条实现约定值得记住：
+
+1. **版本收窄靠 `version_entity_links`** —— endpoints 是版本无关的 blob（P0-4），「这个 commit 有哪些接口」只能由 link 回答；`IndexRequest.commitId` 缺省时取 `versions.is_default` 的 `head_commit_id`，该列为 NULL（尚未导入）时返回空数组而不是报错。
+2. **DB 访问走注入的 `SqlExecutor`**（`contracts/ports.ts`：`query(sql, params) => Row[]`）。rag 因此不依赖 `pg` / `drizzle`；单测用「返回固定行」的假执行器，不需要数据库。六段 SQL 已在真实 PG 上跑通（事务内播种 → 执行 → 回滚，零残留）。
+3. **渲染规则单独成模块**（`adapters/document-text.ts`）：不截断、标签英文内容保留原语言、对 jsonb 防御性读取、`$ref` 指向的模型定义**内联展开**（不展开的话「订单金额字段叫什么」这类查询永远召不回）。它是评测做 A/B 的对象，所以和 SQL 分开、可单独单测。
+
 ---
 
 ## 5. 阶段清单
 
-| 阶段       | 接口                | 内置实现                                                 | 配置槽                       |
-| ---------- | ------------------- | -------------------------------------------------------- | ---------------------------- |
-| 文档构建   | `RagDocumentSource` | `pg-document-source`                                     | —                            |
-| 分块       | `Chunker`           | `hierarchical` / `fixed`                                 | `rag.chunkStrategy`          |
-| 向量化     | `Embedder`          | qwen / openai / cohere / local-bge / local-fastembed     | `rag.embedding`              |
-| 稠密索引   | `DenseIndex`        | pgvector / memory                                        | `rag.vectorStore`            |
-| 分词       | `Tokenizer`         | jieba（应用侧，`cutForSearch`）/ bigram / simple         | `rag.searchStore` 的变体     |
-| 稀疏索引   | `SparseIndex`       | pg-fts（jieba / bigram / simple 三变体，见 §9 A3）/ none | `rag.searchStore`            |
-| 图召回     | `GraphExpander`     | none（V1+ KG）                                           | `rag.knowledgeGraph`         |
-| 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                          | `rag.queryRewrite`           |
-| 融合       | `Fusion`            | rrf / linear                                             | `rag.retrieval.fusionMethod` |
-| 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                      | `rag.retrieval.reranker`     |
-| 上下文扩展 | `ContextExpander`   | builtin                                                  | —（新增槽位）                |
-| 生成       | `AnswerGenerator`   | LLM（AI SDK）                                            | —（V1 新增）                 |
-| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                          | `observability.*`            |
-| 缓存       | `RagCache`          | noop / memory-lru                                        | —（新增槽位）                |
+| 阶段       | 接口                | 内置实现                                                            | 配置槽                       |
+| ---------- | ------------------- | ------------------------------------------------------------------- | ---------------------------- |
+| 文档构建   | `RagDocumentSource` | ✅ `pg-document-source`                                             | —                            |
+| 分块       | `Chunker`           | ✅ `hierarchical`（结构感知）/ `fixed`（对照基准）                  | `rag.chunkStrategy`          |
+| 向量化     | `Embedder`          | ✅ `openAICompatibleEmbedder`（qwen 起步，openai / 自建网关同协议） | `rag.embedding`              |
+| 稠密索引   | `DenseIndex`        | ✅ pgvector（`memory` 为测试替身）                                  | `rag.vectorStore`            |
+| 分词       | `Tokenizer`         | jieba（应用侧，`cutForSearch`）/ bigram / simple                    | `rag.searchStore` 的变体     |
+| 稀疏索引   | `SparseIndex`       | pg-fts（jieba / bigram / simple 三变体，见 §9 A3）/ none            | `rag.searchStore`            |
+| 图召回     | `GraphExpander`     | none（V1+ KG）                                                      | `rag.knowledgeGraph`         |
+| 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                                     | `rag.queryRewrite`           |
+| 融合       | `Fusion`            | rrf / linear                                                        | `rag.retrieval.fusionMethod` |
+| 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                                 | `rag.retrieval.reranker`     |
+| 上下文扩展 | `ContextExpander`   | builtin                                                             | —（新增槽位）                |
+| 生成       | `AnswerGenerator`   | LLM（AI SDK）                                                       | —（V1 新增）                 |
+| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                                     | `observability.*`            |
+| 缓存       | `RagCache`          | noop / memory-lru                                                   | —（新增槽位）                |
 
 **摄取的写入策略必须是「对账式」（desired-set diff），不能只做 upsert。**
 
@@ -591,6 +598,8 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 >
 > 与 P0-3 的 `tokenizer_version` 合并进同一次迁移——两者都是「这行数据是用哪个模型 / 哪个版本产出的」。`knowledge_chunks` 当前 0 行，本迁移零成本。
 
+**✅ 前半截已落地（P4-3）**：`openAICompatibleEmbedder()` 逐条校验 `vector.length === 1024`，不符即抛 `RagDependencyError`；维度经 AI SDK 的 providerOptions 传给 provider（真 API 实测请求体含 `dimensions: 1024`）。身份串（`qwen:text-embedding-v4`）+ 维度写进 `knowledge_chunks.embedding_model` / `embedding_dim`；「检索按当前模型过滤」的另一半随 P4-4 的索引适配器生效。
+
 **现状（证据）：**
 
 - `packages/server/src/db/schema/knowledge.ts`：`embedding vector("embedding", { dimensions: 1024 })`，迁移里是 `vector(1024)` + HNSW + `vector_cosine_ops`。
@@ -653,6 +662,7 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 > 版本模型已演化为「主版本 / 非主版本」：**「当前版本」= `versions.is_default` 的 `head_commit_id`**，活跃单位是 **commit**。
 >
 > - `knowledge_chunks` 去掉 `version_id`，`chunk_key` 去掉 version 前缀，唯一键改为 **`(repository_id, chunk_key, content_hash)`**；
+>   **修订（P4-2）**：`chunk_key` 也不带语言后缀 —— 定案「不做翻译，一个逻辑单元一块」之后，`lang` 是**内容属性**而不是身份。放 key 里会让语言判定（按内容判）在边界文本上抖动 ⇒ 每轮「删一个插一个」，源文档换语言还会留下孤儿 key；现在语言变化只改 `content_hash`，命中内容寻址原地更新。将来若真做翻译，key 必须重新带上语言后缀。
 > - 新增 **`knowledge_chunk_links(commit_id, chunk_id)`**，与 `version_entity_links` 同构；
 > - 理由：`endpoints` 是版本无关的内容块，`version_entity_links` 已记录「哪个 commit 用哪个 blob」。chunk 挂 `version_id` 等于在一个已做内容寻址的系统里按 commit 复制。
 > - 换来：回滚 / 切主分支**零重索引**；存储只随去重后的内容量增长；与仓库自身的 blob + link 设计一致。
@@ -772,13 +782,13 @@ MCP 挂载需要 DB + authz + keys。两条路：给 `apps/open` 加依赖（进
 
 ### F. 低成本但容易忘的
 
-| 编号    | 事项                    | 说明                                                                                                                                              |
-| ------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F1 (P1) | pgvector 扩展需要权限   | 迁移里的 `CREATE EXTENSION IF NOT EXISTS vector` 在部分托管 PG 上需要超级用户；作为部署前置条件写进文档                                           |
-| F2 (P1) | 摄取阶段要统计 token 数 | `rag.cost_per_query` 需要 token；建议进 `metadata`（或加列）。现在表里只有 `content_hash`，没有 token                                             |
-| F3 (P1) | rerank 是独立 API       | `qwen3-rerank` 走 DashScope 的 rerank 接口，不是 chat completion，需要单独客户端；不要塞进 `createAIModel`                                        |
-| F4 (P1) | 新增配置槽要改 4 处     | `ApigentConfigSchema` 全 `.strict()`，新增字段必须同步 `types.ts` + `schema.ts` + `defaults.ts` + `apigent.config.example.yaml`，漏一处启动即报错 |
-| F5 (P2) | chunk 层级枚举有两份    | `rag.chunkStrategy`（`hierarchical`/`fixed`）与 `knowledge_chunks.level`（6 值）没有共享常量，容易漂移；建议收到 contracts 里统一                 |
+| 编号    | 事项                    | 说明                                                                                                                                                                                                                                                              |
+| ------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1 (P1) | pgvector 扩展需要权限   | 迁移里的 `CREATE EXTENSION IF NOT EXISTS vector` 在部分托管 PG 上需要超级用户；作为部署前置条件写进文档                                                                                                                                                           |
+| F2 (P1) | 摄取阶段要统计 token 数 | `rag.cost_per_query` 需要 token；建议进 `metadata`（或加列）。现在表里只有 `content_hash`，没有 token                                                                                                                                                             |
+| F3 (P1) | rerank 是独立 API       | `qwen3-rerank` 走 DashScope 的 rerank 接口，不是 chat completion，需要单独客户端；不要塞进 `createAIModel`                                                                                                                                                        |
+| F4 (P1) | 新增配置槽要改 4 处     | `ApigentConfigSchema` 全 `.strict()`，新增字段必须同步 `types.ts` + `schema.ts` + `defaults.ts` + `apigent.config.example.yaml`，漏一处启动即报错                                                                                                                 |
+| F5 (P2) | chunk 层级枚举有两份    | `rag.chunkStrategy`（`hierarchical`/`fixed`）与 `knowledge_chunks.level`（6 值）没有共享常量，容易漂移。**部分收口（P4-2）**：`chunkStrategy` 与 `ChunkStrategyName` 之间加了编译期同一性断言（`stages/chunker.test.ts`）；`level` 与 `CHUNK_LEVELS` 的对照仍待办 |
 
 ---
 

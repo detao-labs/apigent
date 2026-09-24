@@ -18,6 +18,42 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import type { ChunkLang, ChunkLevel, RagDocumentFields, RagScope, RetrievalFilters } from "./types";
+import type { RagDocument } from "./types";
+
+// ───────────────────────────────────────────────────────────────────
+// 分块
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * 一个 chunk = **一个逻辑身份 + 它实际承载的文档内容**。
+ *
+ * 为什么 key 由分块器算、而不是让调用方从 `document.id` 里猜：`chunk_key` 是对账式
+ * 同步（P4-6）唯一的期望集合锚点 —— 「这个接口的 chunk 在哪」必须只有一处定义，
+ * 否则「期望集合」与「实际写入的 key」会各算各的。
+ *
+ * `part` / `parts` 表达「同一逻辑单元被切成多块」：`parts === 1` 时并非切分，key 就是
+ * 逻辑身份本身；切分后 key 为 `{id}#0`、`{id}#1`…（见 `stages/chunker.ts` 的规则）。
+ */
+export interface RagChunk {
+  /** repo 内的稳定逻辑身份（**不含** commit / version 前缀）。对账的锚点。 */
+  chunkKey: string;
+  /** 该块承载的文档（切分后每块都是完整的 `RagDocument`，可独立 embedding） */
+  document: RagDocument;
+  /** 同一逻辑单元的块序号（0-based）；未切分为 0 */
+  part: number;
+  /** 同一逻辑单元被切成的总块数；未切分为 1 */
+  parts: number;
+}
+
+/**
+ * 分块阶段：`RagDocument[] → RagChunk[]`。
+ *
+ * 它是**纯计算**阶段：不读配置、不连外部资源、对同一输入必须给出同一输出
+ * （同输入重复跑的幂等性是 P4-2 的验收项之一，也是对账式同步成立的前提）。
+ */
+export interface Chunker {
+  chunk(documents: RagDocument[]): RagChunk[];
+}
 
 // ───────────────────────────────────────────────────────────────────
 // 分词
@@ -132,6 +168,14 @@ export interface DenseQuery {
   vector: number[];
   scope: RagScope;
   limit: number;
+  /**
+   * 最低余弦相似度（`rag.retrieval.minScore`）。
+   *
+   * 不传 = 不设阈值（默认）。**由检索侧从配置注入**（P5-1），不是调用方 filters 的
+   * 一部分 —— 阈值是部署策略，不是这一次查询的过滤条件。实现必须把它做成
+   * **查询内的 SQL 条件**（`ORDER BY` / `LIMIT` 之前），不能取回后再过滤。
+   */
+  minScore?: number;
   filters?: RetrievalFilters;
   /** 只召回该模型产出的向量；不匹配的行视为待重索引，不参与召回（P0-2） */
   embeddingModel: string;

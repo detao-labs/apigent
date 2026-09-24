@@ -21,6 +21,7 @@ import { hashEmbedder } from "../testing/hash-embedder";
 import { memoryIndex } from "../testing/memory-index";
 import { RecordingTelemetry } from "../testing/recording-telemetry";
 import { createStageRegistry } from "./registry";
+import { hierarchicalChunker } from "../stages/chunker";
 import { createRagService } from "./service";
 
 const REPO = FIXTURE_REPO_CHECKOUT;
@@ -38,6 +39,7 @@ function offlineService(embedder: Embedder = hashEmbedder()): {
 
   const telemetry = new RecordingTelemetry();
   const service = createRagService({
+    chunker: hierarchicalChunker(),
     registry,
     providers: {
       documentSource: { name: "fixture" },

@@ -8,6 +8,7 @@ import {
   EmbeddingConfigSchema,
   LLMConfigSchema,
   RAGConfigSchema,
+  RAGRetrievalConfigSchema,
   RerankerConfigSchema,
   SearchStoreConfigSchema,
   VectorStoreConfigSchema,
@@ -419,5 +420,41 @@ describe("RAGConfigSchema — L0 provider (P3-7)", () => {
 
   it("rejects an unknown provider value", () => {
     expect(RAGConfigSchema.safeParse({ provider: "custom", ...baseRag }).success).toBe(false);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// P4-4 — `rag.retrieval.minScore`（稠密路的最低相似度）
+// ───────────────────────────────────────────────────────────────────
+//
+// 语义：不写 = 不设阈值（关闭）；写了就是查询内的 SQL 条件（不是后置过滤）。
+// 这里只钉配置层：可选、范围合法、越界要报错（写 2 会让查询永远空，那是配置错误）。
+
+describe("RAGRetrievalConfigSchema — minScore (P4-4)", () => {
+  const base = {
+    retrievalMode: "hybrid",
+    fusionMethod: "rrf",
+    coarseRankTopK: 20,
+    fineRankTopK: 10,
+    reranker: { provider: "none" },
+  };
+
+  it("accepts a config without minScore (default = threshold off)", () => {
+    expect(RAGRetrievalConfigSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("accepts a cosine similarity in -1..1", () => {
+    expect(RAGRetrievalConfigSchema.safeParse({ ...base, minScore: 0.45 }).success).toBe(true);
+    expect(RAGRetrievalConfigSchema.safeParse({ ...base, minScore: -0.2 }).success).toBe(true);
+    expect(RAGRetrievalConfigSchema.safeParse({ ...base, minScore: 1 }).success).toBe(true);
+  });
+
+  it("rejects out-of-range values instead of silently returning an empty result set", () => {
+    expect(RAGRetrievalConfigSchema.safeParse({ ...base, minScore: 2 }).success).toBe(false);
+    expect(RAGRetrievalConfigSchema.safeParse({ ...base, minScore: -1.5 }).success).toBe(false);
+  });
+
+  it("rejects a non-number", () => {
+    expect(RAGRetrievalConfigSchema.safeParse({ ...base, minScore: "0.5" }).success).toBe(false);
   });
 });

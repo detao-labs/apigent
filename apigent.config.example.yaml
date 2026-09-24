@@ -132,6 +132,11 @@ rag:
     # 🟡 retrieval pipeline not implemented yet
     retrievalMode: hybrid # "hybrid" | "dense-only" | "sparse-only" | "kg-only"
     fusionMethod: rrf # "rrf" | "linear"
+    # Dense-side minimum cosine similarity. Omit it (recommended for now) to disable the
+    # threshold: the right value can only come from the golden set (Phase 7), and a
+    # guessed value silently drops recall. When set, it is applied as an in-query SQL
+    # condition before ORDER BY / LIMIT — never as post-filtering. Range: -1..1.
+    #   minScore: 0.45
     coarseRankTopK: 20
     fineRankTopK: 10
     reranker:

@@ -267,6 +267,9 @@ export const RAGRetrievalConfigSchema = z
   .object({
     retrievalMode: z.enum(["hybrid", "dense-only", "sparse-only", "kg-only"]),
     fusionMethod: z.enum(["rrf", "linear"]),
+    // 不写 = 不设阈值（关闭）。范围用余弦相似度的合法区间（-1..1）：写成 2 之类
+    // 会让查询永远返回空，那是配置错误而不是调优。
+    minScore: z.number().min(-1).max(1).optional(),
     coarseRankTopK: z.number().int(),
     fineRankTopK: z.number().int(),
     reranker: RerankerConfigSchema,
