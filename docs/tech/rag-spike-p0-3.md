@@ -198,3 +198,21 @@ jieba 通过 `@node-rs/jieba` 引入——Rust / napi **预编译二进制**，`
 1. `to_tsvector('english', …)` 不切分中文；
 2. `setweight(path, 'A')` 因 `file` token 而只在字面全等时生效；
 3. 文中「`tsvector` Generated Column 自动同步、无窗口期」与实现不符——迁移里它是普通列；且一参形式 `to_tsvector(text)` 是 STABLE，不能用于 generated column。
+
+## 附：落地结果（P4-5，2026-10-10）
+
+本 spike 的结论已在 `@apigent/rag` 落地（`adapters/pg-fts-index.ts` + `stages/*-tokenizer.ts`），
+并按用户定案的**方案 2** 补上字段级权重（迁移 `0007` 新增 `search_identifiers`，标识符 A 级 / 正文 C 级）。
+
+用一套新的 25 条语料 / 27 条查询在真库上复测（事务内播种 → 检索 → 回滚）：
+
+| provider        | hit@1 | hit@3 | 空召回 |
+| --------------- | ----- | ----- | ------ |
+| `pg-fts-jieba`  | 96%   | 100%  | 0%     |
+| `pg-fts-bigram` | 96%   | 100%  | 0%     |
+
+字段权重的 A/B（同批词元、只换 rank 表达式）：标识符类查询 13 条，
+**A+C 双区段 hit@1 = 12/13，C-only（≈词频加权）hit@1 = 4/13**。
+
+两处与本文不同的实现选择（理由见 rag-package-tasks.md P4-5 完成记录）：
+bigram 放在**应用侧**（不再是 SQL 函数 `cjk_bigram_v1`），以及 B 级（summary）并入 C 级。

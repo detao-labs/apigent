@@ -224,39 +224,52 @@ pgvector 查询：
 | IDF      | 无                                         | 全库词频统计，稀有词权重高                        |
 | API 场景 | `GET /health` 中 "GET" 高权重（错误）      | "GET" IDF 低 → 权重自动降低（正确）               |
 
-**当前形态（迁移 `0005`，P3-2 落地）—— 分词在应用侧、tsvector 在 DB 侧确定性派生：**
+**当前形态（迁移 `0005` + `0007`，P4-5 落地）—— 分词在应用侧、tsvector 在 DB 侧确定性派生：**
 
 ```sql
 -- 1. 应用侧写入切好词的 search_text（jieba cutForSearch + 标识符归一化），
---    search_vector 由它派生 —— 没有「正文写完、向量没更新」的窗口期
+--    search_identifiers 单独存标识符区段（P4-5 方案 2，见下），
+--    search_vector 由两列派生 —— 没有「正文写完、向量没更新」的窗口期
 ALTER TABLE knowledge_chunks ADD COLUMN search_text text;
-ALTER TABLE knowledge_chunks ADD COLUMN search_vector tsvector
-  GENERATED ALWAYS AS (to_tsvector('simple'::regconfig, search_text)) STORED;
+ALTER TABLE knowledge_chunks ADD COLUMN search_identifiers text;
+ALTER TABLE knowledge_chunks ADD COLUMN search_vector tsvector GENERATED ALWAYS AS (
+  setweight(to_tsvector('simple'::regconfig, coalesce(search_text,        '')), 'C') ||
+  setweight(to_tsvector('simple'::regconfig, coalesce(search_identifiers, '')), 'A')
+) STORED;
 
 CREATE INDEX ON knowledge_chunks USING GIN (search_vector);
 
 -- 排障：直接看「切成了什么」，不必起应用（这是保留 search_text 一列的主要理由）
-SELECT search_text FROM knowledge_chunks WHERE id = :id;
+SELECT search_text, search_identifiers FROM knowledge_chunks WHERE id = :id;
 
 -- 2. 检索时（词元由应用侧**同一个分词器实例**产出、OR 连接 —— 见 P4-5）
 SELECT id, content, ts_rank(search_vector, to_tsquery('simple', :tsquery)) AS bm25_score
 FROM knowledge_chunks
 WHERE repository_id = ANY($accessible_repository_ids)
+  AND tokenizer_version = :tokenizer_version        -- 口径不一致的行 = 待重索引，不参与召回
   AND search_vector @@ to_tsquery('simple', :tsquery)
 ORDER BY bm25_score DESC
 LIMIT 50;
 ```
 
-**权重设计（`setweight`）—— 待 P4-5 定案：**
+> `coalesce` 是必需的：`tsvector || tsvector` 是 STRICT 的，任一操作数为 NULL 会让整列
+> 变 NULL（稀疏检索静默全灭）。
 
-| 字段      | 原设计  | 现状                                                                         |
-| --------- | ------- | ---------------------------------------------------------------------------- |
-| `method`  | A (1.0) | 与 path 一起做**标识符归一化**后进 `search_text`；权重怎么算是 P4-5 的开放项 |
-| `path`    | A (1.0) | 同上 —— 原设计对 `file` token 加权无效（spike 实测），归一化后才有意义       |
-| `summary` | B (0.4) | 作为正文词元进 `search_text`                                                 |
-| `content` | C (0.2) | 同上                                                                         |
+**权重设计（`setweight`）—— P4-5 方案 2 已落地（实测对比见 rag-package-tasks.md P4-5）：**
 
-> 单输入 `search_text` 的代价是**丢了字段级权重**。P4-5 有两条路：① 把关键标识符在 `search_text` 里重复以词频加权；② 再加一列 `search_identifiers`，让生成表达式写成 `setweight(to_tsvector('simple', search_text),'C') || setweight(to_tsvector('simple', search_identifiers),'A')`（仍是确定性生成列）。**在 P4-5 定案之前该表仍为 0 行**（首次写入发生在 P4-7），改形态零成本。
+| 区段                 | 权重    | 内容                                                                                               |
+| -------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `search_identifiers` | A (1.0) | `method` / `path` / `identityKey` / `operationId` 经**标识符归一化**后的词元（B 级已并入 C，见下） |
+| `search_text`        | C (0.2) | 正文词元（摘要、描述、字段说明、tags…）                                                            |
+
+> **为什么不是方案 1（标识符在 `search_text` 里重复做词频加权）**：`ts_rank` 的权重来自
+> tsvector 的 weight label，同一个词元落在不同区段时 PG 取**最高**权重；只有分成两列才能
+> 表达「标识符 ≫ 正文」。词频加权不但做不到这个区分度（长文档的正文词频会把它淹没），
+> 还会把长文档的词频噪音一起放大。**实测（同一批词元，只换 rank 表达式）**：
+> 13 条标识符类查询，A+C 双区段 hit@1 = **12/13**，C-only（≈方案 1）hit@1 = **4/13**。
+>
+> 原设计的 B 级（`summary`）没有单独区段：在两个区段里它更接近正文而不是标识符，
+> 单独再开一列只为一个中间权重，收益低于维护成本。
 
 ## 2.3 Knowledge Graph Traversal（结构召回）
 

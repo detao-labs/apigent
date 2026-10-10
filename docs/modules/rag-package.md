@@ -72,12 +72,12 @@ packages/rag/
 | `@apigent/rag`           | `createRagService(config, deps)`、阶段注册表、telemetry 实现；契约**只做类型转发**（值走 `/contracts`，见 P2-8） | ❌ 会触及 db/pg、node:crypto |
 | `@apigent/rag/contracts` | 查询/结果/scope/trace 类型，错误类，枚举常量，**宿主注入的端口**（`SqlExecutor`，见 `ports.ts`）                 | ✅ 零重依赖                  |
 | `@apigent/rag/tools`     | 工具名 / description / zod inputSchema                                                                           | ✅ 仅依赖 zod                |
-| `@apigent/rag/stages`    | 纯计算阶段的内置实现（jieba 分词、标识符归一化）                                                                 | ❌ 触及原生模块              |
-| `@apigent/rag/adapters`  | 需要宿主注入资源的实现（`pg-document-source` 等）+ 文本渲染规则                                                  | ❌ 服务端                    |
+| `@apigent/rag/stages`    | 纯计算阶段的内置实现（jieba / bigram / simple 三套切词、标识符归一化、chunker）                                  | ❌ 触及原生模块              |
+| `@apigent/rag/adapters`  | 需要宿主注入资源的实现（`pg-document-source` / `pgvector-index` / `pg-fts-index` 等）+ 文本渲染规则              | ❌ 服务端                    |
 | `@apigent/rag/testing`   | 测试替身                                                                                                         | ✅ 但只应出现在测试          |
 | `@apigent/rag/eval`      | 评测入口（尚未落地，Phase 7）                                                                                    | ❌ 服务端/脚本               |
 
-**阶段端口放 `contracts/`**（`stages.ts`），不放实现模块：P0-6 要求第三方 provider 包能把「接口所在包」声明为 peerDependency，若端口藏在 `src/stages/` 里，第三方就得依赖内部路径。端口按需增量添加 —— 当前只有 `Embedder` / `DenseIndex`（P2-5 的测试替身需要它们），其余随各自任务补齐。
+**阶段端口放 `contracts/`**（`stages.ts`），不放实现模块：P0-6 要求第三方 provider 包能把「接口所在包」声明为 peerDependency，若端口藏在 `src/stages/` 里，第三方就得依赖内部路径。端口按需增量添加 —— 当前有 `Embedder` / `DenseIndex` / `SparseIndex` / `Tokenizer` / `Chunker`，其余随各自任务补齐。
 
 **分词器依赖精确固定版本**：`@node-rs/jieba` 写 `"2.0.3"` 而非 `"^2.0.3"`。理由不是「安装可复现」（锁文件已经保证），而是**切分口径是持久化状态**：`dict.txt` 随包发布，而 `knowledge_chunks.tokenizer_version` 记录了产出这行数据的分词器（P3-1）。版本一动，存量索引的词元就与新查询的词元对不上（表现为静默查不到），必须全量 REINDEX。固定版本把升级变成一次显式 diff，而不是 `pnpm update` 的副作用。它是本工作区唯一的原生预编译依赖，升级风险也高于纯 JS 包。
 
@@ -380,8 +380,8 @@ interface RagDocument {
 | 分块       | `Chunker`           | ✅ `hierarchical`（结构感知）/ `fixed`（对照基准）                  | `rag.chunkStrategy`          |
 | 向量化     | `Embedder`          | ✅ `openAICompatibleEmbedder`（qwen 起步，openai / 自建网关同协议） | `rag.embedding`              |
 | 稠密索引   | `DenseIndex`        | ✅ pgvector（`memory` 为测试替身）                                  | `rag.vectorStore`            |
-| 分词       | `Tokenizer`         | jieba（应用侧，`cutForSearch`）/ bigram / simple                    | `rag.searchStore` 的变体     |
-| 稀疏索引   | `SparseIndex`       | pg-fts（jieba / bigram / simple 三变体，见 §9 A3）/ none            | `rag.searchStore`            |
+| 分词       | `Tokenizer`         | ✅ jieba（应用侧，`cutForSearch`）/ bigram / simple（P4-5）         | `rag.searchStore` 的变体     |
+| 稀疏索引   | `SparseIndex`       | ✅ pg-fts（jieba / bigram / simple 三变体，见 §9 A3）；装配待 P5-1  | `rag.searchStore`            |
 | 图召回     | `GraphExpander`     | none（V1+ KG）                                                      | `rag.knowledgeGraph`         |
 | 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                                     | `rag.queryRewrite`           |
 | 融合       | `Fusion`            | rrf / linear                                                        | `rag.retrieval.fusionMethod` |
@@ -649,7 +649,7 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 **连带影响（必须一起改）：**
 
 - ✅ `rag.searchStore.provider` 已由单一 `pg-fts` 扩为 `pg-fts-jieba`（默认）/ `pg-fts-bigram`（备选，零依赖逃生通道）/ `pg-fts-simple` / `none`（**P3-3 已落地**，含旧值 fail-fast 与「`none` ⇒ dense-only」的跨字段校验）。三个 `pg-fts-*` 变体共用同一条读写路径，差别只在**应用侧分词口径**，因此换值等于换 `tokenizer_version`、必须全量 REINDEX；
-- `setweight` 的字段权重设计要按「只给标识符加权」重写（现在的 A/A/B/C 权重隐含了「正文可被英文分词命中」的前提）；
+- ✅ `setweight` 的字段权重按「只给标识符加权」重写（**P4-5 已落地**，迁移 `0007`）：标识符（method / path / identityKey / operationId，归一化后）进 `search_identifiers` 取 A 级，正文与 tags 取 C 级；`ts_rank` 默认权重让两者相差 5×。实测同一批词元只换 rank 表达式：13 条标识符类查询 —— A+C 双区段 hit@1 = 12/13，C-only（≈词频加权方案）hit@1 = 4/13；
 - **文档与实现不一致需一并修正**：设计文档称 `tsvector` 是 generated column「自动同步、不存在窗口期」，但实际迁移里 `search_vector` 是**普通列**（drizzle 的 `customType` 无法表达 `GENERATED ALWAYS AS … STORED`），必须由写入路径或触发器填充。
   注意一个具体的坑：`to_tsvector(text)` 的重载是 STABLE，**不能**用于 generated column；必须写成 `to_tsvector('simple'::regconfig, …)`。
 
@@ -875,10 +875,10 @@ MCP 挂载需要 DB + authz + keys。两条路：给 `apps/open` 加依赖（进
 
 RAG 依赖两处数据库侧的准备，**都不在应用启动时执行**：
 
-| 前置                                   | 现状                                                                                                         | 生产要求                                                                                                                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vector` 扩展（pgvector）              | 迁移 `0000` 里的 `CREATE EXTENSION IF NOT EXISTS vector`（本地容器实测已装 `plpgsql` + `vector`）            | **迁移必须由具备 `CREATE EXTENSION` 权限的角色执行**；应用的运行时账号**不应是 superuser**。本地 dev 容器里应用账号恰好是 superuser，属「方便」而非「应然」（spike 已记录）。 |
-| `search_text` / `search_vector` 的形态 | 迁移 `0005`：`search_vector` 是由 `search_text` 派生的生成列（`to_tsvector('simple'::regconfig, …) STORED`） | 无需额外动作；但**分词器口径变化**（`tokenizer_version`）或**生成表达式变化**都必须 `REINDEX` 并同步 `tokenizer_version`（P4-5 的运维项）。                                   |
+| 前置                                                          | 现状                                                                                                        | 生产要求                                                                                                                                                                      |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vector` 扩展（pgvector）                                     | 迁移 `0000` 里的 `CREATE EXTENSION IF NOT EXISTS vector`（本地容器实测已装 `plpgsql` + `vector`）           | **迁移必须由具备 `CREATE EXTENSION` 权限的角色执行**；应用的运行时账号**不应是 superuser**。本地 dev 容器里应用账号恰好是 superuser，属「方便」而非「应然」（spike 已记录）。 |
+| `search_text` / `search_identifiers` / `search_vector` 的形态 | 迁移 `0005` + `0007`：`search_vector` 是由 `search_text`（C 级）与 `search_identifiers`（A 级）派生的生成列 | 无需额外动作；但**分词器口径变化**（`tokenizer_version`）、**字段权重或生成表达式变化**都必须 `REINDEX` 并同步 `tokenizer_version`（P4-5 已落地写入路径与运维口径）。         |
 
 执行方式：仓库根目录 `pnpm db:migrate` —— 跑完自检「已应用迁移数 ≥ journal 条目数」，不足即非零退出（`drizzle-kit migrate` 会吞异常，所以用 `src/db/migrate.ts` 包了一层）。
 
@@ -908,7 +908,8 @@ RAG 依赖两处数据库侧的准备，**都不在应用启动时执行**：
 3. **改 `m` / `ef_construction`**；
 4. **换距离度量**（同时要重建列与所有向量）。
 
-**稀疏侧同理**：`tokenizer_version` 变化（jieba 库版本 / 词典 / 切分模式 / 归一化实现）或 `search_text` 生成表达式变化 → 必须 `REINDEX` 并同步更新 `tokenizer_version`（P4-5 落地写入路径时执行）。
+**稀疏侧（P4-5 已落地）**：`tokenizer_version` 变化（jieba 库版本 / 词典 / 切分模式 / 归一化实现，或换 `searchStore.provider`）或 `search_vector` 生成表达式变化（权重区段）→ 必须 `REINDEX INDEX knowledge_chunks_search_vector_gin_idx`，并同步更新存量行的 `tokenizer_version`。
+关键点：检索 SQL 带 `tokenizer_version = <当前分词器版本>` 条件，**口径不一致的旧行不会参与召回**（不是「部分命中」而是「当作待重索引」），所以必须在改口径的同一次运维里完成重写 + REINDEX，否则表现为稀疏路静默空结果。
 
 > 为什么这些不放进配置：配置项应当满足「改了 + 重启就生效」。上面每一项都不满足 —— 要么是查询期参数（应当随请求走），要么需要重建索引。放进配置只会制造「我改了但没生效」的静默故障，这正是 P3-6 删掉 `indexType` 的理由。
 

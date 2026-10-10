@@ -19,7 +19,6 @@
 // 所以这里用 `<=>`（余弦距离）排序、`1 - (<=>)` 作为相似度分。
 // ═══════════════════════════════════════════════════════════════════
 
-import { createHash } from "node:crypto";
 import {
   RagConfigError,
   RagDependencyError,
@@ -28,10 +27,18 @@ import {
   type DenseIndex,
   type DenseQuery,
   type DenseUnlinkSelector,
-  type RagDocumentFields,
   type SqlExecutor,
 } from "../contracts";
 import type { RagDenseIndexFactory } from "../pipeline/types";
+import {
+  chunkRowId,
+  contentHashOf,
+  createOrganizationResolver,
+  ensureChunkLinks,
+  fieldsOf,
+  storedMetadata,
+  vectorLiteral,
+} from "./chunk-row";
 
 /** P0-2：列类型是 `vector(1024)`，写入前必须逐条校验。 */
 export const PGVECTOR_DIMENSIONS = 1024;
@@ -45,27 +52,7 @@ export interface PgvectorIndexOptions {
 export function pgvectorIndex(options: PgvectorIndexOptions): DenseIndex {
   const { sql } = options;
   const dimensions = options.dimensions ?? PGVECTOR_DIMENSIONS;
-  /** org 快照列的回落查询：同一仓库在一次进程生命周期内不会变 */
-  const organizationByRepository = new Map<string, string>();
-
-  async function organizationIdOf(repositoryId: string, provided?: string): Promise<string> {
-    if (provided) return provided;
-    const cached = organizationByRepository.get(repositoryId);
-    if (cached) return cached;
-
-    const [row] = await sql.query<{ organizationId: string }>(
-      `select r.organization_id as "organizationId" from repositories r where r.id = $1`,
-      [repositoryId],
-    );
-    if (!row?.organizationId) {
-      throw new RagDependencyError(
-        `pgvector: cannot resolve organization_id for repository ${repositoryId} ` +
-          "(the chunk row requires the org snapshot column; pass organizationId on the record).",
-      );
-    }
-    organizationByRepository.set(repositoryId, row.organizationId);
-    return row.organizationId;
-  }
+  const organizationIdOf = createOrganizationResolver(sql, "pgvector");
 
   return {
     async upsert(records: DenseChunkRecord[]): Promise<void> {
@@ -110,15 +97,12 @@ export function pgvectorIndex(options: PgvectorIndexOptions): DenseIndex {
           ],
         );
 
-        for (const commitId of record.commitIds) {
-          await sql.query(
-            `insert into knowledge_chunk_links (commit_id, chunk_id)
-             select $1, c.id from knowledge_chunks c
-             where c.repository_id = $2 and c.chunk_key = $3 and c.content_hash = $4
-             on conflict do nothing`,
-            [commitId, record.repositoryId, record.chunkKey, contentHash],
-          );
-        }
+        await ensureChunkLinks(sql, {
+          repositoryId: record.repositoryId,
+          chunkKey: record.chunkKey,
+          contentHash,
+          commitIds: record.commitIds,
+        });
       }
     },
 
@@ -319,45 +303,4 @@ function assertRecord(record: DenseChunkRecord, dimensions: number): void {
   if (record.text.length === 0) {
     throw new RagDependencyError(`pgvector: chunk "${record.chunkKey}" has empty content`);
   }
-}
-
-/** 正文的 sha256 —— 内容寻址里的「同内容」判定。 */
-function contentHashOf(text: string): string {
-  return createHash("sha256").update(text, "utf8").digest("hex");
-}
-
-/**
- * 行主键。确定性 id 让 upsert 幂等，也让排障时能直接从 (repo, key, hash) 反推 id。
- * 长度上限与 `text` 列无关（text 无上限），但保持紧凑便于日志阅读。
- */
-function chunkRowId(repositoryId: string, chunkKey: string, contentHash: string): string {
-  return createHash("sha256")
-    .update(`${repositoryId}\u0000${chunkKey}\u0000${contentHash}`, "utf8")
-    .digest("hex");
-}
-
-/**
- * 落库的 metadata：把稠密记录上的 `fields`（method / path / tags / summary）**摊平**到
- * 顶层，因为 `RetrievalFilters` 要在 SQL 里按它们过滤（`metadata->>'method'`）。
- * 表里没有 method / path 列，这是唯一能「过滤仍在 SQL 内」的存法。
- */
-function storedMetadata(record: DenseChunkRecord): Record<string, unknown> {
-  return { ...record.metadata, ...record.fields };
-}
-
-function fieldsOf(metadata: Record<string, unknown> | null): RagDocumentFields | undefined {
-  if (!metadata) return undefined;
-  const fields: RagDocumentFields = {};
-  if (typeof metadata.method === "string") fields.method = metadata.method;
-  if (typeof metadata.path === "string") fields.path = metadata.path;
-  if (typeof metadata.summary === "string") fields.summary = metadata.summary;
-  if (Array.isArray(metadata.tags)) {
-    fields.tags = metadata.tags.filter((tag): tag is string => typeof tag === "string");
-  }
-  return Object.keys(fields).length > 0 ? fields : undefined;
-}
-
-/** pgvector 的字面量形式：`[0.1,0.2,…]`，配合 SQL 里的 `::vector` 转型。 */
-function vectorLiteral(vector: number[]): string {
-  return `[${vector.join(",")}]`;
 }

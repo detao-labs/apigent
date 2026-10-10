@@ -23,6 +23,22 @@
 const IDENTIFIER_SEPARATOR = /[^a-z0-9\u3400-\u4dbf\u4e00-\u9fff]+/u;
 
 /**
+ * 字符分类 —— 与 `IDENTIFIER_SEPARATOR` 同一口径，供其它分词实现复用。
+ *
+ * 为什么要暴露：`pg-fts-bigram` 需要按「CJK 段 / 英文数字段 / 分隔符」切分，
+ * 若它自己再写一份正则，两处口径迟早漂移，而漂移的表现是「查询侧与索引侧
+ * 分类不一致 → 静默空召回」。所以分类规则只有这一处定义。
+ */
+export type CharClass = "word" | "cjk" | "separator";
+
+export function classifyChar(char: string): CharClass {
+  // 大写也归 word：调用方可能还没小写（分类不该依赖调用顺序）。
+  if (/[a-zA-Z0-9]/.test(char)) return "word";
+  if (/[\u3400-\u4dbf\u4e00-\u9fff]/.test(char)) return "cjk";
+  return "separator";
+}
+
+/**
  * 标识符归一化。CJK 保留（path 里可能有 `/订单/{id}`），并在结果内去重 ——
  * 标识符的权重来自它在 SQL 里的 setweight 区段，不靠词频。
  */

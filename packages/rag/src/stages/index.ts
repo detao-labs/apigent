@@ -13,6 +13,10 @@
 export { normalizeIdentifiers } from "./identifiers";
 export { jiebaTokenizer, JIEBA_LIB_VERSION_FALLBACK } from "./jieba-tokenizer";
 export type { JiebaDictionary, JiebaTokenizerOptions } from "./jieba-tokenizer";
+export { cjkBigramTokenizer } from "./bigram-tokenizer";
+export { identifierTokenizer } from "./simple-tokenizer";
+export { tokenizerForSearchStore, SPARSE_TOKENIZER_NAMES } from "./search-store-tokenizer";
+export type { SparseTokenizerName, SparseTokenizerOptions } from "./search-store-tokenizer";
 export {
   chunkerForStrategy,
   fixedChunker,

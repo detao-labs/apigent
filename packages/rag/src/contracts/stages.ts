@@ -7,7 +7,6 @@
 // **peerDependency**，避免多装出多份接口副本导致的结构不兼容。
 //
 // 只定义**已经有实现或替身的阶段**。其余阶段随各自任务增量添加，不提前声明：
-//   - SparseIndex → P4-5
 //   - Reranker → P5-2；QueryRewriter → P5-5 / P5-6；Fusion / ContextExpander → P5-1 / P5-3
 //
 // 三条约束（与 docs/modules/rag-package.md §3.1 一致）：
@@ -231,4 +230,79 @@ export interface DenseIndex {
   dropRepository(repositoryId: string): Promise<number>;
   /** 记录数（健康检查与对账断言用） */
   size(): Promise<number>;
+}
+
+// ───────────────────────────────────────────────────────────────────
+// 稀疏索引
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * 稀疏索引里的一条记录 —— 与 `DenseChunkRecord` 是**同一批 chunk 的两个投影**：
+ * 稠密侧写 `embedding`，稀疏侧写 `search_text` / `search_identifiers`。两侧
+ * 共用同一套内容寻址键（`repository_id` + `chunk_key` + `content_hash`），
+ * 因此写入顺序不影响结果、也不会各自建出一行。
+ *
+ * 注意这里**没有** `searchText` / `searchIdentifiers` 字段：切词由稀疏索引自己
+ * 用注入的 `Tokenizer` 完成。理由是 P4-5 最容易踩的坑 —— 索引侧与查询侧用了
+ * 不同实例 / 不同模式（如误用 jieba 默认 `cut`），表现为静默空召回。把分词关在
+ * 适配器内部，「同一个实例、同一种模式」就成了结构保证而不是纪律要求。
+ */
+export interface SparseChunkRecord {
+  /** repo 内的稳定逻辑身份（与稠密侧完全一致） */
+  chunkKey: string;
+  repositoryId: string;
+  /** 该仓库所属组织的快照（与稠密侧同一语义） */
+  organizationId?: string;
+  /** 引用该 chunk 的 commit（= `knowledge_chunk_links`，与稠密侧合并写入） */
+  commitIds: string[];
+  level: ChunkLevel;
+  lang: ChunkLang;
+  /** 原始正文（不是切好的 search_text） */
+  text: string;
+  /** 结构化字段：`path` / `method` 等会进高权重标识符区段 */
+  fields?: RagDocumentFields;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SparseQuery {
+  /** 用户原始查询串；切词由索引侧完成（与写入同一个 `Tokenizer` 实例） */
+  query: string;
+  scope: RagScope;
+  limit: number;
+  filters?: RetrievalFilters;
+  /**
+   * 只召回该分词器版本产出的行（`knowledge_chunks.tokenizer_version`）。
+   *
+   * 不匹配的行是「待重索引」，**不参与召回**：切分口径变了以后，旧索引里的词元
+   * 与新查询的词元对不上，混着查的结果是「部分命中、部分静默丢失」。宁可全空
+   * 并触发重索引，也不要看起来正常的劣化结果（P0-3）。
+   */
+  tokenizerVersion: string;
+}
+
+export interface SparseHit {
+  chunkKey: string;
+  repositoryId: string;
+  level: ChunkLevel;
+  lang: ChunkLang;
+  text: string;
+  fields?: RagDocumentFields;
+  metadata?: Record<string, unknown>;
+  /** `ts_rank` 原始分（不是 0-1 归一化分；归一化由融合阶段 P5-1 负责） */
+  score: number;
+}
+
+/**
+ * 稀疏索引阶段。内置实现：`pg-fts-jieba`（默认）/ `pg-fts-bigram`（备选）/
+ * `pg-fts-simple`（仅标识符）。
+ *
+ * 过滤语义与 `DenseIndex` **逐条一致**（P0-4 的两条权限不变量：权限打 chunk、
+ * 版本打 link、两层 AND 且在 `LIMIT` 之前），差别只在打分方式。
+ *
+ * 不提供 `unlink` / `dropRepository`：chunk 行的生命周期归稠密侧（同一批行），
+ * 两处各写一遍删除逻辑必然漂移。
+ */
+export interface SparseIndex {
+  upsert(records: SparseChunkRecord[]): Promise<void>;
+  search(query: SparseQuery): Promise<SparseHit[]>;
 }

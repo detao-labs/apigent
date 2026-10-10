@@ -556,16 +556,29 @@
     - 诚实边界：`minScore` 的**默认值仍未定**（Phase 7 用 golden set 定）；`search` 目前只支持单一 embedding 模型过滤（多模型并存是 V1+ 的课题）；分词列（`search_text` / `tokenizer_version`）由 P4-5 负责写入，本次 upsert 不碰它们（约束允许两者同时为 NULL）。
     - rag 215 → 239 例；全仓 429 例。
 
-- [ ] **P4-5 稀疏索引适配器**（按 P0-3 决策）
+- [x] **P4-5 稀疏索引适配器**（按 P0-3 决策）
   - 交付（`pg-fts-jieba`，默认）：
     1. 写入路径：`Tokenize(doc) → search_text → INSERT`，由 P3-2 的 generated column 产出 `search_vector`；
     2. 查询路径：**用同一个分词器实例、同一个 `cutForSearch` 模式**处理查询串，词元去重后以 **OR** 连接成 tsquery（用 AND 会几乎必然空召回），并过滤掉非 `[a-z0-9 CJK]` 的词元以免破坏 tsquery 语法；
     3. 标识符归一化结果一并写入 `search_text` 的标识符区段；
     4. 字段权重按新方案重设（原 `path` A 级权重对 `file` token 无效）。
-  - **⚠️ 待决策（P3-2 转来）**：当前 `search_vector` 只由 `search_text` 一个输入派生（迁移 `0005`），**字段级权重已经丢掉**。两条候选：① 关键标识符在 `search_text` 里重复，用词频做加权（零 schema 改动）；② 加一列 `search_identifiers`，生成表达式写成 `setweight(to_tsvector('simple', search_text),'C') || setweight(to_tsvector('simple', search_identifiers),'A')`（仍是确定性生成列，但要再出一次迁移）。在 P4-7 首次写入之前该表一直是 0 行，两条路都零成本。
-  - 交付（`pg-fts-bigram`，备选）：纯 SQL 的 CJK 2-gram 函数，版本化命名（如 `cjk_bigram_v1`），文档侧与查询侧必须用同一个函数。
+  - **✅ 定案（用户决策，2026-10-10）：方案 2 —— 新增 `search_identifiers` 列。** 理由见「完成记录」里的 A/B 实测。
+  - 交付（`pg-fts-bigram`，备选）：~~纯 SQL 的 CJK 2-gram 函数，版本化命名（如 `cjk_bigram_v1`）~~ → **改为应用侧实现，见完成记录里的偏离说明**。
   - 验收：用同一套语料与查询集，`pg-fts-jieba` 与 `pg-fts-bigram` 均达到 92%+ hit@1 / 100% hit@3 / 0% 空召回；改写式查询不要求命中（那是 dense 的职责）。
   - 运维：分词器版本或词典变更、bigram 函数变更，都必须 `REINDEX` 并更新 `tokenizer_version`；写进实现注释与运维文档。
+  - **完成记录（2026-10-10）：**
+    - **迁移 `0007_rag_chunk_search_identifiers.sql`（已执行，本机库 0 行零成本）**：新增 `search_identifiers text`；`search_vector` 生成表达式改为
+      `setweight(to_tsvector('simple', coalesce(search_text,'')), 'C') || setweight(to_tsvector('simple', coalesce(search_identifiers,'')), 'A')`；
+      `knowledge_chunks_tokenizer_identity_check` 追加「有标识符必须有正文」。**`coalesce` 是必需的**：`tsvector || tsvector` 是 STRICT 的，任一操作数为 NULL 会让**整列**变 NULL（稀疏检索静默全灭）。`0007` 同样在 drizzle 生成结果上做了两处手工修正（顺序：先加列再重建生成列；GIN 索引被 `DROP COLUMN` 连带删除后必须显式重建）。**动真库前先在事务里预演整条 DDL + 两条约束方向 + 生成列标签**，回滚后 0 行无残留；跑完 `pnpm db:migrate` + `db:check` 通过，再跑一次 `generate` 报 `No schema changes`（快照不漂）。
+    - **契约（`contracts/stages.ts`）**：新增 `SparseChunkRecord` / `SparseQuery` / `SparseHit` / `SparseIndex`。**记录里没有 `searchText` 字段**：切词由适配器自己用注入的 `Tokenizer` 完成，于是「索引侧与查询侧同一实例、同一模式」从纪律变成结构保证（P4-5 最容易踩的坑）。`SparseIndex` **不提供 `unlink` / `dropRepository`**：chunk 行生命周期归稠密侧，两处各写一遍删除逻辑必然漂移。
+    - **三套切词实现（`/stages`）**：`cjkBigramTokenizer`（`bigram@v1:norm=v1`，CJK 相邻 2-gram + ASCII 整词 + 单字段保留单字）、`identifierTokenizer`（`identifiers@v1:norm=v1`，候选 A：CJK 整段保留，中文召回全交 dense）、既有 `jiebaTokenizer`；新增 `tokenizerForSearchStore()` 作为「配置值 → 切词实现」的**唯一映射点**，并用编译期同一性断言钉住它与 core `SearchStoreConfig` 的枚举不漂移。字符分类规则（word / cjk / separator）抽到 `identifiers.ts` 一处，bigram 不再自己写正则。
+    - **与任务原文的一处偏离（有意）**：`pg-fts-bigram` 原文要求「纯 SQL 的 CJK 2-gram 函数（`cjk_bigram_v1`）」，实际放在**应用侧**。理由：P3-2 之后检索文本已由应用写入 `search_text`、`search_vector` 只是它的生成列；用 SQL 函数会让同一个 provider 槽位出现两种存储形态，且改函数要走迁移 + 手工 REINDEX，而应用侧只改版本串（与 jieba 路径同一套运维流程），还能被单测直接覆盖。代价是「文档侧与查询侧必须同函数」由数据库保证变成版本串保证 —— 与 jieba 路径承担同一风险，未引入新的失败模式。
+    - **适配器（`adapters/pg-fts-index.ts`）**：`pgFtsIndex({sql, tokenizer, provider})` + `pgFtsIndexProvider(provider)`。写入只碰稀疏三列与业务列、**绝不碰 `embedding*`**（与 P4-4 的 upsert 互为补集 ⇒ 稠密/稀疏写入顺序无关）；查询用 `cross join to_tsquery('simple'::regconfig, $1)` + `ts_rank`，词元 OR 连接、白名单过滤、去重保序、上限 64，并带 `tokenizer_version = $n`（口径不一致的行 = 待重索引，不参与召回）、权限打 chunk、版本打 link、`exists` 收窄、filters 全在 `LIMIT` 之前。查询串**从不拼进 SQL**（`退款' or 1=1 --` 这类输入有专测）。
+    - **抽取 `adapters/chunk-row.ts`（行为未改的重构）**：行主键、`content_hash`、metadata 摊平、org 快照回落、link 写入从 `pgvector-index.ts` 私有函数提出来共用。**这不是整洁癖**：两侧一旦各算一份，症状是同一 chunk 出现两行（一行有向量、一行有分词），两份代码看起来都没错。有测试直接断言两侧对同一记录算出同一个 id / hash / metadata。
+    - **验收（真库 + 真实适配器，事务内播种 → 检索 → 回滚）**：手写语料 25 条（18 个接口 + 5 个 tag 概述 + 1 条全局约定，沿用 spike 的电商域），查询 27 条分五类（精确标识符 4 / 松散标识符 5 / 英文词 4 / 中文 13 / 中英混合 1）。结果 **jieba 与 bigram 完全一致**：hit@1 = **96%（26/27）**、hit@3 = **100%**、空召回 = **0%**。唯一 top-1 未命中是 `shipments`（GET 与 POST 两条同分，tie-break 落到 `GET /shipments/{id}`）—— 属歧义查询，hit@3 覆盖。
+    - **方案 1 vs 方案 2 的 A/B（同批词元、只换 rank 表达式）**：13 条标识符类查询（精确 4 + 松散 5 + 英文 4），**A+C 双区段 hit@1 = 12/13，C-only（≈方案 1 的「标识符重复进 search_text」）hit@1 = 4/13**。这 9 条差距全部来自「标识符必须能以高于正文的权重参与打分」，是本次迁移的直接收益证据。
+    - **诚实边界（三类，都不是本次遗漏）**：① 装配未接线 —— `RagStageKind` 仍只有 documentSource / embedder / denseIndex，`pgFtsIndexProvider` 尚未注册进注册表、`RagServiceOptions` 里也还没有稀疏槽位（**P5-1 负责**，本任务只交付契约 + 适配器，避免出现「注册表里有、管线里没有」的死槽位）；② 单复数不匹配 —— `simple` 不做 stemming，`shipment` 查不到 `shipments`（P3-2 选 `simple` 而非 `english` 正是为了不破坏英文标识符），这是稀疏路的已知短板，补偿在 dense；③ 改写式查询（「把钱取出来」）jieba 命中 2 条、bigram 命中 0 条，但**不要求命中**（spike 已定：改写式属 dense 职责，实测也不能作为质量指标）。
+    - 验证：`pnpm -r typecheck` / `pnpm -r lint` / `pnpm -r test` 全绿（rag 239 → 271 例，全仓 461 例）；`pnpm db:check` 通过。文档同步：`semantic-search.agent.md` §2.2「当前形态」与权重表改为 `0005 + 0007` 的实际形态并附 A/B 数据；`rag-package.md` §2.2 subpath 表、§5 阶段清单、§9 A3 连带影响、§12.1 前置条件、§12.2 稀疏侧运维。
 
 - [ ] **P4-6 对账式同步**
   - 交付：期望集合 diff → upsert 变更 → 删除同 `(repository, version)` 下不在集合内的行；`content_hash` 复用跳过未变项；token / 成本统计落库。
@@ -751,14 +764,14 @@
 | Phase 1 基础重构           | 5      | 5      | ✅ 完成          |
 | Phase 2 包骨架与契约       | 10     | 10     | ✅ 完成          |
 | Phase 3 数据模型与配置对齐 | 7      | 7      | ✅ 完成          |
-| Phase 4 摄取               | 8      | 4      | 进行中           |
+| Phase 4 摄取               | 8      | 5      | 进行中           |
 | Phase 5 检索               | 7      | 0      | 未开始           |
 | Phase 6 平台接入           | 5      | 0      | 未开始           |
 | Phase 7 评估与可观测       | 5      | 0      | 未开始           |
 | Phase 8 MCP 暴露           | 6      | 0      | 未开始           |
 | Phase 9 插件 SDK 对外发布  | 5      | 0      | 已记录，延后实现 |
 
-**下一个任务：** P4-5 稀疏索引适配器（`pg-fts-jieba` 写入 + tsquery 查询）
+**下一个任务：** P4-6 对账式同步（期望集合 diff → upsert → 删除 + `content_hash` 复用）
 
 ---
 
@@ -881,3 +894,4 @@
 | 2026-09-24 | **P4-2 完成（chunker）**：用户定案**不翻译**（中英互查交给跨语言 embedding，等 Phase 7 数据再议），因此「中英双 chunk」改写为「语言是内容属性」。`chunk_key` = `document.id`（切分加 `#n`），**修订 P0-4 的 `:lang` 后缀**（语言是内容不是身份，放 key 会随判定翻转抖动）。新增 `Chunker`/`RagChunk` 契约与 `hierarchicalChunker`/`fixedChunker`/`chunkerForStrategy`；`RagServiceOptions.chunker` 必填（不给「缺省＝不分块」的静默兜底）；`ChunkStrategyName` 与 core 的 `ChunkStrategy` 加编译期同一性断言（收口 F5）。切分规则：section 优先、每块重复标题、超长按行、单行才硬切且只首片带标题。rag 187 → 202 例，全仓 388 例。                                                                                                                                                           |
 | 2026-09-24 | **P4-3 完成（embedding）**：`adapters/openai-compatible-embedder.ts` —— `openAICompatibleEmbedder()`（通用，批次 10 / 并发 2 / 逐条维度校验 / 失败带「模型+批次+条数」且不返回部分结果）+ `qwenEmbedder()`（用 core/ai 的兼容 provider 造模型，身份 `qwen:<model>`）；`packages/rag` 新增 `ai` 依赖。真 API 冒烟：v4 免费额度用尽（错误语义当场验证），改用 v3 得 3 向量 / 全 1024 维 / tokens=37；并把「跨语言相似度 0.7412 > 同语言不同主题 0.5851」记下来，支持 P4-2「不翻译」的决策。rag 202 → 215 例。                                                                                                                                                                                                                                                                                  |
 | 2026-09-24 | **P4-4 完成（pgvector 稠密索引）+ minScore 配置槽**：用户定案**加槽但默认不设阈值**（值留给 Phase 7 的 golden set），四处同步 + 4 条配置用例。`adapters/pgvector-index.ts` 落地 `upsert/search/unlink/dropRepository/size`：内容寻址写入（`on conflict (repo, key, hash)`）、link 用 `insert … select …`、版本收窄用 `exists` 而非 JOIN、`fields` 摊平进 metadata 以保住「filters 在 SQL 内」、org 快照回落查库并缓存、分数从字符串转 number。**真库验证**（事务 + 回滚）证明「过滤在 LIMIT 之前」：scope=A 时仍拿到 A 的两条，而同 scope 加上 B 时返回的是 B 的两条更相似结果；minScore 在查询内挡掉低分行；unlink 的 GC 精确删 1 行。**真库测试抓到真 bug**：unlink 的 GC 语句复用了 link 的参数数组 → 占位符数量不匹配（假执行器发现不了），已修并补断言。rag 215 → 239 例，全仓 429 例。 |
+| 2026-10-10 | **P4-5 完成（稀疏索引适配器）**：用户定案**方案 2** —— 迁移 `0007` 新增 `search_identifiers`，`search_vector` 改为 `setweight(search_text,'C')                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |     | setweight(search_identifiers,'A')`（`coalesce`必需，否则 STRICT 拼接让整列变 NULL），已在本机库执行（表 0 行零成本）。新增`SparseIndex`契约（切词由适配器内部完成 ⇒ 索引/查询同一实例是结构保证）+`pgFtsIndex`/`pgFtsIndexProvider`+ 两套新切词（bigram、simple）与`tokenizerForSearchStore()`单一映射点；bigram 由任务原文的「纯 SQL 函数」改为**应用侧实现**（同槽位不该有两种存储形态，且应用侧版本串与 jieba 共用一套运维流程）。抽取`chunk-row.ts` 让稠密/稀疏共用行身份（两侧各算一份 = 同一 chunk 两行）。**验收（真库 + 事务回滚）**：25 条语料 / 27 条查询，jieba 与 bigram 均为 hit@1 96% / hit@3 100% / 空召回 0%；**A/B：标识符类查询 A+C 双区段 hit@1 = 12/13，C-only（≈方案 1）4/13**。rag 239 → 271 例，全仓 461 例，全绿。 |

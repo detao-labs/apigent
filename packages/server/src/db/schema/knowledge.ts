@@ -132,17 +132,36 @@ export const knowledgeChunks = pgTable(
      */
     searchText: text("search_text"),
     /**
+     * 标识符区段（P4-5 方案 2）—— `path` / `method` / `operationId` 这类
+     * **归一化后的标识符词元**，单独一列只为一件事：让字段级权重有意义。
+     *
+     * 为什么单列而不是把标识符重复进 `search_text` 提高词频：`ts_rank` 的
+     * 权重是按 **tsvector 的 weight label（A/B/C/D）** 给的，同一个词元落在不同
+     * 区段时 PG 取**最高**权重 —— 只有把标识符与正文分开，`setweight` 才能表达
+     * 「标识符 ≫ 正文」，否则两者只能同权重。词频加权做不到这一点，还会把
+     * 长文档的词频噪音一并放大。
+     *
+     * 与 `search_text` 同写同空：写入路径（`@apigent/rag` 稀疏索引适配器）两个
+     * 都写，约束 `knowledge_chunks_tokenizer_identity_check` 钉住这条关系。
+     */
+    searchIdentifiers: text("search_identifiers"),
+    /**
      * PG 全文检索向量（`ts_rank` 近似 BM25）；ES 接管后移除。
      *
-     * **生成列**，由 `search_text` 派生：分词在应用侧、tsvector 在 DB 侧确定性
+     * **生成列**，由 `search_text`（正文区段，weight **C**）与 `search_identifiers`
+     * （标识符区段，weight **A**）拼接派生：分词在应用侧、tsvector 在 DB 侧确定性
      * 生成，没有「应用写完正文、向量还没更新」的窗口期。一参形式
      * `to_tsvector(text)` 依赖 GUC 且是 STABLE，**不能**用于生成列，必须显式写
      * `to_tsvector('simple'::regconfig, …)`（spike §4 实测）。`simple` 而不是
      * `english`：中文本来就不靠 PG 的 parser，且 english 的 stemming 会改动英文
      * 标识符。
+     *
+     * `coalesce` 是必需的：`tsvector || tsvector` 是 STRICT 的，任一操作数为 NULL
+     * 会让**整列**变 NULL（稀疏检索静默全灭）。空串经 `to_tsvector` 得到空向量，
+     * 拼接结果仍是合法的 tsvector。
      */
     searchVector: tsvector("search_vector").generatedAlwaysAs(
-      sql`to_tsvector('simple'::regconfig, "search_text")`,
+      sql`setweight(to_tsvector('simple'::regconfig, coalesce("search_text", '')), 'C') || setweight(to_tsvector('simple'::regconfig, coalesce("search_identifiers", '')), 'A')`,
     ),
     /**
      * 产出 search_vector 的分词器版本（P0-3：库版本 + 词典标识 + 分词模式 +
@@ -197,7 +216,8 @@ export const knowledgeChunks = pgTable(
     // 形态后才成立，所以这条约束在本次迁移加入，而不是 P3-1）。
     check(
       "knowledge_chunks_tokenizer_identity_check",
-      sql`(${table.searchText} IS NULL) = (${table.tokenizerVersion} IS NULL)`,
+      sql`(${table.searchText} IS NULL) = (${table.tokenizerVersion} IS NULL)
+        AND (${table.searchIdentifiers} IS NULL OR ${table.searchText} IS NOT NULL)`,
     ),
   ],
 );
