@@ -22,6 +22,7 @@
     "./notifications": "./src/notifications/index.ts",
     "./contexts": "./src/contexts/index.ts",
     "./ai": "./src/ai/model.ts",
+    "./vectorize": "./src/vectorize/index.ts",
     "./versions": "./src/versions/index.ts"
   },
   "scripts": {
@@ -36,6 +37,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.30",
     "@apigent/core": "workspace:*",
+    "@apigent/rag": "workspace:*",
     "ai": "^7.0.62",
     "drizzle-orm": "^0.45.2",
     "nanoid": "^6.0.1",

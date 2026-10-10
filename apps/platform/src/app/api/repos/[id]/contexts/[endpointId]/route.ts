@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { triggerVectorize } from "@apigent/server/vectorize";
 import { getEndpointContext, saveEndpointContext } from "@/services/contexts";
 import { guardRepoAccess } from "@/lib/repo-guard";
 import { withRoute } from "@/lib/route";
@@ -31,6 +32,10 @@ export const PUT = withRoute({ auth: true }, async ({ request, params, user }) =
     await saveEndpointContext(id, endpointId, body as Parameters<typeof saveEndpointContext>[2], {
       source: "human",
     });
+    // 摄取触发点之一：业务上下文保存（人工编辑）。走全量对账而不是只重索引这个
+    // 接口 —— 只有全量模式才会做删除对账，而未变内容会命中 content_hash 复用、
+    // 不花 embedding 的钱（P4-6）。
+    await triggerVectorize(id, user.id, { trigger: "context_saved" });
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof Error && err.message === "Endpoint not found") {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { RagConfigError, type DenseChunkRecord, type RagScope } from "../contracts";
+import { contentHashOf } from "../content-hash";
 import { memoryIndex } from "./memory-index";
 
 const MODEL = "test:hash";
@@ -251,7 +252,7 @@ describe("memoryIndex — upsert / reconciliation / GC", () => {
     expect(await index.size()).toBe(0);
   });
 
-  it("scopes unlink to the given chunkKeys and repository", async () => {
+  it("scopes unlink to the given contents and repository（定位单位是 key+hash，不是 key）", async () => {
     const index = memoryIndex();
     await index.upsert([
       record({ chunkKey: "a", commitIds: ["commit-1"] }),
@@ -262,11 +263,66 @@ describe("memoryIndex — upsert / reconciliation / GC", () => {
     const affected = await index.unlink({
       repositoryId: "repo-a",
       commitId: "commit-1",
-      chunkKeys: ["a"],
+      chunks: [{ chunkKey: "a", contentHash: contentHashOf("退款接口") }],
     });
 
     expect(affected).toBe(1);
     expect(await index.size()).toBe(2);
+  });
+
+  it("listIdentities 只回身份，并按 commit / 期望的 key 收窄", async () => {
+    const index = memoryIndex();
+    await index.upsert([
+      record({ chunkKey: "a", commitIds: ["commit-1"] }),
+      record({ chunkKey: "b", commitIds: ["commit-2"] }),
+    ]);
+
+    expect(await index.listIdentities({ repositoryId: "repo-a" })).toHaveLength(2);
+
+    const onlyHead = await index.listIdentities({ repositoryId: "repo-a", commitId: "commit-1" });
+    expect(onlyHead.map((identity) => identity.chunkKey)).toEqual(["a"]);
+    expect(onlyHead[0]?.contentHash).toBe(contentHashOf("退款接口"));
+    expect(onlyHead[0]?.embeddingModel).toBe(MODEL);
+
+    const narrowed = await index.listIdentities({ repositoryId: "repo-a", chunkKeys: ["b"] });
+    expect(narrowed.map((identity) => identity.chunkKey)).toEqual(["b"]);
+  });
+
+  it("link 只给已存在的内容挂 link，内容对不上就抛错（不静默跳过）", async () => {
+    const index = memoryIndex();
+    await index.upsert([record({ chunkKey: "a", commitIds: [] })]);
+
+    const created = await index.link([
+      {
+        repositoryId: "repo-a",
+        commitId: "commit-9",
+        chunkKey: "a",
+        contentHash: contentHashOf("退款接口"),
+      },
+    ]);
+    expect(created).toBe(1);
+    // 幂等：重复挂同一对 (commit, chunk) 不再计数
+    expect(
+      await index.link([
+        {
+          repositoryId: "repo-a",
+          commitId: "commit-9",
+          chunkKey: "a",
+          contentHash: contentHashOf("退款接口"),
+        },
+      ]),
+    ).toBe(0);
+
+    await expect(
+      index.link([
+        {
+          repositoryId: "repo-a",
+          commitId: "commit-9",
+          chunkKey: "a",
+          contentHash: contentHashOf("换过的正文"),
+        },
+      ]),
+    ).rejects.toBeInstanceOf(RagConfigError);
   });
 
   it("drops a whole repository without touching the others", async () => {

@@ -41,9 +41,9 @@ import {
 } from "../contracts";
 import type { RagStageFactoryContext } from "../pipeline/types";
 import { tokenizerForSearchStore, type SparseTokenizerName } from "../stages";
+import { contentHashOf } from "../content-hash";
 import {
   chunkRowId,
-  contentHashOf,
   createOrganizationResolver,
   ensureChunkLinks,
   fieldsOf,

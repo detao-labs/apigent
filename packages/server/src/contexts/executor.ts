@@ -25,6 +25,7 @@ import {
 import { createAIModel } from "../ai/model";
 import { notifySafely } from "../notifications";
 import { logError, logInfo } from "../logger";
+import { triggerVectorize } from "../vectorize";
 import { buildCapabilitySnapshot } from "./aggregate";
 import type { RepoProfileSummary } from "./aggregate";
 import { computeEndpointFingerprint, endpointKey } from "./fingerprint";
@@ -631,6 +632,14 @@ export async function executeContextTask(taskId: string): Promise<void> {
         failedCount: failed,
         skippedCount: skipped,
       },
+    });
+
+    // 摄取触发点之一：业务上下文已落库（**在索引之前**，因为 L3 业务规则是
+    // 索引内容的一部分）。导入成功那条路径不在这里触发，见 imports/executor.ts
+    // 的说明 —— 两处同时触发时由 `(repo, commit)` 去重收敛成同一个任务。
+    await triggerVectorize(task.repositoryId, task.userId, {
+      trigger: "context_saved",
+      commitId: versionId,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

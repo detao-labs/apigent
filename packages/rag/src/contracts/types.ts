@@ -172,9 +172,16 @@ export interface IndexRequest {
 }
 
 export interface IndexReport {
+  /** 本次**写入**（含向量）的 chunk 数 */
   chunksWritten: number;
-  /** 命中 content_hash 复用、跳过 embedding 的条数 */
+  /** 命中 content_hash + 当前模型复用、跳过 embedding 的条数（P4-6） */
   chunksSkipped: number;
+  /**
+   * 本 commit 被**解除引用**的 chunk 数（P4-6）。
+   *
+   * 不是物理删除的行数：内容寻址的行会被多个 commit 共享，行只在最后一个引用
+   * 消失时才被 GC。这个字段的口径是「检索时不再出现」。
+   */
   chunksDeleted: number;
   tokens: number;
   costUsd?: number;

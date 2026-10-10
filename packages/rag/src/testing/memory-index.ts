@@ -22,11 +22,15 @@
 import {
   RagConfigError,
   type DenseChunkRecord,
+  type DenseChunkIdentity,
+  type DenseChunkLink,
   type DenseHit,
   type DenseIndex,
+  type DenseIdentityScope,
   type DenseQuery,
   type DenseUnlinkSelector,
 } from "../contracts";
+import { contentHashOf } from "../content-hash";
 
 /** 内存稠密索引。每条记录 = 一行 chunk + 它的 link 集合。 */
 export function memoryIndex(): DenseIndex {
@@ -98,14 +102,17 @@ class MemoryIndex implements DenseIndex {
   }
 
   async unlink(selector: DenseUnlinkSelector): Promise<number> {
-    const { repositoryId, commitId, chunkKeys } = selector;
-    const wanted = chunkKeys ? new Set(chunkKeys) : undefined;
+    const { repositoryId, commitId, chunks } = selector;
+    // 内容寻址：定位单位是 (key, hash)，不是 key —— 同一个 key 允许有多行内容。
+    const wanted = chunks
+      ? new Set(chunks.map((chunk) => contentKey(chunk.chunkKey, chunk.contentHash)))
+      : undefined;
     let affected = 0;
 
     for (const [key, record] of this.records) {
       if (record.repositoryId !== repositoryId) continue;
       if (!record.commitIds.includes(commitId)) continue;
-      if (wanted && !wanted.has(record.chunkKey)) continue;
+      if (wanted && !wanted.has(contentKey(record.chunkKey, contentHashOf(record.text)))) continue;
 
       const remaining = record.commitIds.filter((id) => id !== commitId);
       if (remaining.length === 0) {
@@ -119,6 +126,48 @@ class MemoryIndex implements DenseIndex {
 
     if (this.records.size === 0) this.dim = undefined;
     return affected;
+  }
+
+  async listIdentities(scope: DenseIdentityScope): Promise<DenseChunkIdentity[]> {
+    const wantedKeys = scope.chunkKeys ? new Set(scope.chunkKeys) : undefined;
+    const identities: DenseChunkIdentity[] = [];
+
+    for (const record of this.records.values()) {
+      if (record.repositoryId !== scope.repositoryId) continue;
+      if (wantedKeys && !wantedKeys.has(record.chunkKey)) continue;
+      if (scope.commitId && !record.commitIds.includes(scope.commitId)) continue;
+
+      identities.push({
+        chunkKey: record.chunkKey,
+        contentHash: contentHashOf(record.text),
+        ...(record.embeddingModel ? { embeddingModel: record.embeddingModel } : {}),
+        commitIds: [...record.commitIds],
+      });
+    }
+
+    return identities;
+  }
+
+  async link(links: readonly DenseChunkLink[]): Promise<number> {
+    let created = 0;
+
+    for (const link of links) {
+      const key = recordKey(link.repositoryId, link.chunkKey);
+      const record = this.records.get(key);
+      if (!record || contentHashOf(record.text) !== link.contentHash) {
+        throw new RagConfigError(
+          `memoryIndex: cannot link commit ${link.commitId} to ` +
+            `${link.repositoryId}/${link.chunkKey} (${link.contentHash.slice(0, 12)}…): ` +
+            "no matching content is stored",
+        );
+      }
+      if (record.commitIds.includes(link.commitId)) continue;
+
+      this.records.set(key, { ...record, commitIds: [...record.commitIds, link.commitId] });
+      created += 1;
+    }
+
+    return created;
   }
 
   async dropRepository(repositoryId: string): Promise<number> {
@@ -163,6 +212,11 @@ class MemoryIndex implements DenseIndex {
 
 function recordKey(repositoryId: string, chunkKey: string): string {
   return `${repositoryId}\u0000${chunkKey}`;
+}
+
+/** 内容身份键：与 `recordKey` 的区别是它描述「哪一份内容」而不是「哪一行」。 */
+function contentKey(chunkKey: string, contentHash: string): string {
+  return `${chunkKey}\u0000${contentHash}`;
 }
 
 function merge(a: string[], b: string[]): string[] {

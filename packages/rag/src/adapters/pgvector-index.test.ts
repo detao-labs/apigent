@@ -5,6 +5,7 @@ import {
   type DenseChunkRecord,
   type SqlExecutor,
 } from "../contracts";
+import { chunkRowId } from "./chunk-row";
 import { PGVECTOR_DIMENSIONS, pgvectorIndex, pgvectorIndexProvider } from "./pgvector-index";
 
 // ───────────────────────────────────────────────────────────────────
@@ -300,20 +301,22 @@ describe("pgvectorIndex — 解除引用与 GC", () => {
     expect(removed).toBe(3);
   });
 
-  it("unlink 指定 chunkKeys → 收窄到这些 key（部分重索引用）", async () => {
+  it("unlink 指定内容 → 按内容寻址 id 精确定位（同一 key 的新旧内容不会互相牵连）", async () => {
     const fake = fakeSql([[], [{ n: 1 }]]);
     await pgvectorIndex({ sql: fake.sql }).unlink({
       repositoryId: "repo-1",
       commitId: "commit-1",
-      chunkKeys: ["endpoint:POST:/a"],
+      chunks: [{ chunkKey: "endpoint:POST:/a", contentHash: "h1" }],
     });
 
-    // link 语句与 GC 语句的参数编号各自独立 —— 参数数组不能共用（真库实测：共用会
-    // 报「bind message supplies 2 parameters, but prepared statement requires 1」）。
-    expect(fake.at(0)?.sql).toContain("c.chunk_key = any($3::text[])");
-    expect(fake.at(0)?.params).toEqual(["repo-1", "commit-1", ["endpoint:POST:/a"]]);
-    expect(fake.at(1)?.sql).toContain("c.chunk_key = any($2::text[])");
-    expect(fake.at(1)?.params).toEqual(["repo-1", ["endpoint:POST:/a"]]);
+    // id 由 (repo, key, hash) 确定性推出，两处语句各自用自己的参数数组
+    // （真库实测：共用参数数组会报「bind message supplies 2 parameters…」）。
+    const expectedId = chunkRowId("repo-1", "endpoint:POST:/a", "h1");
+    expect(fake.at(0)?.sql).toContain("chunk_id = any($2::text[])");
+    expect(fake.at(0)?.params).toEqual(["commit-1", [expectedId]]);
+    expect(fake.at(1)?.sql).toContain("c.id = any($1::text[])");
+    expect(fake.at(1)?.sql).toContain("not exists (select 1 from knowledge_chunk_links");
+    expect(fake.at(1)?.params).toEqual([[expectedId]]);
   });
 
   it("dropRepository 先删 link 再删 chunk", async () => {
@@ -329,6 +332,82 @@ describe("pgvectorIndex — 解除引用与 GC", () => {
     const fake = fakeSql([[{ n: 42 }]]);
 
     expect(await pgvectorIndex({ sql: fake.sql }).size()).toBe(42);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// 对账原语（P4-6）：listIdentities / link
+// ───────────────────────────────────────────────────────────────────
+
+describe("pgvectorIndex — 对账读取与复用写入", () => {
+  it("listIdentities 只回身份列，并把 link 聚合成 commitIds", async () => {
+    const fake = fakeSql([
+      [
+        {
+          chunkKey: "endpoint:POST:/a",
+          contentHash: "h1",
+          embeddingModel: "test:hash",
+          commitIds: ["commit-1"],
+        },
+      ],
+    ]);
+
+    const identities = await pgvectorIndex({ sql: fake.sql }).listIdentities({
+      repositoryId: "repo-1",
+    });
+
+    const sql = fake.at(0)?.sql ?? "";
+    // 绝不 select 正文与向量：对账只需要身份，取回 1024 维向量是纯浪费
+    expect(sql).not.toContain("c.embedding ");
+    expect(sql).not.toContain("c.content ");
+    expect(sql).toContain(`array_agg(l.commit_id) filter (where l.commit_id is not null)`);
+    expect(sql).toContain("left join knowledge_chunk_links");
+    expect(identities).toEqual([
+      {
+        chunkKey: "endpoint:POST:/a",
+        contentHash: "h1",
+        embeddingModel: "test:hash",
+        commitIds: ["commit-1"],
+      },
+    ]);
+  });
+
+  it("listIdentities 的两个收窄条件都是参数化的（key 列表 / commit）", async () => {
+    const fake = fakeSql([[]]);
+    await pgvectorIndex({ sql: fake.sql }).listIdentities({
+      repositoryId: "repo-1",
+      chunkKeys: ["a", "b"],
+      commitId: "commit-1",
+    });
+
+    const sql = fake.at(0)?.sql ?? "";
+    expect(sql).toContain("c.chunk_key = any($2::text[])");
+    expect(sql).toContain("l.commit_id = $3");
+    expect(fake.at(0)?.params).toEqual(["repo-1", ["a", "b"], "commit-1"]);
+  });
+
+  it("link 用 matched/linked 两个计数把「行不存在」与「link 已存在」分开", async () => {
+    const fake = fakeSql([[{ matched: 1, linked: 1 }], [{ matched: 1, linked: 0 }]]);
+    const created = await pgvectorIndex({ sql: fake.sql }).link([
+      { repositoryId: "repo-1", commitId: "c1", chunkKey: "a", contentHash: "h1" },
+      { repositoryId: "repo-1", commitId: "c1", chunkKey: "a", contentHash: "h1" },
+    ]);
+
+    expect(created).toBe(1);
+    const sql = fake.at(0)?.sql ?? "";
+    expect(sql).toContain("on conflict do nothing");
+    // 目标行必须已经有向量 —— 给没有向量的内容挂 link 等于挂上一条永远召不回的内容
+    expect(sql).toContain("and c.embedding is not null");
+  });
+
+  it("link 找不到可复用内容时抛错（静默跳过 = 检索少结果且无报错）", async () => {
+    const fake = fakeSql([[{ matched: 0, linked: 0 }]]);
+
+    await expect(
+      pgvectorIndex({ sql: fake.sql }).link([
+        { repositoryId: "repo-1", commitId: "c1", chunkKey: "a", contentHash: "h1" },
+      ]),
+    ).rejects.toBeInstanceOf(RagDependencyError);
   });
 });
 

@@ -23,16 +23,19 @@ import {
   RagConfigError,
   RagDependencyError,
   type DenseChunkRecord,
+  type DenseChunkIdentity,
+  type DenseChunkLink,
   type DenseHit,
   type DenseIndex,
+  type DenseIdentityScope,
   type DenseQuery,
   type DenseUnlinkSelector,
   type SqlExecutor,
 } from "../contracts";
+import { contentHashOf } from "../content-hash";
 import type { RagDenseIndexFactory } from "../pipeline/types";
 import {
   chunkRowId,
-  contentHashOf,
   createOrganizationResolver,
   ensureChunkLinks,
   fieldsOf,
@@ -201,42 +204,137 @@ export function pgvectorIndex(options: PgvectorIndexOptions): DenseIndex {
     },
 
     async unlink(selector: DenseUnlinkSelector): Promise<number> {
-      // 两条语句各自编号：link 语句用 ($1 repo, $2 commit[, $3 keys])，GC 语句用
-      // ($1 repo[, $2 keys]) —— 参数数组不能共用（占位符数量对不上，PG 直接报
-      // 「bind message supplies N parameters…」）。
-      const linkParams: unknown[] = [selector.repositoryId, selector.commitId];
-      const gcParams: unknown[] = [selector.repositoryId];
-      let linkChunkFilter = "";
-      let gcChunkFilter = "";
-      if (selector.chunkKeys && selector.chunkKeys.length > 0) {
-        linkParams.push(selector.chunkKeys);
-        gcParams.push(selector.chunkKeys);
-        linkChunkFilter = ` and c.chunk_key = any($3::text[])`;
-        gcChunkFilter = ` and c.chunk_key = any($2::text[])`;
+      // 精确到「内容」而不是「key」：同一个 key 允许有多行（内容改过就是另一行），
+      // 按 key 解绑会把同一逻辑单元的新旧内容一起摘掉 —— 「改了摘要」这种最常见的
+      // 更新会退化成「这个接口查不到了」。
+      //
+      // 行 id 由内容寻址三元组确定性推出（`chunkRowId`），所以这里不需要 join
+      // knowledge_chunks 就能精确删 link；GC 再按 id 找回那些「没有任何引用」的行。
+      const chunkIds =
+        selector.chunks && selector.chunks.length > 0
+          ? selector.chunks.map((chunk) =>
+              chunkRowId(selector.repositoryId, chunk.chunkKey, chunk.contentHash),
+            )
+          : undefined;
+
+      if (chunkIds) {
+        await sql.query(
+          `delete from knowledge_chunk_links
+           where commit_id = $1 and chunk_id = any($2::text[])`,
+          [selector.commitId, chunkIds],
+        );
+      } else {
+        await sql.query(
+          `delete from knowledge_chunk_links l
+           using knowledge_chunks c
+           where l.chunk_id = c.id and c.repository_id = $1 and l.commit_id = $2`,
+          [selector.repositoryId, selector.commitId],
+        );
       }
 
-      await sql.query(
-        `delete from knowledge_chunk_links l
-         using knowledge_chunks c
-         where l.chunk_id = c.id
-           and c.repository_id = $1
-           and l.commit_id = $2${linkChunkFilter}`,
-        linkParams,
-      );
-
       // GC：只有当没有任何 commit 再引用时才删 chunk 行（P0-4 的防误删规则）。
-      const removed = await sql.query<{ n: number }>(
-        `with gone as (
-           delete from knowledge_chunks c
-           where c.repository_id = $1${gcChunkFilter}
-             and not exists (select 1 from knowledge_chunk_links l where l.chunk_id = c.id)
-           returning 1
-         )
-         select count(*)::int as n from gone`,
-        gcParams,
+      // 注意返回的是**物理删除的行数**；没有其他 commit 引用时才非零 —— 调用方
+      // 若要「本次解绑了多少条内容」，应当用自己算出的差集大小。
+      const gcSql = chunkIds
+        ? `with gone as (
+             delete from knowledge_chunks c
+             where c.id = any($1::text[])
+               and not exists (select 1 from knowledge_chunk_links l where l.chunk_id = c.id)
+             returning 1
+           )
+           select count(*)::int as n from gone`
+        : `with gone as (
+             delete from knowledge_chunks c
+             where c.repository_id = $1
+               and not exists (select 1 from knowledge_chunk_links l where l.chunk_id = c.id)
+             returning 1
+           )
+           select count(*)::int as n from gone`;
+      const gcParams: unknown[] = chunkIds ? [chunkIds] : [selector.repositoryId];
+
+      const removed = await sql.query<{ n: number }>(gcSql, gcParams);
+      return removed[0]?.n ?? 0;
+    },
+
+    async listIdentities(scope: DenseIdentityScope): Promise<DenseChunkIdentity[]> {
+      const params: unknown[] = [scope.repositoryId];
+      const conditions = [`c.repository_id = $1`];
+
+      if (scope.chunkKeys && scope.chunkKeys.length > 0) {
+        params.push(scope.chunkKeys);
+        conditions.push(`c.chunk_key = any($${params.length}::text[])`);
+      }
+      if (scope.commitId) {
+        params.push(scope.commitId);
+        conditions.push(
+          `exists (select 1 from knowledge_chunk_links l
+                   where l.chunk_id = c.id and l.commit_id = $${params.length})`,
+        );
+      }
+
+      const rows = await sql.query<{
+        chunkKey: string;
+        contentHash: string;
+        embeddingModel: string | null;
+        commitIds: string[];
+      }>(
+        `select c.chunk_key as "chunkKey",
+                c.content_hash as "contentHash",
+                c.embedding_model as "embeddingModel",
+                coalesce(array_agg(l.commit_id) filter (where l.commit_id is not null), '{}'::text[])
+                  as "commitIds"
+         from knowledge_chunks c
+         left join knowledge_chunk_links l on l.chunk_id = c.id
+         where ${conditions.join("\n           and ")}
+         group by c.id`,
+        params,
       );
 
-      return removed[0]?.n ?? 0;
+      return rows.map((row) => ({
+        chunkKey: row.chunkKey,
+        contentHash: row.contentHash,
+        ...(row.embeddingModel ? { embeddingModel: row.embeddingModel } : {}),
+        commitIds: row.commitIds ?? [],
+      }));
+    },
+
+    async link(links: readonly DenseChunkLink[]): Promise<number> {
+      let created = 0;
+
+      for (const link of links) {
+        // `matched` 与 `linked` 必须分开：只回 `linked` 时「行不存在」与「link 已存在」
+        // 都是 0 行，无法区分 —— 前者是 bug（以为复用了、其实没挂上，检索会静默少
+        // 结果），后者是正常的重试。要求目标行**已有向量**：给一行没有向量的内容挂
+        // link，等于挂上一条永远召回不到的内容。
+        const rows = await sql.query<{ matched: number; linked: number }>(
+          `with target as (
+             select c.id from knowledge_chunks c
+             where c.repository_id = $2 and c.chunk_key = $3 and c.content_hash = $4
+               and c.embedding is not null
+           ), inserted as (
+             insert into knowledge_chunk_links (commit_id, chunk_id)
+             select $1, t.id from target t
+             on conflict do nothing
+             returning 1
+           )
+           select (select count(*)::int from target) as "matched",
+                  (select count(*)::int from inserted) as "linked"`,
+          [link.commitId, link.repositoryId, link.chunkKey, link.contentHash],
+        );
+
+        const row = rows[0];
+        if (!row || row.matched === 0) {
+          throw new RagDependencyError(
+            `pgvector: cannot link commit ${link.commitId} to chunk ` +
+              `"${link.chunkKey}" (${link.contentHash.slice(0, 12)}…): no row with a vector ` +
+              "matches that content. Reuse must be decided from listIdentities; " +
+              "a missing row means the vector has to be computed.",
+          );
+        }
+        created += row.linked;
+      }
+
+      return created;
     },
 
     async dropRepository(repositoryId: string): Promise<number> {

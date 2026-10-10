@@ -22,7 +22,7 @@
 // |---|---|---|
 // | 分块（chunker） | `RagDocument` 直接当 chunk 用 | P4-2 |
 // | 稀疏召回 / 融合 / 精排 / 改写 / 上下文扩展 | 没有这些阶段 | P2-9 / P4-5 / P5-1~P5-6 |
-// | `content_hash` 复用、对账式删除 | 只做 upsert，`chunksSkipped/Deleted` 恒为 0 | P4-6 |
+// | `content_hash` 复用、对账式删除 | ✅ 已做（P4-6）：复用跳过 embedding、差集按内容解绑 | — |
 // | `index_empty` 降级 | 不产生 —— 判断「本 scope 内无内容」需要 scope 级计数，SQL 适配器里做才便宜且正确 | P4-4 |
 // | `matchReason` / `highlights` | 不填 | P5-2 / P5-3 |
 // | `rerank` / `expand` / `mode: deep` 请求开关 | 无对应阶段，因此不产生行为差异 | P5-2 / P5-3 / P5-6 |
@@ -36,12 +36,14 @@ import {
   RagError,
   RagIngestError,
   type Degradation,
+  type DenseChunkLink,
   type DenseChunkRecord,
   type DenseHit,
   type DenseQuery,
   type EmbedResult,
   type IndexReport,
   type IndexRequest,
+  type RagChunk,
   type RagHealth,
   type RagService,
   type RagTraceSummary,
@@ -50,6 +52,7 @@ import {
   type RetrieveResult,
   type RetrievedChunk,
 } from "../contracts";
+import { contentHashOf } from "../content-hash";
 import { failOpenTelemetry } from "../telemetry/fail-open";
 import { NOOP_TELEMETRY } from "../telemetry/noop";
 import { DEFAULT_PIPELINE_CONFIG, type RagPipelineConfig, type RagServiceOptions } from "./types";
@@ -112,49 +115,114 @@ export function createRagService(options: RagServiceOptions): RagService {
       const chunks = chunker.chunk(docs);
       span.setAttribute("resultCount", chunks.length);
 
+      // ── 对账（P4-6）──────────────────────────────────────────────
+      // 本次**期望**的内容集合。它同时是复用判断与删除判断的基准，所以只算一次。
+      // `contentHashOf` 必须与写入适配器用的那份实现同源（`src/content-hash.ts`），
+      // 否则「同一份内容」两边对不上，复用永不命中、删除又可能误删。
+      const expected = chunks.map((chunk) => ({
+        chunk,
+        contentHash: contentHashOf(chunk.document.text),
+      }));
+      const expectedKeys = [...new Set(expected.map((item) => item.chunk.chunkKey))];
+
+      // 只读「本次期望涉及的那些 key」，不做全仓扫描。多行同 key（内容改过）在这里
+      // 都会回来，正好用于区分「同一份内容已存在」与「这个 key 有历史内容」。
+      const identities = await denseIndex.listIdentities({
+        repositoryId: req.repositoryId,
+        chunkKeys: expectedKeys,
+      });
+      const identityByContent = new Map(
+        identities.map((identity) => [
+          contentIdentity(identity.chunkKey, identity.contentHash),
+          identity,
+        ]),
+      );
+
+      // 复用 = 同一份内容已有**当前模型**的向量。模型不匹配的行是待重索引，
+      // 必须重算（P0-2：新旧模型的向量不可比，混着用是静默劣化）。
+      const isReused = (item: (typeof expected)[number]): boolean => {
+        const identity = identityByContent.get(
+          contentIdentity(item.chunk.chunkKey, item.contentHash),
+        );
+        return identity?.embeddingModel === embedder.identity.model;
+      };
+      const reused = expected.filter(isReused);
+      const toEmbed = expected.filter((item) => !isReused(item));
+
+      // ── 删除对账 ────────────────────────────────────────────────
+      // 只在这个 commit 的上下文中做，且**只在全量重索引时**做：内容寻址的行会被
+      // 多个 commit 共享，`unlink` 只解绑本 commit（末位引用消失时才 GC 行）。
+      //
+      // 部分重索引（`req.endpoints` 非空）**不删除任何东西**：那次运行的期望集合
+      // 本身就不完整（P4-1 的约束：过滤只作用于 endpoint 级文档，而「被删掉的
+      // 接口」不会出现在输出里），拿它做差集必然误删其余接口。接口级删除要生效，
+      // 走一次全量重索引即可 —— 未变内容全部命中复用，不花 embedding 的钱。
+      const deletion = await reconcileDeletions(req, expected);
+
       const embedStartedAt = clock();
-      const embedded = await embedDocuments(chunks.map((chunk) => chunk.document.text));
+      const embedded = await embedDocuments(toEmbed.map((item) => item.chunk.document.text));
       stageMs["index.embed"] = clock() - embedStartedAt;
       const vectors = embedded.vectors;
       tokens = embedded.tokens ?? 0;
 
-      if (vectors.length !== chunks.length) {
+      if (vectors.length !== toEmbed.length) {
         // 向量与文档错位是**致命的静默错误**：会把 A 的向量写到 B 的内容上，
         // 检索结果看起来正常但全是错的。所以这里必须 fail-fast。
         throw new RagIngestError(
-          `embedder returned ${vectors.length} vectors for ${chunks.length} chunks`,
+          `embedder returned ${vectors.length} vectors for ${toEmbed.length} chunks`,
         );
       }
 
-      const records: DenseChunkRecord[] = chunks.map((chunk, i) => ({
-        chunkKey: chunk.chunkKey,
-        repositoryId: req.repositoryId,
-        organizationId: chunk.document.organizationId,
-        // `commitId` 缺省时不写 link —— 该 chunk 在按 commit 收窄的检索里**查不到**
-        // （fail-closed）。「缺省 = 主版本 head」需要读 DB，是 P4-7 的职责。
-        commitIds: req.commitId ? [req.commitId] : [],
-        level: chunk.document.level,
-        lang: chunk.document.lang,
-        text: chunk.document.text,
-        fields: chunk.document.fields,
-        metadata: {
-          ...chunk.document.metadata,
-          // 切分信息进 metadata（不进 chunk_key）：排障时要能回答「这条为什么只有半截」
-          ...(chunk.parts > 1 ? { part: chunk.part, parts: chunk.parts } : {}),
-        },
-        vector: vectors[i],
-        embeddingModel: embedder.identity.model,
-      }));
+      const records: DenseChunkRecord[] = toEmbed.map((item, i) => {
+        const { chunk } = item;
+        return {
+          chunkKey: chunk.chunkKey,
+          repositoryId: req.repositoryId,
+          organizationId: chunk.document.organizationId,
+          // `commitId` 缺省时不写 link —— 该 chunk 在按 commit 收窄的检索里**查不到**
+          // （fail-closed）。「缺省 = 主版本 head」需要读 DB，是 P4-7 的职责。
+          commitIds: req.commitId ? [req.commitId] : [],
+          level: chunk.document.level,
+          lang: chunk.document.lang,
+          text: chunk.document.text,
+          fields: chunk.document.fields,
+          metadata: {
+            ...chunk.document.metadata,
+            // 切分信息进 metadata（不进 chunk_key）：排障时要能回答「这条为什么只有半截」
+            ...(chunk.parts > 1 ? { part: chunk.part, parts: chunk.parts } : {}),
+          },
+          vector: vectors[i],
+          embeddingModel: embedder.identity.model,
+        };
+      });
 
       if (records.length > 0) await denseIndex.upsert(records);
+
+      // 复用的内容里，有一部分只是「还没挂到本 commit 上」（另一个 commit 索引过
+      // 同一份内容）—— 补 link，不重算向量。这就是内容寻址在跨版本摄取上的收益。
+      const links: DenseChunkLink[] = [];
+      if (req.commitId) {
+        for (const item of reused) {
+          const identity = identityByContent.get(
+            contentIdentity(item.chunk.chunkKey, item.contentHash),
+          );
+          if (!identity || identity.commitIds.includes(req.commitId)) continue;
+          links.push({
+            repositoryId: req.repositoryId,
+            commitId: req.commitId,
+            chunkKey: item.chunk.chunkKey,
+            contentHash: item.contentHash,
+          });
+        }
+      }
+      if (links.length > 0) await denseIndex.link(links);
+
       span.end("ok");
 
       return {
         chunksWritten: records.length,
-        // content_hash 复用与对账式删除是 P4-6；在此之前这两个计数恒为 0，
-        // 而不是假装有值。
-        chunksSkipped: 0,
-        chunksDeleted: 0,
+        chunksSkipped: reused.length,
+        chunksDeleted: deletion.unlinked,
         tokens,
         durationMs: clock() - startedAt,
       };
@@ -162,6 +230,44 @@ export function createRagService(options: RagServiceOptions): RagService {
       span.end("error");
       throw asIngestError(req.repositoryId, error);
     }
+  }
+
+  /**
+   * 删除对账：找出「本 commit 上次索引过、这次期望集合里已经没有」的内容并解绑。
+   *
+   * 返回**解绑的内容条数**（不是物理删除的行数）：行可能仍被别的 commit 引用，
+   * GC 由索引实现负责。报告里的 `chunksDeleted` 就是这个数 —— 它才是「检索时
+   * 不再出现」的口径。
+   */
+  async function reconcileDeletions(
+    req: IndexRequest,
+    expected: readonly { chunk: RagChunk; contentHash: string }[],
+  ): Promise<{ unlinked: number }> {
+    if (!req.commitId) return { unlinked: 0 };
+    if (req.endpoints && req.endpoints.length > 0) return { unlinked: 0 };
+
+    const expectedContent = new Set(
+      expected.map((item) => contentIdentity(item.chunk.chunkKey, item.contentHash)),
+    );
+    const linked = await denseIndex.listIdentities({
+      repositoryId: req.repositoryId,
+      commitId: req.commitId,
+    });
+    const stale = linked.filter(
+      (identity) => !expectedContent.has(contentIdentity(identity.chunkKey, identity.contentHash)),
+    );
+    if (stale.length === 0) return { unlinked: 0 };
+
+    await denseIndex.unlink({
+      repositoryId: req.repositoryId,
+      commitId: req.commitId,
+      chunks: stale.map((identity) => ({
+        chunkKey: identity.chunkKey,
+        contentHash: identity.contentHash,
+      })),
+    });
+
+    return { unlinked: stale.length };
   }
 
   /** 单独包一层，是为了让「向量化失败」的 span 状态只在一处收口。 */
@@ -369,4 +475,12 @@ function asIngestError(repositoryId: string, error: unknown): Error {
 function messageOf(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+/**
+ * 内容身份键（`chunkKey` + `contentHash`）—— 对账里「同一份内容」的 Map 键。
+ * `\u0000` 分隔：它不可能出现在 chunk_key 或 hex 哈希里，避免拼接歧义。
+ */
+function contentIdentity(chunkKey: string, contentHash: string): string {
+  return `${chunkKey}\u0000${contentHash}`;
 }

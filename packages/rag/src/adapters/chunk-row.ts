@@ -17,11 +17,6 @@
 import { createHash } from "node:crypto";
 import { RagDependencyError, type RagDocumentFields, type SqlExecutor } from "../contracts";
 
-/** 正文的 sha256 —— 内容寻址里的「同内容」判定。 */
-export function contentHashOf(text: string): string {
-  return createHash("sha256").update(text, "utf8").digest("hex");
-}
-
 /**
  * 行主键。确定性 id 让 upsert 幂等，也让排障时能直接从 (repo, key, hash) 反推 id。
  * 长度上限与 `text` 列无关（text 无上限），但保持紧凑便于日志阅读。

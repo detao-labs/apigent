@@ -296,6 +296,9 @@ importers:
       '@apigent/core':
         specifier: workspace:*
         version: link:../core
+      '@apigent/rag':
+        specifier: workspace:*
+        version: link:../rag
       ai:
         specifier: ^7.0.62
         version: 7.0.62(zod@4.4.3)

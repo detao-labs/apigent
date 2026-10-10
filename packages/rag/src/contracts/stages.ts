@@ -192,12 +192,51 @@ export interface DenseHit {
   score: number;
 }
 
+/**
+ * 一行 chunk 的**内容身份**：逻辑键 + 内容哈希。
+ *
+ * 为什么不只用 `chunkKey` 定位：内容寻址允许「同一个 key 有多行」（内容改过就是
+ * 另一行，见 `knowledge_chunks_repository_key_hash_idx`）。按 key 解除引用会把
+ * 同一逻辑单元的新旧两份内容一起解绑 —— 「改了摘要」这种最常见的更新会退化成
+ * 「这个接口查不到了」。所以对账层面的定位单位是 (key, hash)，不是 key。
+ */
+export interface DenseChunkRef {
+  chunkKey: string;
+  contentHash: string;
+}
+
+/** 对账读取返回的行身份：内容身份 + 「这行现在是谁在引用、向量是谁产的」。 */
+export interface DenseChunkIdentity extends DenseChunkRef {
+  /** 产出该行向量的模型；缺省 = 该行还没有向量（尚未回填，P0-2 的待重索引行） */
+  embeddingModel?: string;
+  /** 引用该行的 commit 集合（= `knowledge_chunk_links`） */
+  commitIds: string[];
+}
+
+/** 复用写入：把**已经存在**的一行内容挂到某个 commit 上（不重算向量）。 */
+export interface DenseChunkLink extends DenseChunkRef {
+  repositoryId: string;
+  commitId: string;
+}
+
+/** 对账读取的范围。三个字段都可选收窄，不传即不过滤。 */
+export interface DenseIdentityScope {
+  repositoryId: string;
+  /** 只看被该 commit 引用的行（对账删除用：它给出「上次这个 commit 索引了什么」） */
+  commitId?: string;
+  /** 只看这些逻辑键（复用判断用：把结果收窄到本次期望集合，避免全仓扫描） */
+  chunkKeys?: readonly string[];
+}
+
 export interface DenseUnlinkSelector {
   repositoryId: string;
   /** 要解除引用的 commit */
   commitId: string;
-  /** 不传 = 该 commit 的全部 link */
-  chunkKeys?: string[];
+  /**
+   * 不传 = 该 commit 的全部 link；
+   * 传 = 只解除这些**内容**的引用（按内容寻址三元组精确定位，见 `DenseChunkRef`）。
+   */
+  chunks?: readonly DenseChunkRef[];
 }
 
 /**
@@ -230,6 +269,26 @@ export interface DenseIndex {
   dropRepository(repositoryId: string): Promise<number>;
   /** 记录数（健康检查与对账断言用） */
   size(): Promise<number>;
+  /**
+   * 对账读取（P4-6）—— 只回身份，不回正文与向量。
+   *
+   * 两个用途合用一个方法，因为它们读的是同一张表、同一组过滤条件：
+   *   ① **复用判断**：本次期望的 (key, hash) 是否已经有当前模型的向量 →
+   *      有就不必再花 embedding 的钱（传 `chunkKeys` 收窄）；
+   *   ② **删除对账**：这个 commit 上次索引了哪些内容（传 `commitId`）→
+   *      与本次期望集合求差，差集就是已经消失的接口 / 字段。
+   */
+  listIdentities(scope: DenseIdentityScope): Promise<DenseChunkIdentity[]>;
+  /**
+   * 复用写入（P4-6）—— 把**已经存在**的行挂到 commit 上，不重算向量。
+   *
+   * 前置条件：`(repositoryId, chunkKey, contentHash)` 行必须存在且已有向量
+   * （调用方由 `listIdentities` 得出）。**不满足时必须抛错**，不能静默跳过：
+   * 「以为复用了、其实没挂上」的表现是检索少结果，且没有任何报错。
+   *
+   * 返回**新建**的 link 数（已存在的 link 不计）。
+   */
+  link(links: readonly DenseChunkLink[]): Promise<number>;
 }
 
 // ───────────────────────────────────────────────────────────────────

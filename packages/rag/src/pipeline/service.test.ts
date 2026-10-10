@@ -34,6 +34,25 @@ const REPO = FIXTURE_REPO_CHECKOUT;
 const HEAD = "commit-head";
 const SCOPE = { repositoryIds: [REPO], commitIds: [HEAD] };
 
+/**
+ * 只覆盖要断言的方法，其余给空实现。
+ *
+ * `listIdentities` / `link` 是 P4-6 加的对账能力：缺省「索引里什么都没有」，
+ * 于是每次摄取都会走「全量 embedding」这条路径 —— 正是这些用例想测的形态。
+ */
+function stubIndex(overrides: Partial<DenseIndex> = {}): DenseIndex {
+  return {
+    upsert: async () => {},
+    search: async () => [],
+    unlink: async () => 0,
+    dropRepository: async () => 0,
+    size: async () => 0,
+    listIdentities: async () => [],
+    link: async () => 0,
+    ...overrides,
+  };
+}
+
 interface Harness {
   service: RagService;
   telemetry: RecordingTelemetry;
@@ -165,13 +184,7 @@ describe("createRagService — swapping a stage changes behaviour (P2-6 acceptan
   });
 
   it("changes results when the dense index is swapped, without touching the pipeline", async () => {
-    const silentIndex: DenseIndex = {
-      upsert: async () => {},
-      search: async () => [],
-      unlink: async () => 0,
-      dropRepository: async () => 0,
-      size: async () => 0,
-    };
+    const silentIndex = stubIndex();
     const { service } = buildService({ denseIndex: silentIndex });
 
     await service.index({ repositoryId: REPO, commitId: HEAD });
@@ -313,15 +326,11 @@ describe("createRagService — retrieval", () => {
   });
 
   it("throws RagDependencyError when the index fails (Phase 2 has only the dense route)", async () => {
-    const failingIndex: DenseIndex = {
-      upsert: async () => {},
+    const failingIndex = stubIndex({
       search: async () => {
         throw new Error("vector store down");
       },
-      unlink: async () => 0,
-      dropRepository: async () => 0,
-      size: async () => 0,
-    };
+    });
     const { service } = buildService({ denseIndex: failingIndex });
 
     await expect(service.retrieve({ query: "退款", scope: SCOPE })).rejects.toBeInstanceOf(
@@ -399,15 +408,11 @@ describe("createRagService — health", () => {
   });
 
   it("reports unavailable instead of throwing when the index is unreachable", async () => {
-    const failingIndex: DenseIndex = {
-      upsert: async () => {},
-      search: async () => [],
-      unlink: async () => 0,
-      dropRepository: async () => 0,
+    const failingIndex = stubIndex({
       size: async () => {
         throw new Error("connection refused");
       },
-    };
+    });
     const { service } = buildService({ denseIndex: failingIndex });
 
     const health = await service.health();
@@ -460,8 +465,8 @@ describe("createRagService — chunking (P4-2)", () => {
     expect(indexSpan?.attributes.resultCount).toBe(report.chunksWritten);
   });
 
-  it("同一份输入重复索引仍然幂等：块数与 chunkKey 集合不变", async () => {
-    const { service } = buildService({
+  it("同一份输入重复索引：第二次全部命中 content_hash 复用，一条都不重算", async () => {
+    const { service, denseIndex } = buildService({
       documentSource: fixtureDocumentSource({
         documentsByRepository: { [REPO]: [bigDocument] },
       }),
@@ -471,7 +476,15 @@ describe("createRagService — chunking (P4-2)", () => {
     const first = await service.index({ repositoryId: REPO, commitId: HEAD });
     const second = await service.index({ repositoryId: REPO, commitId: HEAD });
 
-    expect(second.chunksWritten).toBe(first.chunksWritten);
+    // 第一次全量写；第二次内容一模一样 → 全部复用（P4-6 的核心收益：不再花
+    // embedding 的钱，也不产生新的行）。「幂等」由此从「结果相同」升级为
+    // 「结果相同且没有重复劳动」。
+    expect(first.chunksWritten).toBeGreaterThan(0);
+    expect(second.chunksWritten).toBe(0);
+    expect(second.chunksSkipped).toBe(first.chunksWritten);
+    expect(second.chunksDeleted).toBe(0);
+    // 行数不变 —— 复用没有制造副本
+    expect(await denseIndex.size()).toBe(first.chunksWritten);
   });
 
   it("未超长的文档行为与接线前一致（key = 文档 id，文本不变）", async () => {

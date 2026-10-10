@@ -374,26 +374,39 @@ interface RagDocument {
 
 ## 5. 阶段清单
 
-| 阶段       | 接口                | 内置实现                                                            | 配置槽                       |
-| ---------- | ------------------- | ------------------------------------------------------------------- | ---------------------------- |
-| 文档构建   | `RagDocumentSource` | ✅ `pg-document-source`                                             | —                            |
-| 分块       | `Chunker`           | ✅ `hierarchical`（结构感知）/ `fixed`（对照基准）                  | `rag.chunkStrategy`          |
-| 向量化     | `Embedder`          | ✅ `openAICompatibleEmbedder`（qwen 起步，openai / 自建网关同协议） | `rag.embedding`              |
-| 稠密索引   | `DenseIndex`        | ✅ pgvector（`memory` 为测试替身）                                  | `rag.vectorStore`            |
-| 分词       | `Tokenizer`         | ✅ jieba（应用侧，`cutForSearch`）/ bigram / simple（P4-5）         | `rag.searchStore` 的变体     |
-| 稀疏索引   | `SparseIndex`       | ✅ pg-fts（jieba / bigram / simple 三变体，见 §9 A3）；装配待 P5-1  | `rag.searchStore`            |
-| 图召回     | `GraphExpander`     | none（V1+ KG）                                                      | `rag.knowledgeGraph`         |
-| 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                                     | `rag.queryRewrite`           |
-| 融合       | `Fusion`            | rrf / linear                                                        | `rag.retrieval.fusionMethod` |
-| 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                                 | `rag.retrieval.reranker`     |
-| 上下文扩展 | `ContextExpander`   | builtin                                                             | —（新增槽位）                |
-| 生成       | `AnswerGenerator`   | LLM（AI SDK）                                                       | —（V1 新增）                 |
-| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                                     | `observability.*`            |
-| 缓存       | `RagCache`          | noop / memory-lru                                                   | —（新增槽位）                |
+| 阶段       | 接口                | 内置实现                                                                       | 配置槽                       |
+| ---------- | ------------------- | ------------------------------------------------------------------------------ | ---------------------------- |
+| 文档构建   | `RagDocumentSource` | ✅ `pg-document-source`                                                        | —                            |
+| 分块       | `Chunker`           | ✅ `hierarchical`（结构感知）/ `fixed`（对照基准）                             | `rag.chunkStrategy`          |
+| 向量化     | `Embedder`          | ✅ `openAICompatibleEmbedder`（qwen 起步，openai / 自建网关同协议）            | `rag.embedding`              |
+| 稠密索引   | `DenseIndex`        | ✅ pgvector（`memory` 为测试替身）+ 对账原语（listIdentities / link / unlink） | `rag.vectorStore`            |
+| 分词       | `Tokenizer`         | ✅ jieba（应用侧，`cutForSearch`）/ bigram / simple（P4-5）                    | `rag.searchStore` 的变体     |
+| 稀疏索引   | `SparseIndex`       | ✅ pg-fts（jieba / bigram / simple 三变体，见 §9 A3）；装配待 P5-1             | `rag.searchStore`            |
+| 图召回     | `GraphExpander`     | none（V1+ KG）                                                                 | `rag.knowledgeGraph`         |
+| 查询改写   | `QueryRewriter`     | 规则+LLM / noop                                                                | `rag.queryRewrite`           |
+| 融合       | `Fusion`            | rrf / linear                                                                   | `rag.retrieval.fusionMethod` |
+| 精排       | `Reranker`          | qwen / cohere / bge-reranker / none                                            | `rag.retrieval.reranker`     |
+| 上下文扩展 | `ContextExpander`   | builtin                                                                        | —（新增槽位）                |
+| 生成       | `AnswerGenerator`   | LLM（AI SDK）                                                                  | —（V1 新增）                 |
+| 可观测     | `RagTelemetry`      | noop / logger / otlp / langfuse                                                | `observability.*`            |
+| 缓存       | `RagCache`          | noop / memory-lru                                                              | —（新增槽位）                |
 
 **摄取的写入策略必须是「对账式」（desired-set diff），不能只做 upsert。**
 
-理由：新版本删掉了某个接口后，它的 `chunk_key` 不在新集合里；只 upsert 的话这条 chunk 会永远留在索引中，并且**仍然可以被检索到**——那是一个内容泄漏面（已删除的接口还能被搜出来）。正确做法：算出本次期望的 `chunk_key` 全集 → upsert 变更项 → 删除该 `(repository, version)` 下不在集合内的行。
+理由：新版本删掉了某个接口后，它的 `chunk_key` 不在新集合里；只 upsert 的话这条 chunk 会永远留在索引中，并且**仍然可以被检索到**——那是一个内容泄漏面（已删除的接口还能被搜出来）。
+
+**已落地形态（P4-6）**：
+
+1. 算出本次期望的**内容身份**集合（`chunk_key` + `content_hash`）；
+2. 命中「同一份内容 + 当前 embedding 模型」的 → **不重算向量**，缺 link 时补 link（`DenseIndex.link`）；
+3. 其余 → 重算向量并 upsert；
+4. 该 **commit** 上次索引过、这次期望集合里没有的 → 按内容身份精确解绑（`DenseIndex.unlink`），行仍被别的 commit 引用时保留、末位引用消失才 GC。
+
+三条边界（都是实现时确认过的，不是待办）：
+
+- **定位单位是 (key, hash) 而不是 key**：同一个 key 允许有多行（内容改过就是另一行），按 key 解绑会把新旧内容一起摘掉，「改了摘要」会退化成「这个接口查不到了」；
+- **部分重索引（`IndexRequest.endpoints` 非空）不删除任何东西**：那次运行的期望集合本身不完整（P4-1：过滤只作用于 endpoint 级文档，而被删掉的接口根本不会出现在输出里），拿它做差集必然误删其余接口。接口级删除要生效就走一次全量重索引 —— 未变内容全部命中复用，不花 embedding 的钱；
+- **删除只在带 `commitId` 时发生**：内容寻址的行是跨 commit 共享的，没有 commit 就没有「谁该引用它」的基准，此时只做复用与 upsert（fail-closed：不写 link 的内容在任何按 commit 收窄的检索里都查不到）。
 
 ---
 
@@ -689,7 +702,9 @@ root span 的 `traceId` 应与现有 `LoggingContext` 的 `reqId` / `taskId` 打
 
 **P0-4 定案后需追加一步（✅ 已做，P3-4）：** 新增的 `knowledge_chunk_links` 必须排在 `knowledge_chunks` **之前**删除（该文件头的依赖顺序注释明确要求「顺序依据实际外键图，勿随意调整」），否则外键会挡住仓库删除。落地时 `deleteRepository` 里对 links 删了两次（按 chunk 子查询一次、按 commit 子查询一次）——正常情况下两个集合一致，这是有意的防御：任一不一致都在这里清干净，而不是让外键把整个仓库删除挡死。
 
-**缺口：** 接口级删除不删行（它产生新 commit，旧 blob 复用），所以被删除接口的 chunks 会残留。这必须靠 §5 的**对账式同步**解决；因此 `chunk_key` 的构成要保证「同一逻辑单元在不同版本间稳定」，同时又能被期望集合精确算出补集。
+**✅ 已解决（P4-6）：** 接口级删除产生的残留 chunk 由 §5 的**对账式同步**清掉 —— 全量重索引时，凡是「本 commit 上次索引过、这次期望集合里没有」的内容都会按 (key, hash) 解除引用；行只在最后一个 commit 的引用消失时才被 GC。`chunk_key` 的构成（同逻辑单元跨版本稳定）正是为此，让期望集合能精确算出补集。
+
+> 落地时确认的一条重要边界：**部分重索引（`endpoints` 非空）不做删除对账**，因为那次运行的期望集合不完整，差集会把「这次没参与索引的接口」误判成已删除。它只保证「被重索引的接口内容正确」，不保证「已消失的接口不再被召回」。
 
 > 这一点值得单独强调：**残留 chunk 不是性能问题，而是内容泄漏**——已经下线的接口仍可能被 agent 检索到并写进代码。
 

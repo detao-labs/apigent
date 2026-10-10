@@ -37,6 +37,7 @@ import {
 import { notifySafely } from "../notifications";
 import { logError, logInfo } from "../logger";
 import { createContextTask } from "../contexts";
+import { triggerVectorize } from "../vectorize";
 import { hasFatalIssue, ImportError, issueCounts, moduleCount, createTimer } from "./common";
 
 type TaskStatus = "queued" | "running" | "succeeded" | "failed";
@@ -441,6 +442,15 @@ export async function executeImportTask(taskId: string): Promise<void> {
           repositoryId: task.repositoryId,
           importTaskId: taskId,
         });
+      });
+    } else {
+      // 摄取触发点之一：导入成功。**只在没有自动上下文生成时**由这里触发 ——
+      // 索引内容里包含 L3 业务规则（来自 business_contexts），上下文生成还没跑
+      // 就索引会漏掉它们、还要靠第二轮补。开着自动生成时，触发点在
+      // contexts/executor.ts 的完成路径上（更晚、内容更全）。
+      await triggerVectorize(task.repositoryId, task.userId, {
+        trigger: "import",
+        commitId: txData.commitId,
       });
     }
 
