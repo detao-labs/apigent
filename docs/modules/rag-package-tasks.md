@@ -594,10 +594,10 @@
     - **单测固化**：新增 `pipeline/reconcile.test.ts` 六条 —— 删除后不再召回、删除只影响本 commit、同 key 新 hash 只解绑旧内容、部分重索引不删除、跨 commit 复用不重算向量、无 commitId 时无 link 且召回为空。原有「重复索引幂等」用例随之升级为更强断言（第二次 `chunksWritten = 0` 且行数不变）。rag 271 → 283 例。
     - **诚实边界**：`token / 成本统计落库` 只做到「报告字段齐备」（`IndexReport.tokens` 已回填，`costUsd` 可选），真正的落库在 P4-7 的任务 `result` 里 —— 管线按 P2-8 的约束不认识 DB，硬塞会把架构约束破坏掉。索引器的 `listIdentities` 也还没有分页/上限：V0 每次只读「本次期望涉及的 key」与「本 commit 的旧集合」，两个集合都随单版本内容量有界；全仓级统计（换模型后的待重索引规模）需要另加聚合查询。
 
-- [ ] **P4-7 `vectorize` 任务接入**
+- [x] **P4-7 `vectorize` 任务接入**
   - 交付：复用 PgQueue + `repository_tasks`；触发点 = 导入成功 / 版本激活 / 业务上下文保存；同一 `(repo, version)` 只允许一个进行中的任务（参考 `contexts/service.ts` 的复用策略）。
   - 验收：连续两次导入不会排队跑两轮全量索引；任务失败可重试且不污染业务事务。
-  - **实现记录（2026-10-10，代码完成；真库冒烟待跑）**
+  - **完成记录（2026-10-10 实现 / 2026-10-11 真库冒烟通过）**
     - **任务层与执行能力的边界**：新模块 `packages/server/src/vectorize/`（`@apigent/server/vectorize`）负责「什么时候索引、索引哪个 commit、去重、重试、结果落库」；**怎么索引**属于 `@apigent/rag`，由 P6-1 在启动期装配好后用 `setVectorizeRunner()` 注册进来（类型就是 `RagService.index` 的签名，直接复用 `@apigent/rag/contracts` 的 `IndexRequest` / `IndexReport`，不自定义一套平行类型）。为什么不在这里 `createRagService(...)`：那会把 provider 装配塞进任务模块，P6-1 的 API route 还得再装配一遍，同一套 provider 选择出现两处必然漂移；而且注册发生在启动期，装配错误在进程启动时就暴露（P0-6 的 fail-fast），不必等第一个任务跑起来。
     - **两条入口，语义不同**：`createVectorizeTask()` 是显式提交（API / 任务中心），失败抛 `VectorizeTaskError`（带 `code`：`disabled` / `nothing-to-index` / `task-not-found` / `not-retryable`）；`triggerVectorize()` 是自动触发，未启用（没注册 runner）或提交失败**只记日志、绝不抛给业务调用方** —— 索引是派生数据，不能把导入 / 保存上下文 / 切版本拖失败。
     - **去重语义：复用而不是抛错**（与 context 任务的 `DuplicateContextTaskError` 有意不同）：三个触发点天然重叠，它们表达的是同一件事「这个 commit 的内容该进索引了」。同一 `(repo, commit)` 已有 queued / running 任务时直接返回那个任务的摘要，不新建。去重规则抽成纯函数 `findReusableVectorizeTask`（`plan.ts`），因为有穷举用例才好验时序类规则。
@@ -608,12 +608,20 @@
     - **四个触发点已接线**：① 导入成功（`imports/executor.ts`，**仅当 `businessContext.autoGenerate` 关闭时** —— 开着时索引内容里的 L3 业务规则来自 `business_contexts`，必须等上下文生成完，触发点在 ②）；② 业务上下文生成完成（`contexts/executor.ts`）；③ 业务上下文人工保存（`apps/platform/.../contexts/[endpointId]/route.ts` 的 PUT，走全量对账因为只有全量模式才做删除对账、而未变内容命中复用）；④ 版本激活 / 回滚（activate 与 rollback 两个 route）。
     - **未启用时的可见性**：没注册 runner 时自动触发执行 `logInfo("rag.vectorize.skipped", { reason: "runner_not_registered" })` 后返回 —— 不做静默吞掉的开关，日志里能直接看到「这个部署没开 RAG 索引」。
     - **永久单测**：`vectorize/plan.test.ts` 九条覆盖去重规则（同 commit + 进行中才复用、别人 commit 不复用、已结束不复用、多候选、空候选）与摘要映射（缺 result 时为 0 而非 undefined、执行后以 result 为准、payload 缺失有兜底）。server 81 → 90 例。
-    - **待跑的真库冒烟**：`packages/server/src/db/smoke-vectorize.ts`（照 `smoke-version.ts` 的约定提交进仓库，不是临时脚本），覆盖「提交 → 真实 PgQueue + worker 消费 → 结果落库」「同 (repo, commit) 复用同一个任务、不排第二个」「未注册 runner 时 no-op 不排队」「失败 → 重试 → attempts 递增、result 被覆盖」「触发失败不抛给调用方」。写入带 `p47` 前缀的临时行，结束前清理并打印残留计数。**本机 Docker Desktop 当时不在运行，尚未执行** —— 跑通之前本任务不勾选。
+    - **真库冒烟已完成（2026-10-11）**：`packages/server/src/db/smoke-vectorize.ts`（照 `smoke-version.ts` 的约定提交进仓库，不是临时脚本）在本机 Docker PG（`localhost:5433/apigent`）上 **15/15 全 PASS**，跑完残留 `{tasks:0, repos:0, users:0}`。覆盖：提交 → 真实 PgQueue 抢占 → `running` 且回填 `jobId` → `succeeded`（`progress=100`、`result` 落库）；同 `(repo, commit)` 复用同一任务、连续触发只跑一轮（表内任务数恒为 1）；未注册 runner 时自动触发是留痕的 no-op、不排队；失败 → `failed` 且原因可见 → 重试复位 `queued` → attempts 递增、`result` 被新结果覆盖；触发失败不抛给调用方、不留垃圾任务。
+    - **冒烟当场抓到三个问题（都已修）**：① `check()` 用 `JSON.stringify` 比对，而 `result` 从 jsonb 读回来的**键序不保证** —— 出现「值全对、断言却红」的假失败，改为键序无关的深比较；② 清理顺序撞 FK：`repository_tasks.job_id` 指向 `impl_queue_jobs.id`，先删 job 会违反 `repository_tasks_job_id_impl_queue_jobs_id_fk` —— 改为先取 job id、再删任务、最后删 job，并在 `main()` 开头先 `purge()` 一次（上次跑崩留下的行会让 `seed()` 撞唯一键，把「冒烟失败」伪装成「连跑都跑不起来」）；③ `attempts` 断言口径写错 —— `repository_tasks.attempts` 是**重试次数**（见 `docs/modules/async-queue.md`），与队列 `impl_queue_jobs.attempts`（执行次数，含本次）不是一回事，断言改为 `0 → 1`（要钉的是「递增」这个属性，不是某个绝对值）。顺带把冒烟脚本的输出文案改成英文（CLAUDE.md 的运行时输出语言约定）。
     - 命令：`cd packages/server && pnpm exec tsx src/db/smoke-vectorize.ts`
+    - 诚实边界：冒烟里的 runner 是**替身**（只回固定的 `IndexReport`），因此验证的是任务生命周期本身，「真实 embedding + 真实向量库」的端到端随 P6-1 的装配；四个触发点也没有逐个走真实业务入口（导入 / 上下文保存 / 版本激活），它们的行为由 `plan.test.ts` 的去重规则 + 这里两条入口的语义共同钉住，真实入口联调归 P6-1。
 
-- [ ] **P4-8 摄取端到端单测**
+- [x] **P4-8 摄取端到端单测**
   - 覆盖：首次全量、增量、删除、版本切换、失败重试。
   - 验收：`pnpm --filter @apigent/rag test` 与 server 侧测试全绿。
+  - **完成记录（2026-10-11）：**
+    - 新增 `pipeline/ingest-lifecycle.test.ts`（7 例），按**真实使用顺序**跑写路径：仓库内容变化（新增接口 / 改正文 / 删接口）→ 提交新 commit → 再检索。断言的落点是「钱与结果」：这次重算了几条向量（`embeddedTexts` 差值 —— 累计值会混进查询向量）、`chunksWritten / Skipped / Deleted`、以及检索现在能不能召回。
+    - **五个场景逐条对应**：① 首次全量（写入 + 挂 link，重复跑 0 次 embedding、行数不变）；② 增量（新增接口后全量重索引只为新接口算向量）；③ 增量·单接口部分重索引（0 embedding、0 删除、其余接口不受影响）；④ 删除（解绑 + 不再召回 + 行数只剩留下的那条）；⑤ 版本切换（内容未变 → 新 commit 只补 link、两行内容被两个 commit 共享；内容变更 → 同 key 两行，A 召回旧版、B 召回新版，「回滚」= 换 scope 且只产生查询向量）；⑥ 失败重试（`RagIngestError` / `RAG_INGEST_FAILED`、重试后收敛、再跑全部命中复用）。
+    - **测试逼出的一处替身保真度缺口（已修）**：`memoryIndex` 原来按 `(repositoryId, chunkKey)` 存行，**同一个 key 无法同时存在两份内容** —— 「版本切换 + 内容变更」因此根本测不了，而旧用例还把错误语义当成了正确的（断言 commit-1 的 scope 能搜到 commit-2 写入的新内容，即回滚会看到新内容）。改为内容寻址 `(repositoryId, chunkKey, contentHash)`，与 P4-4 的 `on conflict (repository_id, chunk_key, content_hash)` 同构。`memory-index.test.ts` 那条用例随之拆成「同一 key 不同内容各占一行、按 commit 收窄不串台」+「同一份内容重复 upsert 合并 link 并覆盖向量」。
+    - **两条诚实边界（都不是本次遗漏，见「待确认」第 10 / 11 条）**：① **部分重索引会遗留旧内容** —— `endpoints` 非空时不做删除对账，于是「改了正文 + 只重索引该接口」会让同一个 key 短暂挂着两行（旧内容仍被本 commit 引用，检索多返回一条陈旧结果），要等下一次**全量**重索引才清掉。当前四个触发点都走全量，这条路径今天不可达。② **`unlink` 排在 embedding 之前** —— embedding 失败时旧内容已解绑、新内容未写入，该接口在本次提交上**暂时查不到**（不是查到错内容），重试即恢复。
+    - 验收证据：rag 283 → 291 例（新增 7 例 + 拆出 1 例）；`pnpm -r typecheck` / `pnpm -r lint` / `pnpm -r test` 全绿（core 103 / rag 291 / server 90 / auth 4 / open 2 = **490 例**）。
 
 ---
 
@@ -787,14 +795,14 @@
 | Phase 1 基础重构           | 5      | 5      | ✅ 完成          |
 | Phase 2 包骨架与契约       | 10     | 10     | ✅ 完成          |
 | Phase 3 数据模型与配置对齐 | 7      | 7      | ✅ 完成          |
-| Phase 4 摄取               | 8      | 6      | 进行中           |
-| Phase 5 检索               | 7      | 0      | 未开始           |
+| Phase 4 摄取               | 8      | 8      | ✅ 完成          |
+| Phase 5 检索               | 7      | 0      | 进行中           |
 | Phase 6 平台接入           | 5      | 0      | 未开始           |
 | Phase 7 评估与可观测       | 5      | 0      | 未开始           |
 | Phase 8 MCP 暴露           | 6      | 0      | 未开始           |
 | Phase 9 插件 SDK 对外发布  | 5      | 0      | 已记录，延后实现 |
 
-**下一个任务：** P4-7 `vectorize` 任务接入（PgQueue + `repository_tasks`，含 token / 成本落库）
+**下一个任务：** P5-1 多路召回 + RRF 融合（把 P4-5 的稀疏适配器接进注册表与 `RagServiceOptions`）
 
 ---
 
@@ -874,6 +882,18 @@
 
    **用户决定（2026-09-22）：方向取 B —— 对外提供 slim 契约包；实现延后，先记录（见 Phase 9）。** 在此之前，「第三方 provider 包」的有效范围仍是 monorepo 内的 workspace 包 / 官方包；对外文档不要承诺「`pnpm add` 就能写插件」，直到 P9-2 发出第一个版本。
 
+10. **部分重索引（`endpoints` 非空）要不要做 per-key 删除对账？**（2026-10-11，写 P4-8 用例时暴露）。
+    P4-6 定的规则是「部分模式一律不删」，理由成立（那次运行的期望集合在**接口维度**不完整，拿它做差集必然误删其余接口）。但它顺带留下一个后果：`endpoints: [X]` 且 X 的正文变了时，旧内容不会被解绑 —— 同一个 key 挂着两行，检索多返回一条陈旧结果，要等下一次**全量**重索引才清掉。
+    - **A. 维持现状**：四个触发点都走全量，这条路径今天不可达（`triggerVectorize` 的调用方没有一处传 `endpoints` 的）。代价：将来做「单接口重索引」入口时，先要补这条对账。
+    - **B. 改成 per-key 对账**：删除范围收窄到**本次期望涉及的 key**（`listIdentities({chunkKeys})` 已有的收窄能力直接用），「没被点名的接口」仍然一条不删。代价：需要论证「被点名接口的期望集合是该 key 的完整集合」—— L2/L3 文档按 endpoint 产出，而 L0/L1（project/tag）始终全量产出且内容会随接口增删变化，这条不变量要写成测试钉住。
+    - **建议 B**（做单接口重索引入口之前）：它让「改正文 + 只重索引该接口」立刻正确，且删除范围仍然有界（不会误删未被点名的接口）。
+
+11. **`unlink` 要不要挪到 `upsert` 之后？**（2026-10-11，P4-8 的失败重试用例暴露）。
+    现在的顺序是「删除对账 → embedding → 写入」，所以 embedding 失败时旧内容已经解绑、新内容还没写 —— 该接口在本次提交上**暂时查不到**（不是查到错内容），重试即恢复，任务表里也是 `failed` 状态、可见可重试。
+    - **A. 维持现状**：摄取是派生数据 + 可重试，代价是失败时该接口短暂缺一条。改动为零。
+    - **B. 把 unlink 挪到 upsert 之后**：新内容先落地、再解绑旧内容，失败窗口消失（最坏情况是「旧内容多留一轮」，退化为陈旧结果而非查不到）。
+    - **建议 B**：失败时的表现从「查不到」变成「查到旧版」，对使用者更不刺眼；改的是 `service.ts` 里两步的先后，需要同步更新 P4-6 的完成记录与 `reconcile.test.ts` 的顺序断言。
+
 ---
 
 ## 变更日志
@@ -920,3 +940,5 @@
 | 2026-10-10 | **P4-5 完成（稀疏索引适配器）**：用户定案**方案 2** —— 迁移 `0007` 新增 `search_identifiers`，`search_vector` 改为 `setweight(search_text,'C')                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |     | setweight(search_identifiers,'A')`（`coalesce`必需，否则 STRICT 拼接让整列变 NULL），已在本机库执行（表 0 行零成本）。新增`SparseIndex`契约（切词由适配器内部完成 ⇒ 索引/查询同一实例是结构保证）+`pgFtsIndex`/`pgFtsIndexProvider`+ 两套新切词（bigram、simple）与`tokenizerForSearchStore()`单一映射点；bigram 由任务原文的「纯 SQL 函数」改为**应用侧实现**（同槽位不该有两种存储形态，且应用侧版本串与 jieba 共用一套运维流程）。抽取`chunk-row.ts` 让稠密/稀疏共用行身份（两侧各算一份 = 同一 chunk 两行）。**验收（真库 + 事务回滚）**：25 条语料 / 27 条查询，jieba 与 bigram 均为 hit@1 96% / hit@3 100% / 空召回 0%；**A/B：标识符类查询 A+C 双区段 hit@1 = 12/13，C-only（≈方案 1）4/13**。rag 239 → 271 例，全仓 461 例，全绿。 |
 | 2026-10-10 | **P4-6 完成（对账式同步）**：`DenseIndex` 补三个对账原语 —— `listIdentities`（只回身份，不回正文/向量）、`link`（复用已有向量、只补 link）、`unlink` 选择器从 `chunkKeys` 改为 `chunks: {chunkKey, contentHash}[]`（内容寻址允许同 key 多行，按 key 解绑会把新旧内容一起摘掉：改摘要=接口查不到）。`contentHashOf` 提到中立的 `src/content-hash.ts`（管线也要算，但禁止 import 适配器、也不能进零重依赖的 contracts）。管线：期望集合 → 复用判断（同内容 + 当前模型）→ 删除差集 → 只对未复用的做 embedding → upsert → 补 link；`chunksSkipped/Deleted` 不再是假 0。两条刻意的边界：**部分重索引不删除任何东西**（期望集合不完整，差集必然误删；接口级删除走全量重索引，未变内容全命中复用）、**无 commitId 时不做删除也不写 link**。真库（事务+回滚）14 项原语断言 + 5 项管线级端到端全过，含「删除接口后该 chunk 不再被召回」。rag 271 → 283 例。 |
 | 2026-10-10 | **P4-7 实现完成（待真库冒烟）**：新增 `@apigent/server/vectorize` —— 任务层负责「什么时候索引 / 哪个 commit / 去重 / 重试 / 结果落库」，真正怎么索引由 P6-1 用 `setVectorizeRunner()` 注册（复用 rag 的 `IndexRequest` / `IndexReport` 类型，不自定义平行类型）。去重语义与 context 任务不同：**复用**而不是抛错（三个触发点天然重叠，抛错会打断业务）。四个触发点已接线：导入成功（仅当未开自动上下文生成）、上下文生成完成、上下文人工保存、版本激活/回滚；未注册 runner 时自动触发是**留痕的 no-op**（`rag.vectorize.skipped`）。P4-6 悬着的 token/成本落库落在 `repository_tasks.result`。新增 `db/smoke-vectorize.ts`（照 smoke-version 的约定）覆盖去重/重试/结果落库/不打断业务；**本机 Docker 未运行、冒烟待跑，故本任务暂不勾选**。server 81 → 90 例。                                                                                    |
+| 2026-10-11 | **P4-7 真库冒烟通过（Phase 4 → 7/8）**：`db/smoke-vectorize.ts` 在本机 Docker PG（localhost:5433）上 **15/15 全 PASS**、结束后残留 `{tasks:0, repos:0, users:0}` —— 提交 → PgQueue 抢占 → `running` 回填 `jobId` → 结果落库；同 (repo, commit) 复用同一任务、连续触发只跑一轮；未注册 runner 时自动触发是留痕的 no-op；失败 → 重试复位 `queued`、attempts 0→1、`result` 被覆盖；触发失败不抛给调用方。**冒烟当场抓到并修掉三个问题**：jsonb 键序导致的假失败（改为键序无关深比较）、清理撞 `repository_tasks_job_id_impl_queue_jobs_id_fk`（任务行先删，且 main() 开头先 purge，避免上次残留行让 seed 撞唯一键）、`attempts` 断言口径错（它是重试次数，不是执行次数）。脚本输出文案同步改为英文。                                                                                                                                                  |
+| 2026-10-11 | **P4-8 完成 → Phase 4 收官（8/8）**：新增 `pipeline/ingest-lifecycle.test.ts`（7 例），按真实使用顺序覆盖首次全量 / 增量 / 单接口部分重索引 / 删除 / 版本切换（内容未变与变更两态）/ 失败重试，断言落在「重算了几个向量（差值）」与 IndexReport 三计数上。**测试逼出一处替身保真度缺口并修掉**：`memoryIndex` 原来按 `(repo, key)` 存行，同一 key 存不下两份内容 —— 「版本切换 + 内容变更」测不了，旧用例还把「回滚看到新内容」当成了正确语义；改为内容寻址 `(repo, key, contentHash)`，与 P4-4 的唯一键同构。**新增两条待确认**：#10 部分重索引的 per-key 删除对账（今天不可达，做单接口重索引入口前必须先定）、#11 `unlink` 是否挪到 `upsert` 之后（embedding 失败会导致该接口短暂查不到，重试恢复）。rag 283 → 291 例，全仓 490 例，typecheck / lint / test 全绿。                                                                              |

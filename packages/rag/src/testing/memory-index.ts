@@ -32,13 +32,20 @@ import {
 } from "../contracts";
 import { contentHashOf } from "../content-hash";
 
-/** 内存稠密索引。每条记录 = 一行 chunk + 它的 link 集合。 */
+/**
+ * 内存稠密索引。每条记录 = 一行 chunk + 它的 link 集合。
+ *
+ * **行身份是内容寻址的**（与 P4-4 的 pgvector 适配器同构）：行键 =
+ * `(repositoryId, chunkKey, contentHash)`。所以同一个 `chunkKey` 可以同时存在
+ * 多行（内容改过的旧行 + 新行），解绑也按「哪一份内容」而不是按 key —— 这正是
+ * 「改了摘要」不会让接口查不到、以及回滚不需要重索引的结构基础。
+ */
 export function memoryIndex(): DenseIndex {
   return new MemoryIndex();
 }
 
 class MemoryIndex implements DenseIndex {
-  /** key = `${repositoryId}\u0000${chunkKey}` —— 与 P0-4 的唯一键同构 */
+  /** key = `(repositoryId, chunkKey, contentHash)` —— 与 P0-4 的唯一键同构 */
   private readonly records = new Map<string, DenseChunkRecord>();
   /** 索引维度：由第一条写入的记录确定，之后不允许混维度（P0-2） */
   private dim?: number;
@@ -48,7 +55,9 @@ class MemoryIndex implements DenseIndex {
       const vector = [...record.vector];
       this.assertDimension(record, vector.length);
 
-      const key = recordKey(record.repositoryId, record.chunkKey);
+      // 内容哈希由正文算出（与 `content-hash.ts` 同源）—— 不信任调用方传进来的
+      // 值，否则「同一份内容」在复用判断与行身份两处可能各算各的。
+      const key = recordKey(record.repositoryId, record.chunkKey, contentHashOf(record.text));
       const existing = this.records.get(key);
       this.records.set(key, {
         ...record,
@@ -152,9 +161,10 @@ class MemoryIndex implements DenseIndex {
     let created = 0;
 
     for (const link of links) {
-      const key = recordKey(link.repositoryId, link.chunkKey);
+      const key = recordKey(link.repositoryId, link.chunkKey, link.contentHash);
       const record = this.records.get(key);
-      if (!record || contentHashOf(record.text) !== link.contentHash) {
+      // 行键已含内容哈希，「内容对不上」不可能命中 —— 剩下唯一的失败是「没有这行」
+      if (!record) {
         throw new RagConfigError(
           `memoryIndex: cannot link commit ${link.commitId} to ` +
             `${link.repositoryId}/${link.chunkKey} (${link.contentHash.slice(0, 12)}…): ` +
@@ -210,8 +220,8 @@ class MemoryIndex implements DenseIndex {
 // 内部工具
 // ───────────────────────────────────────────────────────────────────
 
-function recordKey(repositoryId: string, chunkKey: string): string {
-  return `${repositoryId}\u0000${chunkKey}`;
+function recordKey(repositoryId: string, chunkKey: string, contentHash: string): string {
+  return `${repositoryId}\u0000${chunkKey}\u0000${contentHash}`;
 }
 
 /** 内容身份键：与 `recordKey` 的区别是它描述「哪一份内容」而不是「哪一行」。 */

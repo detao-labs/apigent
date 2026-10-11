@@ -207,7 +207,7 @@ describe("memoryIndex — structured filters", () => {
 });
 
 describe("memoryIndex — upsert / reconciliation / GC", () => {
-  it("merges commit links on re-upsert and overwrites the vector", async () => {
+  it("同一 key 的不同内容各占一行（内容寻址），按 commit 收窄不会串台", async () => {
     const index = memoryIndex();
     await index.upsert([
       record({ chunkKey: "shared", commitIds: ["commit-1"], vector: [1, 0, 0], text: "旧" }),
@@ -216,14 +216,58 @@ describe("memoryIndex — upsert / reconciliation / GC", () => {
       record({ chunkKey: "shared", commitIds: ["commit-2"], vector: [0, 1, 0], text: "新" }),
     ]);
 
-    expect(await index.size()).toBe(1);
+    // 与 pgvector 的唯一键 (repository_id, chunk_key, content_hash) 同构：
+    // 「改了正文」是**多一行**，不是把旧行改掉 —— 否则回滚会看到新内容。
+    expect(await index.size()).toBe(2);
+
     const hits = await index.search({
       vector: [0, 1, 0],
       scope: scope({ commitIds: ["commit-1"] }),
       limit: 10,
       embeddingModel: MODEL,
     });
-    expect(hits.map((hit) => hit.text)).toEqual(["新"]);
+    expect(hits.map((hit) => hit.text)).toEqual(["旧"]);
+
+    const newer = await index.search({
+      vector: [0, 1, 0],
+      scope: scope({ commitIds: ["commit-2"] }),
+      limit: 10,
+      embeddingModel: MODEL,
+    });
+    expect(newer.map((hit) => hit.text)).toEqual(["新"]);
+  });
+
+  it("同一份内容重复 upsert：合并 link 并覆盖向量（不新增行）", async () => {
+    const index = memoryIndex();
+    await index.upsert([
+      record({
+        chunkKey: "shared",
+        commitIds: ["commit-1"],
+        vector: [1, 0, 0],
+        text: "同一份正文",
+      }),
+    ]);
+    await index.upsert([
+      record({
+        chunkKey: "shared",
+        commitIds: ["commit-2"],
+        vector: [0, 1, 0],
+        text: "同一份正文",
+      }),
+    ]);
+
+    expect(await index.size()).toBe(1);
+    const hits = await index.search({
+      vector: [0, 1, 0],
+      scope: scope({ commitIds: ["commit-1", "commit-2"] }),
+      limit: 10,
+      embeddingModel: MODEL,
+    });
+    expect(hits).toHaveLength(1);
+    // link 合并：两个 commit 都能召回同一行
+    expect(
+      await index.listIdentities({ repositoryId: "repo-a", commitId: "commit-2" }),
+    ).toHaveLength(1);
   });
 
   it("keeps a chunk that is still referenced by another commit when unlinking", async () => {
